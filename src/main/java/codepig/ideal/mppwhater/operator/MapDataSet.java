@@ -6,23 +6,17 @@ import com.google.common.collect.Iterators;
 
 import java.util.Iterator;
 
-public class MapPartitionDataSet<IN, OUT>
+public class MapDataSet<IN, OUT>
         extends Operator<OUT>
 {
     private final Operator<IN> parentOp;
     private final Mapper<IN, OUT> mapper;
 
-    public MapPartitionDataSet(Operator<IN> parentOp, Mapper<IN, OUT> mapper)
+    public MapDataSet(Operator<IN> parentOp, Mapper<IN, OUT> mapper)
     {
         super(parentOp);
         this.parentOp = parentOp;
         this.mapper = mapper;
-    }
-
-    @Override
-    public Partition[] getPartitions()
-    {
-        return parentOp.getPartitions();
     }
 
     @Override

@@ -38,7 +38,6 @@ public class CoreApiTest
     public void fromCollectionTestMapReturnList123()
     {
         DataSet<String> dataSet = mppContext.fromCollection(Arrays.asList("1", "2", "3"), 4);
-
         DataSet<Integer> mapDataSet = dataSet.map(k -> Integer.parseInt(k));
         List<Integer> mapList = mapDataSet.collect();
         Assert.assertEquals(Arrays.asList(1, 2, 3), mapList);

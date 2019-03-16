@@ -25,7 +25,7 @@ public interface DataSet<Row>
 
     <OUT> DataSet<OUT> flatMap(FlatMapper<Row, OUT> flatMapper);
 
-    <OUT> DataSet<OUT> mapPartition();
+    <OUT> DataSet<OUT> mapPartition(FlatMapper<Iterator<Row>, OUT> flatMapper);
 
     DataSet<Row> filter(Filter<Row> filter);
 

@@ -14,19 +14,28 @@ import codepig.ideal.mppwhater.api.function.Reducer;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.github.harbby.gadtry.base.MoreObjects.checkState;
+
 public abstract class Operator<ROW>
         implements DataSet<ROW>
 {
     private final transient MppContext yarkContext;
+    private final Operator<?> oneParent;
 
     protected Operator(MppContext yarkContext)
     {
+        this(yarkContext, null);
+    }
+
+    private Operator(MppContext yarkContext, Operator<?> oneParent)
+    {
         this.yarkContext = yarkContext;
+        this.oneParent = oneParent;
     }
 
     protected Operator(Operator<?> oneParent)
     {
-        this(oneParent.getYarkContext());
+        this(oneParent.getYarkContext(), oneParent);
     }
 
     public MppContext getYarkContext()
@@ -39,6 +48,13 @@ public abstract class Operator<ROW>
         return null;
     }
 
+    @Override
+    public Partition[] getPartitions()
+    {
+        checkState(oneParent != null, this.getClass() + " Parent Operator is null, Source Operator mush @Override Method");
+        return oneParent.getPartitions();
+    }
+
     protected void close() {}
 
     public abstract Iterator<ROW> compute(Partition split);
@@ -46,25 +62,25 @@ public abstract class Operator<ROW>
     @Override
     public <OUT> DataSet<OUT> map(Mapper<ROW, OUT> mapper)
     {
-        return new MapPartitionDataSet<>(this, mapper);
+        return new MapDataSet<>(this, mapper);
     }
 
     @Override
     public <OUT> DataSet<OUT> flatMap(Mapper<ROW, OUT[]> flatMapper)
     {
-        return new FlatMapPartitionDataSet<>(this, flatMapper);
+        return new FlatMapDataSet<>(this, flatMapper);
     }
 
     @Override
     public <OUT> DataSet<OUT> flatMap(FlatMapper<ROW, OUT> flatMapper)
     {
-        return new FlatMapPartitionDataSet<>(this, flatMapper);
+        return new FlatMapDataSet<>(this, flatMapper);
     }
 
     @Override
-    public <OUT> DataSet<OUT> mapPartition()
+    public <OUT> DataSet<OUT> mapPartition(FlatMapper<Iterator<ROW>, OUT> flatMapper)
     {
-        return null;
+        return new MapPartitionOperator<>(this, flatMapper);
     }
 
     @Override
