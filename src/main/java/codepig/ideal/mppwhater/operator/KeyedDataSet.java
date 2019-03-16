@@ -1,4 +1,4 @@
-package codepig.ideal.mppwhater.api.operator;
+package codepig.ideal.mppwhater.operator;
 
 import codepig.ideal.mppwhater.HashPartitioner;
 import codepig.ideal.mppwhater.Partitioner;

@@ -2,9 +2,9 @@ package codepig.ideal.mppwhater;
 
 import codepig.ideal.mppwhater.api.DataSet;
 import codepig.ideal.mppwhater.api.function.Foreach;
-import codepig.ideal.mppwhater.api.operator.AbstractDataSet;
-import codepig.ideal.mppwhater.api.operator.CollectionDataSet;
-import codepig.ideal.mppwhater.api.operator.TextFileDataSet;
+import codepig.ideal.mppwhater.operator.AbstractDataSet;
+import codepig.ideal.mppwhater.operator.CollectionDataSet;
+import codepig.ideal.mppwhater.operator.TextFileDataSet;
 
 import java.util.Arrays;
 import java.util.Collection;

@@ -1,4 +1,4 @@
-package codepig.ideal.mppwhater.api.operator;
+package codepig.ideal.mppwhater.operator;
 
 import codepig.ideal.mppwhater.MppContext;
 import codepig.ideal.mppwhater.api.DataSet;
@@ -38,6 +38,8 @@ public abstract class AbstractDataSet<ROW>
     {
         return null;
     }
+
+    protected void close() {}
 
     public abstract Iterator<ROW> compute(Partition split);
 

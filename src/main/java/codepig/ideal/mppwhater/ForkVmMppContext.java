@@ -2,7 +2,7 @@ package codepig.ideal.mppwhater;
 
 import codepig.ideal.mppwhater.api.Partition;
 import codepig.ideal.mppwhater.api.function.Foreach;
-import codepig.ideal.mppwhater.api.operator.AbstractDataSet;
+import codepig.ideal.mppwhater.operator.AbstractDataSet;
 import com.github.harbby.gadtry.jvm.JVMException;
 import com.github.harbby.gadtry.jvm.JVMLauncher;
 import com.github.harbby.gadtry.jvm.JVMLaunchers;

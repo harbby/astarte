@@ -2,7 +2,8 @@ package codepig.ideal.mppwhater;
 
 import codepig.ideal.mppwhater.api.Partition;
 import codepig.ideal.mppwhater.api.function.Foreach;
-import codepig.ideal.mppwhater.api.operator.AbstractDataSet;
+import codepig.ideal.mppwhater.operator.AbstractDataSet;
+import codepig.ideal.mppwhater.utils.SerializableObj;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Iterator;
@@ -22,11 +23,13 @@ public class LocalMppContext
     @Override
     public <E> List<E> collect(AbstractDataSet<E> dataSet)
     {
+        SerializableObj<AbstractDataSet<E>> serializableObj = SerializableObj.of(dataSet);
         Partition[] partitions = dataSet.getPartitions();
         ExecutorService executors = Executors.newFixedThreadPool(partitions.length);
         try {
             return Stream.of(partitions).parallel().map(partition -> CompletableFuture.supplyAsync(() -> {
-                Iterator<E> iterator = dataSet.compute(partition);
+                AbstractDataSet<E> operator = serializableObj.getValue();
+                Iterator<E> iterator = operator.compute(partition);
                 return ImmutableList.copyOf(iterator);
             }, executors)).flatMap(x -> x.join().stream())
                     .collect(Collectors.toList());
@@ -39,11 +42,13 @@ public class LocalMppContext
     @Override
     public <E> void execJob(AbstractDataSet<E> dataSet, Foreach<Iterator<E>> partitionForeach)
     {
+        SerializableObj<AbstractDataSet<E>> serializableObj = SerializableObj.of(dataSet);
         Partition[] partitions = dataSet.getPartitions();
         ExecutorService executors = Executors.newFixedThreadPool(partitions.length);
         try {
             Stream.of(partitions).parallel().map(partition -> CompletableFuture.runAsync(() -> {
-                Iterator<E> iterator = dataSet.compute(partition);
+                AbstractDataSet<E> operator = serializableObj.getValue();
+                Iterator<E> iterator = operator.compute(partition);
                 partitionForeach.apply(iterator);
             }, executors)).forEach(CompletableFuture::join);
         }
