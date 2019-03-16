@@ -2,7 +2,7 @@ package codepig.ideal.mppwhater;
 
 import codepig.ideal.mppwhater.api.Partition;
 import codepig.ideal.mppwhater.api.function.Foreach;
-import codepig.ideal.mppwhater.operator.AbstractDataSet;
+import codepig.ideal.mppwhater.operator.Operator;
 import com.github.harbby.gadtry.jvm.JVMException;
 import com.github.harbby.gadtry.jvm.JVMLauncher;
 import com.github.harbby.gadtry.jvm.JVMLaunchers;
@@ -11,17 +11,18 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Stream;
 
+@Deprecated
 public class ForkVmMppContext
         implements MppContext
 {
     @Override
-    public <E> List<E> collect(AbstractDataSet<E> dataSet)
+    public <E> List<E> collect(Operator<E> dataSet)
     {
         throw new UnsupportedOperationException("this method have't support!");
     }
 
     @Override
-    public <E> void execJob(AbstractDataSet<E> dataSet, Foreach<Iterator<E>> partitionForeach)
+    public <E> void execJob(Operator<E> dataSet, Foreach<Iterator<E>> partitionForeach)
     {
         Partition[] partitions = dataSet.getPartitions();
         Stream.of(partitions).parallel().forEach(partition -> {

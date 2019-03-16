@@ -11,7 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 
 public class CollectionDataSet<E>
-        extends AbstractDataSet<E>
+        extends Operator<E>
 {
     private final int parallelism;
     private final Collection<E> collection;

@@ -14,17 +14,17 @@ import codepig.ideal.mppwhater.api.function.Reducer;
 import java.util.Iterator;
 import java.util.List;
 
-public abstract class AbstractDataSet<ROW>
+public abstract class Operator<ROW>
         implements DataSet<ROW>
 {
     private final transient MppContext yarkContext;
 
-    protected AbstractDataSet(MppContext yarkContext)
+    protected Operator(MppContext yarkContext)
     {
         this.yarkContext = yarkContext;
     }
 
-    protected AbstractDataSet(AbstractDataSet<?> oneParent)
+    protected Operator(Operator<?> oneParent)
     {
         this(oneParent.getYarkContext());
     }
@@ -34,7 +34,7 @@ public abstract class AbstractDataSet<ROW>
         return yarkContext;
     }
 
-    protected AbstractDataSet<ROW> firstParent()
+    protected Operator<ROW> firstParent()
     {
         return null;
     }

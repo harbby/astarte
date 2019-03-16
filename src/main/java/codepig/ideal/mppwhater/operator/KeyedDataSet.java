@@ -23,9 +23,9 @@ public class KeyedDataSet<KEY, ROW>
         implements KeyedFunction<KEY, ROW>
 {
     private final KeyGetter<ROW, KEY> keyGetter;
-    private final AbstractDataSet<ROW> oneParent;
+    private final Operator<ROW> oneParent;
 
-    protected KeyedDataSet(AbstractDataSet<ROW> oneParent, KeyGetter<ROW, KEY> keyGetter)
+    protected KeyedDataSet(Operator<ROW> oneParent, KeyGetter<ROW, KEY> keyGetter)
     {
         this.keyGetter = keyGetter;
         this.oneParent = oneParent;
@@ -91,10 +91,10 @@ public class KeyedDataSet<KEY, ROW>
     }
 
 //    public static class ReduceDataSet<KEY, E>
-//            extends AbstractDataSet<E>
+//            extends Operator<E>
 //    {
-//        private final AbstractDataSet<E> oneParent;
-//        protected ReduceDataSet(AbstractDataSet<E> oneParent, Reducer<E> reducer)
+//        private final Operator<E> oneParent;
+//        protected ReduceDataSet(Operator<E> oneParent, Reducer<E> reducer)
 //        {
 //            super(oneParent);
 //            this.oneParent = oneParent;

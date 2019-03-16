@@ -8,7 +8,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,7 +20,7 @@ import static com.github.harbby.gadtry.base.Throwables.throwsException;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TextFileDataSet
-        extends AbstractDataSet<String>
+        extends Operator<String>
 {
     private final String dir;
 

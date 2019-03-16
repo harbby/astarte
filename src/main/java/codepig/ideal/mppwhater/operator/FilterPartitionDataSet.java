@@ -7,12 +7,12 @@ import com.google.common.collect.Iterators;
 import java.util.Iterator;
 
 public class FilterPartitionDataSet<ROW>
-        extends AbstractDataSet<ROW>
+        extends Operator<ROW>
 {
-    private final AbstractDataSet<ROW> parentOp;
+    private final Operator<ROW> parentOp;
     private final Filter<ROW> filter;
 
-    public FilterPartitionDataSet(AbstractDataSet<ROW> parentOp, Filter<ROW> filter)
+    public FilterPartitionDataSet(Operator<ROW> parentOp, Filter<ROW> filter)
     {
         super(parentOp);
         this.parentOp = parentOp;

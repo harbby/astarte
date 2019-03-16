@@ -10,19 +10,19 @@ import java.util.Iterator;
 import java.util.List;
 
 public class FlatMapPartitionDataSet<IN, OUT>
-        extends AbstractDataSet<OUT>
+        extends Operator<OUT>
 {
     private final FlatMapper<IN, OUT> flatMapper;
-    private final AbstractDataSet<IN> parentOp;
+    private final Operator<IN> parentOp;
 
-    protected FlatMapPartitionDataSet(AbstractDataSet<IN> oneParent, FlatMapper<IN, OUT> flatMapper)
+    protected FlatMapPartitionDataSet(Operator<IN> oneParent, FlatMapper<IN, OUT> flatMapper)
     {
         super(oneParent);
         this.flatMapper = flatMapper;
         this.parentOp = oneParent;
     }
 
-    protected FlatMapPartitionDataSet(AbstractDataSet<IN> oneParent, Mapper<IN, OUT[]> flatMapper)
+    protected FlatMapPartitionDataSet(Operator<IN> oneParent, Mapper<IN, OUT[]> flatMapper)
     {
         super(oneParent);
         this.flatMapper = (row, collector) -> {

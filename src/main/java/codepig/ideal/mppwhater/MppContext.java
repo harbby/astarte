@@ -2,7 +2,7 @@ package codepig.ideal.mppwhater;
 
 import codepig.ideal.mppwhater.api.DataSet;
 import codepig.ideal.mppwhater.api.function.Foreach;
-import codepig.ideal.mppwhater.operator.AbstractDataSet;
+import codepig.ideal.mppwhater.operator.Operator;
 import codepig.ideal.mppwhater.operator.CollectionDataSet;
 import codepig.ideal.mppwhater.operator.TextFileDataSet;
 
@@ -38,7 +38,7 @@ public interface MppContext
         return new LocalMppContext();
     }
 
-    public <E> List<E> collect(AbstractDataSet<E> dataSet);
+    public <E> List<E> collect(Operator<E> dataSet);
 
-    public <E> void execJob(AbstractDataSet<E> dataSet, Foreach<Iterator<E>> partitionForeach);
+    public <E> void execJob(Operator<E> dataSet, Foreach<Iterator<E>> partitionForeach);
 }

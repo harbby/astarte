@@ -7,12 +7,12 @@ import com.google.common.collect.Iterators;
 import java.util.Iterator;
 
 public class MapPartitionDataSet<IN, OUT>
-        extends AbstractDataSet<OUT>
+        extends Operator<OUT>
 {
-    private final AbstractDataSet<IN> parentOp;
+    private final Operator<IN> parentOp;
     private final Mapper<IN, OUT> mapper;
 
-    public MapPartitionDataSet(AbstractDataSet<IN> parentOp, Mapper<IN, OUT> mapper)
+    public MapPartitionDataSet(Operator<IN> parentOp, Mapper<IN, OUT> mapper)
     {
         super(parentOp);
         this.parentOp = parentOp;
