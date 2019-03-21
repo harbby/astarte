@@ -42,4 +42,16 @@ public class CoreApiTest
         List<Integer> mapList = mapDataSet.collect();
         Assert.assertEquals(Arrays.asList(1, 2, 3), mapList);
     }
+
+    @Test
+    public void cacheTest()
+    {
+        DataSet<String> dataSet = mppContext.fromCollection(Arrays.asList("1", "2", "3"), 4);
+        DataSet<String> rdd = dataSet.cache();
+        List<String> r1 = rdd.collect();
+
+        mppContext.fromCollection(Arrays.asList("1", "2", "3"), 4)
+                .cache().collect();
+        System.out.println();
+    }
 }

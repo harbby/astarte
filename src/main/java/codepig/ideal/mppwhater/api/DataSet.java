@@ -1,5 +1,6 @@
 package codepig.ideal.mppwhater.api;
 
+import codepig.ideal.mppwhater.MppContext;
 import codepig.ideal.mppwhater.api.function.Filter;
 import codepig.ideal.mppwhater.api.function.FlatMapper;
 import codepig.ideal.mppwhater.api.function.Foreach;
@@ -11,13 +12,25 @@ import codepig.ideal.mppwhater.api.function.Reducer;
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 public interface DataSet<Row>
         extends Serializable
 {
+    /**
+     * driver exec
+     */
     public abstract Partition[] getPartitions();
 
+    public MppContext getContext();
+
+    int getId();
+
     List<Row> collect();
+
+    long count();
+
+    DataSet<Row> cache();
 
     <OUT> DataSet<OUT> map(Mapper<Row, OUT> mapper);
 
@@ -29,7 +42,7 @@ public interface DataSet<Row>
 
     DataSet<Row> filter(Filter<Row> filter);
 
-    Row reduce(Reducer<Row> reducer);
+    Optional<Row> reduce(Reducer<Row> reducer);
 
     <KEY> KeyedFunction<KEY, Row> groupBy(KeyGetter<Row, KEY> keyGetter);
 

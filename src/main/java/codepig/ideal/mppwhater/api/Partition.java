@@ -9,6 +9,11 @@ public class Partition
 
     public Partition(int index) {this.index = index;}
 
+    public int getId()
+    {
+        return index;
+    }
+
     @Override
     public int hashCode()
     {

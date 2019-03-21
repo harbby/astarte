@@ -55,12 +55,6 @@ public class TextFileDataSet
     }
 
     @Override
-    protected void close()
-    {
-        super.close();
-    }
-
-    @Override
     public Iterator<String> compute(Partition partition)
     {
         TextFilePartition filePartition = (TextFilePartition) partition;

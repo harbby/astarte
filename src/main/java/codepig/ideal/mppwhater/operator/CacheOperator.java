@@ -1,41 +1,49 @@
 package codepig.ideal.mppwhater.operator;
 
+import codepig.ideal.mppwhater.api.DataSet;
 import codepig.ideal.mppwhater.api.Partition;
+import com.google.common.collect.MapMaker;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * 存在设计问题，
  * 1. 因为每个Job会单独反序列化。缓存不能放到Operator中
  * 2. 并发job线程安全问题
- * */
+ */
 public class CacheOperator<E>
         extends Operator<E>
 {
-    protected CacheOperator(Operator<?> oneParent)
+    private final Operator<E> oneParent;
+    private static final ConcurrentMap<Integer, DataSet<?>> cacheDataSet = new MapMaker().weakValues().makeMap();
+
+    protected CacheOperator(Operator<E> oneParent)
     {
         super(oneParent);
+        this.oneParent = oneParent;
+        cacheDataSet.put(getId(), this);
     }
 
     @Override
-    public Partition[] getPartitions()
+    public DataSet<E> cache()
     {
-        return super.getPartitions();
+        return this;
     }
-
-    private final List<E> cacheData = new ArrayList<>();
-    private boolean cached = false;
 
     @Override
     public Iterator<E> compute(Partition split)
     {
-        if (cached) {
+        int key = getId() * 10 + split.hashCode();
+        List<E> cacheData = (List<E>) CacheManager.getCacheData(key);
+        if (cacheData != null) {
             return cacheData.iterator();
         }
         else {
-            Iterator<E> iterator = super.firstParent().compute(split);
+            List<E> data = new ArrayList<>();
+            Iterator<E> iterator = oneParent.compute(split);
             return new Iterator<E>()
             {
                 @Override
@@ -43,7 +51,7 @@ public class CacheOperator<E>
                 {
                     boolean hasNext = iterator.hasNext();
                     if (!hasNext) {
-                        cached = true;
+                        CacheManager.addCache(key, data);
                     }
                     return hasNext;
                 }
@@ -52,7 +60,7 @@ public class CacheOperator<E>
                 public E next()
                 {
                     E row = iterator.next();
-                    cacheData.add(row);
+                    data.add(row);
                     return row;
                 }
 

@@ -2,7 +2,7 @@ package codepig.ideal.mppwhater.operator;
 
 import codepig.ideal.mppwhater.MppContext;
 import codepig.ideal.mppwhater.api.Partition;
-import codepig.ideal.mppwhater.api.Tuple2;
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;

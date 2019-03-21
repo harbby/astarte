@@ -10,17 +10,25 @@ import codepig.ideal.mppwhater.api.function.KeyGetter;
 import codepig.ideal.mppwhater.api.function.KeyedFunction;
 import codepig.ideal.mppwhater.api.function.Mapper;
 import codepig.ideal.mppwhater.api.function.Reducer;
+import codepig.ideal.mppwhater.utils.Iterators;
+import com.google.common.collect.ImmutableList;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 
 public abstract class Operator<ROW>
         implements DataSet<ROW>
 {
+    private static final AtomicInteger nextDataSetId = new AtomicInteger(0);  //发号器
     private final transient MppContext yarkContext;
     private final Operator<?> oneParent;
+    private final int id = nextDataSetId.getAndIncrement();
 
     protected Operator(MppContext yarkContext)
     {
@@ -35,17 +43,24 @@ public abstract class Operator<ROW>
 
     protected Operator(Operator<?> oneParent)
     {
-        this(oneParent.getYarkContext(), oneParent);
+        this(oneParent.getContext(), oneParent);
     }
 
-    public MppContext getYarkContext()
+    @Override
+    public int getId()
+    {
+        return id;
+    }
+
+    @Override
+    public MppContext getContext()
     {
         return yarkContext;
     }
 
-    protected Operator<ROW> firstParent()
+    public Operator<?> firstParent()
     {
-        return null;
+        return oneParent;
     }
 
     @Override
@@ -55,9 +70,13 @@ public abstract class Operator<ROW>
         return oneParent.getPartitions();
     }
 
-    protected void close() {}
-
     public abstract Iterator<ROW> compute(Partition split);
+
+    @Override
+    public DataSet<ROW> cache()
+    {
+        return new CacheOperator<>(this);
+    }
 
     @Override
     public <OUT> DataSet<OUT> map(Mapper<ROW, OUT> mapper)
@@ -90,12 +109,6 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public ROW reduce(Reducer<ROW> reducer)
-    {
-        return null;
-    }
-
-    @Override
     public <KEY> KeyedFunction<KEY, ROW> groupBy(KeyGetter<ROW, KEY> keyGetter)
     {
         return new KeyedDataSet<>(this, keyGetter);
@@ -105,22 +118,42 @@ public abstract class Operator<ROW>
     @Override
     public List<ROW> collect()
     {
-        return yarkContext.collect(this);
+        //todo: 使用其他比ImmutableList复杂度更低的操作
+        return yarkContext.runJob(this, ImmutableList::copyOf).stream()
+                .flatMap(Collection::stream)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long count()
+    {
+        return yarkContext.runJob(this, Iterators::size).stream().mapToLong(x -> x).sum();
+    }
+
+    @Override
+    public Optional<ROW> reduce(Reducer<ROW> reducer)
+    {
+        return yarkContext.runJob(this, iterator -> Iterators.reduce(iterator, reducer::reduce))
+                .stream().reduce(reducer::reduce);
     }
 
     @Override
     public void foreach(Foreach<ROW> foreach)
     {
-        yarkContext.execJob(this, (Iterator<ROW> iterator) -> {
+        yarkContext.runJob(this, iterator -> {
             while (iterator.hasNext()) {
                 foreach.apply(iterator.next());
             }
+            return true;
         });
     }
 
     @Override
     public void foreachPartition(Foreach<Iterator<ROW>> partitionForeach)
     {
-        yarkContext.execJob(this, partitionForeach);
+        yarkContext.runJob(this, iterator -> {
+            partitionForeach.apply(iterator);
+            return true;
+        });
     }
 }

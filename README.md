@@ -63,6 +63,9 @@ operator(算子):
 * Cluster
 
 高级
+* collect(number)
+* collect_Stream()
+* job 提前结束
 * Join
 * Combiner
 * 本地化
