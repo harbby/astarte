@@ -12,9 +12,7 @@
 
     DataSet<Tuple2<String, Integer>> worldCounts = worlds.map(x -> Tuple2.of(x, 1))
         .groupBy(x -> x.f1())
-        .reduce((x, y) ->
-            Tuple2.of(x.f1(), x.f2() + y.f2())
-        );
+        .agg(x -> x.f2(),(x, y) -> x + y);
 
     worldCounts.collect()
         .forEach(x -> System.out.println(x.f1() + "," + x.f2()));
