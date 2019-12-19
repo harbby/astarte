@@ -25,7 +25,7 @@
         <dependency>
             <groupId>com.github.harbby</groupId>
             <artifactId>gadtry</artifactId>
-            <version>1.4.1</version>
+            <version>1.6.3</version>
         </dependency>
 
         <dependency>
