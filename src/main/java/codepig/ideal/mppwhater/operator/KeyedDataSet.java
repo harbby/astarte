@@ -38,6 +38,12 @@ public class KeyedDataSet<KEY, ROW>
     }
 
     @Override
+    public <VALUE> DataSet<Tuple2<KEY, VALUE>> max(KeyGetter<ROW, VALUE> keyGetter)
+    {
+        return null;
+    }
+
+    @Override
     public DataSet<Tuple2<KEY, Double>> avg(KeyGetter<ROW, Double> keyGetter)
     {
         return agg(keyGetter, iterator -> {

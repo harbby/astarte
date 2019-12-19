@@ -14,11 +14,9 @@ public interface KeyedFunction<KEY, ROW>
      */
     DataSet<Tuple2<KEY, Double>> sum(KeyGetter<ROW, Double> keyGetter);
 
+    DataSet<Tuple2<KEY, Double>> avg(KeyGetter<ROW, Long> keyGetter);
+
     DataSet<Tuple2<KEY, Double>> avg(KeyGetter<ROW, Double> keyGetter);
-
-    <VALUE> DataSet<Tuple2<KEY, VALUE>> max(KeyGetter<ROW, VALUE> keyGetter);
-
-    <VALUE> DataSet<Tuple2<KEY, VALUE>> min(KeyGetter<ROW, VALUE> keyGetter);
 
     <VALUE> DataSet<Tuple2<KEY, VALUE>> agg(KeyGetter<ROW, VALUE> keyGetter, Reducer<VALUE> reducer);
 
