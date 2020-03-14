@@ -1,5 +1,6 @@
 package com.github.harbby.ashtarte.operator;
 
+import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.function.FlatMapper;
 import com.github.harbby.ashtarte.api.function.Mapper;
@@ -34,26 +35,17 @@ public class FlatMapDataSet<IN, OUT>
     }
 
     @Override
-    public Iterator<OUT> compute(Partition partition)
+    public Iterator<OUT> compute(Partition partition, TaskContext taskContext)
     {
         /**
          * list容器放在外面，通过每次使用前clear保证功能正常
          * 这会极大降低垃圾回收压力,并且严格管道化
          * */
         List<OUT> list = new ArrayList<>();
-        return Iterators.concat(Iterators.transform(parentOp.compute(partition), row -> {
+        return Iterators.concat(Iterators.transform(parentOp.compute(partition, taskContext), row -> {
             list.clear();
             flatMapper.flatMap(row, list::add);
             return list.iterator();
         }));
-
-        //---算法2: 存在没有完全管道化的问题，大数据量会OOM，空间浪费严重,fgc加重
-        //---管道化是非常重要的一个因素
-//        List<OUT> list = new ArrayList<>();
-//        Iterator<IN> inIterator = parentOp.compute(partition);
-//        while (inIterator.hasNext()) {
-//            flatMapper.flatMap(inIterator.next(), list::add);
-//        }
-//        return list.iterator();
     }
 }

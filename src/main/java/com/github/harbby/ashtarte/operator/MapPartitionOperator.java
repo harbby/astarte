@@ -1,5 +1,6 @@
 package com.github.harbby.ashtarte.operator;
 
+import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.function.FlatMapper;
 
@@ -21,10 +22,10 @@ public class MapPartitionOperator<IN, OUT>
     }
 
     @Override
-    public Iterator<OUT> compute(Partition split)
+    public Iterator<OUT> compute(Partition split, TaskContext taskContext)
     {
         List<OUT> list = new ArrayList<>();
-        flatMapper.flatMap(parentOp.compute(split), list::add);
+        flatMapper.flatMap(parentOp.compute(split, taskContext), list::add);
         return list.iterator();
     }
 }

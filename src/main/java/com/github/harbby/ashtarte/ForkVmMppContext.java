@@ -11,6 +11,12 @@ public class ForkVmMppContext
         implements MppContext
 {
     @Override
+    public void setParallelism(int parallelism)
+    {
+
+    }
+
+    @Override
     public <E, R> List<R> runJob(Operator<E> dataSet, Function<Iterator<E>, R> function)
     {
         throw new UnsupportedOperationException("this method have't support!");

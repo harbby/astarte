@@ -9,7 +9,7 @@ import java.util.List;
 
 public class CoreApiTest
 {
-    private final MppContext mppContext = MppContext.getOrCreate();
+    private final MppContext mppContext = MppContext.builder().getOrCreate();
 
     @Test
     public void fromCollectionTestReturnDataSet()

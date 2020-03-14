@@ -1,10 +1,10 @@
 package com.github.harbby.ashtarte.api;
 
 import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.api.function.Filter;
 import com.github.harbby.ashtarte.api.function.FlatMapper;
 import com.github.harbby.ashtarte.api.function.Foreach;
-import com.github.harbby.ashtarte.api.function.KeyGetter;
 import com.github.harbby.ashtarte.api.function.KeyedFunction;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
@@ -14,7 +14,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-public interface DataSet<Row>
+public interface DataSet<ROW>
         extends Serializable
 {
     /**
@@ -22,31 +22,45 @@ public interface DataSet<Row>
      */
     public abstract Partition[] getPartitions();
 
+    public int numPartitions();
+
     public MppContext getContext();
 
     int getId();
 
-    List<Row> collect();
+    List<ROW> collect();
 
     long count();
 
-    DataSet<Row> cache();
+    void print();
 
-    <OUT> DataSet<OUT> map(Mapper<Row, OUT> mapper);
+    void foreach(Foreach<ROW> foreach);
 
-    <OUT> DataSet<OUT> flatMap(Mapper<Row, OUT[]> flatMapper);
+    void foreachPartition(Foreach<Iterator<ROW>> partitionForeach);
 
-    <OUT> DataSet<OUT> flatMap(FlatMapper<Row, OUT> flatMapper);
+    public Partitioner getPartitioner();
 
-    <OUT> DataSet<OUT> mapPartition(FlatMapper<Iterator<Row>, OUT> flatMapper);
+    <K, V> KvDataSet<K, V> kvDataSet(Mapper<ROW, K> keyMapper, Mapper<ROW, V> valueMapper);
 
-    DataSet<Row> filter(Filter<Row> filter);
+    DataSet<ROW> cache();
 
-    Optional<Row> reduce(Reducer<Row> reducer);
+    public DataSet<ROW> rePartition(int numPartition);
 
-    <KEY> KeyedFunction<KEY, Row> groupBy(KeyGetter<Row, KEY> keyGetter);
+    <OUT> DataSet<OUT> map(Mapper<ROW, OUT> mapper);
 
-    void foreach(Foreach<Row> foreach);
+    <OUT> DataSet<OUT> flatMap(Mapper<ROW, OUT[]> flatMapper);
 
-    void foreachPartition(Foreach<Iterator<Row>> partitionForeach);
+    <OUT> DataSet<OUT> flatMap(FlatMapper<ROW, OUT> flatMapper);
+
+    <OUT> DataSet<OUT> mapPartition(FlatMapper<Iterator<ROW>, OUT> flatMapper);
+
+    DataSet<ROW> filter(Filter<ROW> filter);
+
+    Optional<ROW> reduce(Reducer<ROW> reducer);
+
+    <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter);
+
+    <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, int numReduce);
+
+    <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, Partitioner<KEY> partitioner);
 }

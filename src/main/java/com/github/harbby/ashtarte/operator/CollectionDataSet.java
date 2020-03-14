@@ -1,6 +1,7 @@
 package com.github.harbby.ashtarte.operator;
 
 import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +31,7 @@ public class CollectionDataSet<E>
     }
 
     @Override
-    public Iterator<E> compute(Partition partition)
+    public Iterator<E> compute(Partition partition, TaskContext taskContext)
     {
         ParallelCollectionPartition<E> collectionPartition = (ParallelCollectionPartition<E>) partition;
         return collectionPartition.getCollection().iterator();

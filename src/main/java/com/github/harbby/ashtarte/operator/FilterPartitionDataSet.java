@@ -1,5 +1,6 @@
 package com.github.harbby.ashtarte.operator;
 
+import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.function.Filter;
 import com.google.common.collect.Iterators;
@@ -26,9 +27,9 @@ public class FilterPartitionDataSet<ROW>
     }
 
     @Override
-    public Iterator<ROW> compute(Partition partition)
+    public Iterator<ROW> compute(Partition partition, TaskContext taskContext)
     {
-        return Iterators.filter(parentOp.compute(partition), filter::filter);
+        return Iterators.filter(parentOp.compute(partition, taskContext), filter::filter);
     }
 }
 

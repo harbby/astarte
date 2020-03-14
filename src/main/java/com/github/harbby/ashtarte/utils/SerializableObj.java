@@ -8,6 +8,9 @@ import java.io.Serializable;
 import static com.github.harbby.gadtry.base.Throwables.throwsException;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * 待序列化的对象，在哪里被创建出来。创造时的那里(对象)就需要能被序列化
+ * */
 public class SerializableObj<E extends Serializable>
 {
     private final byte[] bytes;

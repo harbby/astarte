@@ -7,7 +7,10 @@ public class Partition
 {
     private final int index;
 
-    public Partition(int index) {this.index = index;}
+    public Partition(int index)
+    {
+        this.index = index;
+    }
 
     public int getId()
     {

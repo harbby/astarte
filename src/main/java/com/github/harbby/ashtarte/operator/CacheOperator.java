@@ -1,5 +1,6 @@
 package com.github.harbby.ashtarte.operator;
 
+import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.Partition;
 import com.google.common.collect.MapMaker;
@@ -34,7 +35,7 @@ public class CacheOperator<E>
     }
 
     @Override
-    public Iterator<E> compute(Partition split)
+    public Iterator<E> compute(Partition split, TaskContext taskContext)
     {
         int key = getId() * 10 + split.hashCode();
         List<E> cacheData = (List<E>) CacheManager.getCacheData(key);
@@ -43,7 +44,7 @@ public class CacheOperator<E>
         }
         else {
             List<E> data = new ArrayList<>();
-            Iterator<E> iterator = oneParent.compute(split);
+            Iterator<E> iterator = oneParent.compute(split, taskContext);
             return new Iterator<E>()
             {
                 @Override

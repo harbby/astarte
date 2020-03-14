@@ -1,16 +1,20 @@
 package com.github.harbby.ashtarte.operator;
 
 import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.Partitioner;
+import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.DataSet;
+import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.function.Filter;
 import com.github.harbby.ashtarte.api.function.FlatMapper;
 import com.github.harbby.ashtarte.api.function.Foreach;
-import com.github.harbby.ashtarte.api.function.KeyGetter;
 import com.github.harbby.ashtarte.api.function.KeyedFunction;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
-import com.github.harbby.ashtarte.utils.Iterators;
+import com.github.harbby.ashtarte.utils.CheckUtil;
+import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Collection;
@@ -26,28 +30,28 @@ public abstract class Operator<ROW>
         implements DataSet<ROW>
 {
     private static final AtomicInteger nextDataSetId = new AtomicInteger(0);  //发号器
-    private final transient MppContext yarkContext;
-    private final Operator<?> oneParent;
+    private final transient MppContext context;
+    private final Operator<?> dataSet;
     private final int id = nextDataSetId.getAndIncrement();
 
-    protected Operator(MppContext yarkContext)
+    protected Operator(MppContext context)
     {
-        this(yarkContext, null);
+        this(context, null);
     }
 
-    private Operator(MppContext yarkContext, Operator<?> oneParent)
+    private Operator(MppContext context, Operator<?> dataSet)
     {
-        this.yarkContext = yarkContext;
-        this.oneParent = oneParent;
+        this.context = context;
+        this.dataSet = CheckUtil.checkSerialize(dataSet);
     }
 
-    protected Operator(Operator<?> oneParent)
+    protected Operator(Operator<?> dataSet)
     {
-        this(oneParent.getContext(), oneParent);
+        this(dataSet.getContext(), dataSet);
     }
 
     @Override
-    public int getId()
+    public final int getId()
     {
         return id;
     }
@@ -55,22 +59,34 @@ public abstract class Operator<ROW>
     @Override
     public MppContext getContext()
     {
-        return yarkContext;
+        return context;
     }
 
-    public Operator<?> firstParent()
+    @Override
+    public int numPartitions()
     {
-        return oneParent;
+        return getPartitions().length;
+    }
+
+    @Override
+    public Partitioner<?> getPartitioner()
+    {
+        return null;
+    }
+
+    public Operator<?> lastParent()
+    {
+        return dataSet;
     }
 
     @Override
     public Partition[] getPartitions()
     {
-        checkState(oneParent != null, this.getClass() + " Parent Operator is null, Source Operator mush @Override Method");
-        return oneParent.getPartitions();
+        checkState(dataSet != null, this.getClass() + " Parent Operator is null, Source Operator mush @Override Method");
+        return dataSet.getPartitions();
     }
 
-    public abstract Iterator<ROW> compute(Partition split);
+    public abstract Iterator<ROW> compute(Partition split, TaskContext taskContext);
 
     @Override
     public DataSet<ROW> cache()
@@ -79,9 +95,22 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public <OUT> DataSet<OUT> map(Mapper<ROW, OUT> mapper)
+    public <K, V> KvOperator<K, V> kvDataSet(Mapper<ROW, K> keyMapper, Mapper<ROW, V> valueMapper)
     {
-        return new MapDataSet<>(this, mapper);
+        Operator<Tuple2<K, V>> mapOperator = this.map(x -> new Tuple2<>(keyMapper.map(x), valueMapper.map(x)));
+        return new KvOperator<>(mapOperator);
+    }
+
+    @Override
+    public DataSet<ROW> rePartition(int numPartition)
+    {
+        return new RePartitionOperator<>(this, numPartition);
+    }
+
+    @Override
+    public <OUT> Operator<OUT> map(Mapper<ROW, OUT> mapper)
+    {
+        return new MapOperator<>(this, mapper);
     }
 
     @Override
@@ -109,9 +138,21 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public <KEY> KeyedFunction<KEY, ROW> groupBy(KeyGetter<ROW, KEY> keyGetter)
+    public <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter)
     {
         return new KeyedDataSet<>(this, keyGetter);
+    }
+
+    @Override
+    public <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, int numReduce)
+    {
+        return new KeyedDataSet<>(this, keyGetter, numReduce);
+    }
+
+    @Override
+    public <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, Partitioner<KEY> partitioner)
+    {
+        return new KeyedDataSet<>(this, keyGetter, partitioner);
     }
 
     //---action operator
@@ -119,7 +160,7 @@ public abstract class Operator<ROW>
     public List<ROW> collect()
     {
         //todo: 使用其他比ImmutableList复杂度更低的操作
-        return yarkContext.runJob(this, ImmutableList::copyOf).stream()
+        return context.runJob(this, ImmutableList::copyOf).stream()
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList());
     }
@@ -127,20 +168,20 @@ public abstract class Operator<ROW>
     @Override
     public long count()
     {
-        return yarkContext.runJob(this, Iterators::size).stream().mapToLong(x -> x).sum();
+        return context.runJob(this, Iterators::size).stream().mapToLong(x -> x).sum();
     }
 
     @Override
     public Optional<ROW> reduce(Reducer<ROW> reducer)
     {
-        return yarkContext.runJob(this, iterator -> Iterators.reduce(iterator, reducer::reduce))
+        return context.runJob(this, iterator -> Iterators.reduce(iterator, reducer::reduce))
                 .stream().reduce(reducer::reduce);
     }
 
     @Override
     public void foreach(Foreach<ROW> foreach)
     {
-        yarkContext.runJob(this, iterator -> {
+        context.runJob(this, iterator -> {
             while (iterator.hasNext()) {
                 foreach.apply(iterator.next());
             }
@@ -149,9 +190,20 @@ public abstract class Operator<ROW>
     }
 
     @Override
+    public void print()
+    {
+        context.runJob(this, iterator -> {
+            while (iterator.hasNext()) {
+                System.out.println((iterator.next()));
+            }
+            return true;
+        });
+    }
+
+    @Override
     public void foreachPartition(Foreach<Iterator<ROW>> partitionForeach)
     {
-        yarkContext.runJob(this, iterator -> {
+        context.runJob(this, iterator -> {
             partitionForeach.apply(iterator);
             return true;
         });

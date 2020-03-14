@@ -3,8 +3,6 @@ package com.github.harbby.ashtarte.operator;
 import com.google.common.collect.MapMaker;
 
 import java.util.List;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
@@ -20,10 +18,8 @@ public class CacheManager
         cacheMap.putIfAbsent(id, data);
     }
 
-    public static List<?> getCacheData(int id)
+    public static List getCacheData(int id)
     {
         return cacheMap.get(id);
     }
-
-    public static final ConcurrentMap<Integer, Queue<?>> reduceTaskMap = new ConcurrentHashMap<>(128);
 }

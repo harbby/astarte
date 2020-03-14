@@ -1,5 +1,7 @@
 package com.github.harbby.ashtarte.api;
 
+import com.github.harbby.ashtarte.TaskContext;
+
 import java.io.Serializable;
 
 public interface Stage
@@ -9,5 +11,10 @@ public interface Stage
 
     public void compute(Partition split);
 
-    public int getParallel();
+    public int getStageId();
+
+    public default int getNumPartitions()
+    {
+        return getPartitions().length;
+    }
 }

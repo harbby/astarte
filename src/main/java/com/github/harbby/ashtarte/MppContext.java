@@ -33,9 +33,28 @@ public interface MppContext
         return new TextFileDataSet(this, dirPath);
     }
 
-    public static MppContext getOrCreate()
+    public void setParallelism(int parallelism);
+
+    public static Builder builder()
     {
-        return new LocalMppContext();
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private final MppContext context = new LocalMppContext();
+
+        public Builder setParallelism(int parallelism)
+        {
+            context.setParallelism(parallelism);
+            return this;
+        }
+
+        public MppContext getOrCreate()
+        {
+            MppContext context = new LocalMppContext();
+            return context;
+        }
     }
 
     public <E, R> List<R> runJob(Operator<E> dataSet, Function<Iterator<E>, R> function);

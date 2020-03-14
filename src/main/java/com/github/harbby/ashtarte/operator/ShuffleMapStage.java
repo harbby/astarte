@@ -8,26 +8,30 @@ import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 public class ShuffleMapStage
         implements Stage
 {
-    ShuffleOperator operator;
+    private final Operator<?> operator;
+    private final int stageId;
 
-    public ShuffleMapStage(Operator<?> operator)
+    public ShuffleMapStage(Operator<?> operator,
+            int stageId)
     {
-        checkState(operator instanceof ShuffleOperator, "operator not is ShuffleOperator");
-        this.operator = (ShuffleOperator) operator;
+        checkState(operator instanceof ShuffleMapOperator, "operator not is ShuffleOperator");
+        this.operator = operator;
+        this.stageId = stageId;
     }
 
     public Partition[] getPartitions()
     {
-        return operator.getMapPartitions();
+        return operator.getPartitions();
     }
 
     public void compute(Partition split)
     {
-        operator.shuffleWriter(split);
+        operator.compute(split, () -> stageId);
     }
 
-    public int getParallel()
+    @Override
+    public int getStageId()
     {
-        return getPartitions().length;
+        return stageId;
     }
 }

@@ -1,6 +1,7 @@
 package com.github.harbby.ashtarte.operator;
 
 import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import sun.nio.cs.StreamDecoder;
 
@@ -55,7 +56,7 @@ public class TextFileDataSet
     }
 
     @Override
-    public Iterator<String> compute(Partition partition)
+    public Iterator<String> compute(Partition partition, TaskContext taskContext)
     {
         TextFilePartition filePartition = (TextFilePartition) partition;
         try {
