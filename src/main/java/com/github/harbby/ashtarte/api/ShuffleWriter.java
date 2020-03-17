@@ -13,10 +13,12 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 public interface ShuffleWriter<KEY, VALUE>
         extends Closeable
 {
-    public void write(Iterator<Tuple2<KEY, VALUE>> records)
+    public void write(Iterator<? extends Tuple2<KEY, VALUE>> records)
             throws IOException;
 
     public File getDataFile(int shuffleId, int mapId, int reduceId);
@@ -38,13 +40,13 @@ public interface ShuffleWriter<KEY, VALUE>
 
         public HashShuffle(int shuffleId, int mapId, Partitioner<KEY> partitioner)
         {
-            this.partitioner = partitioner;
+            this.partitioner = requireNonNull(partitioner, "partitioner is null");
             this.shuffleId = shuffleId;
             this.mapId = mapId;
         }
 
         @Override
-        public void write(Iterator<Tuple2<KEY, VALUE>> records)
+        public void write(Iterator<? extends Tuple2<KEY, VALUE>> records)
                 throws IOException
         {
             Map<Integer, DataOutputStream> outputStreamMap = new HashMap<>();
@@ -56,7 +58,7 @@ public interface ShuffleWriter<KEY, VALUE>
                     DataOutputStream dataOutputStream = outputStreamMap.get(reduceId);
                     if (dataOutputStream == null) {
                         File file = this.getDataFile(shuffleId, mapId, reduceId);
-                        if(!file.getParentFile().exists()) {
+                        if (!file.getParentFile().exists()) {
                             file.getParentFile().mkdirs();
                         }
                         dataOutputStream = new DataOutputStream(new FileOutputStream(this.getDataFile(shuffleId, mapId, reduceId), false));

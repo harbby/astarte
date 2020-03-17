@@ -3,7 +3,6 @@ package com.github.harbby.ashtarte.api;
 import com.github.harbby.ashtarte.MppContext;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.api.function.Filter;
-import com.github.harbby.ashtarte.api.function.FlatMapper;
 import com.github.harbby.ashtarte.api.function.Foreach;
 import com.github.harbby.ashtarte.api.function.KeyedFunction;
 import com.github.harbby.ashtarte.api.function.Mapper;
@@ -50,9 +49,9 @@ public interface DataSet<ROW>
 
     <OUT> DataSet<OUT> flatMap(Mapper<ROW, OUT[]> flatMapper);
 
-    <OUT> DataSet<OUT> flatMap(FlatMapper<ROW, OUT> flatMapper);
+    <OUT> DataSet<OUT> flatMapIterator(Mapper<ROW, Iterator<OUT>> flatMapper);
 
-    <OUT> DataSet<OUT> mapPartition(FlatMapper<Iterator<ROW>, OUT> flatMapper);
+    <OUT> DataSet<OUT> mapPartition(Mapper<Iterator<ROW>, Iterator<OUT>> flatMapper);
 
     DataSet<ROW> filter(Filter<ROW> filter);
 

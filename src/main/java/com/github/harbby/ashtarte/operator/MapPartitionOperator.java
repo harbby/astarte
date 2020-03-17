@@ -2,30 +2,29 @@ package com.github.harbby.ashtarte.operator;
 
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
-import com.github.harbby.ashtarte.api.function.FlatMapper;
+import com.github.harbby.ashtarte.api.function.Mapper;
 
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 public class MapPartitionOperator<IN, OUT>
         extends Operator<OUT>
 {
-    private final FlatMapper<Iterator<IN>, OUT> flatMapper;
-    private final Operator<IN> parentOp;
+    private final Mapper<Iterator<IN>, Iterator<OUT>> flatMapper;
+    private final Operator<IN> dataSet;
 
-    protected MapPartitionOperator(Operator<IN> oneParent, FlatMapper<Iterator<IN>, OUT> flatMapper)
+    protected MapPartitionOperator(Operator<IN> dataSet, Mapper<Iterator<IN>, Iterator<OUT>> flatMapper)
     {
-        super(oneParent);
+        super(dataSet);
         this.flatMapper = flatMapper;
-        this.parentOp = oneParent;
+        this.dataSet = dataSet;
     }
 
     @Override
     public Iterator<OUT> compute(Partition split, TaskContext taskContext)
     {
-        List<OUT> list = new ArrayList<>();
-        flatMapper.flatMap(parentOp.compute(split, taskContext), list::add);
-        return list.iterator();
+        Iterator<OUT> iterator = flatMapper.map(dataSet.compute(split, taskContext));
+        return requireNonNull(iterator, "MapPartition function return null,your use Iterators.empty()");
     }
 }

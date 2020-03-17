@@ -17,15 +17,21 @@ public class ResultStage<E>
     }
 
     @Override
+    public Operator<E> getFinalOperator()
+    {
+        return operator;
+    }
+
+    @Override
     public Partition[] getPartitions()
     {
         return operator.getPartitions();
     }
 
     @Override
-    public void compute(Partition split)
+    public void compute(Partition split, TaskContext taskContext)
     {
-        operator.compute(split, () -> stageId);
+        operator.compute(split, taskContext);
     }
 
     @Override

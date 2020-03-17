@@ -1,5 +1,6 @@
 package com.github.harbby.ashtarte.operator;
 
+import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.Stage;
 
@@ -11,8 +12,7 @@ public class ShuffleMapStage
     private final Operator<?> operator;
     private final int stageId;
 
-    public ShuffleMapStage(Operator<?> operator,
-            int stageId)
+    public ShuffleMapStage(Operator<?> operator, int stageId)
     {
         checkState(operator instanceof ShuffleMapOperator, "operator not is ShuffleOperator");
         this.operator = operator;
@@ -24,14 +24,20 @@ public class ShuffleMapStage
         return operator.getPartitions();
     }
 
-    public void compute(Partition split)
+    public void compute(Partition split, TaskContext taskContext)
     {
-        operator.compute(split, () -> stageId);
+        operator.compute(split, taskContext);
     }
 
     @Override
     public int getStageId()
     {
         return stageId;
+    }
+
+    @Override
+    public Operator<?> getFinalOperator()
+    {
+        return operator;
     }
 }

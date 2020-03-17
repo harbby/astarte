@@ -13,8 +13,13 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,9 +37,15 @@ public class LocalMppContext
         implements MppContext
 {
     private static final Logger logger = LoggerFactory.getLogger(LocalMppContext.class);
-    private static final AtomicInteger nextJobId = new AtomicInteger(1);  //发号器
+    private final AtomicInteger nextJobId = new AtomicInteger(0);  //发号器
+    private final AtomicInteger nextShuffleId = new AtomicInteger(0);
 
     private int parallelism = 1;
+
+    public int newShuffleId()
+    {
+        return nextShuffleId.getAndIncrement();
+    }
 
     @Override
     public void setParallelism(int parallelism)
@@ -43,36 +54,55 @@ public class LocalMppContext
         this.parallelism = parallelism;
     }
 
-    private <E> ResultStage<E> runShuffleMapStage(Operator<E> dataSet)
+    private <E> List<Operator<?>> findShuffleMapOperator1(Operator<E> dataSet)
     {
         List<Operator<?>> shuffleMapOperators = new ArrayList<>();
-
-        for (Operator<?> parent = dataSet; parent != null; parent = parent.lastParent()) {
-            if (parent instanceof ShuffleMapOperator) {
-                shuffleMapOperators.add(parent);
+        Deque<Operator<?>> stack = new LinkedList<>();
+        stack.push(dataSet);
+        //广度优先
+        while (!stack.isEmpty()) {
+            Operator<?> o = stack.pop();
+            for (Operator<?> operator : o.getDependencies()) {
+                if (operator instanceof ShuffleMapOperator) {
+                    shuffleMapOperators.add(operator);
+                }
+                stack.push(operator);
             }
         }
+        return shuffleMapOperators;
+    }
 
-        List<Stage> stages = new ArrayList<>();
-        for (int stageId = 0; stageId < shuffleMapOperators.size(); stageId++) {
-            stages.add(new ShuffleMapStage(shuffleMapOperators.get(shuffleMapOperators.size() - stageId - 1), stageId));
-        }
+    /**
+     * 使用栈结构 可以优化递归算法
+     */
 
-        for (Stage stage : stages) {
-            logger.info("starting... stage: {}, id {}", stage, stage.getStageId());
-            SerializableObj<Stage> serializableStage = SerializableObj.of(stage);
-            ExecutorService executors = Executors.newFixedThreadPool(parallelism);
-            try {
-                Stream.of(stage.getPartitions()).map(partition -> CompletableFuture.runAsync(() -> {
-                    serializableStage.getValue().compute(partition);
-                }, executors)).collect(Collectors.toList()).forEach(x -> x.join());
+    private <E> Map<Stage, Integer[]> findShuffleMapOperator(ResultStage<E> resultStage)
+    {
+        Deque<Stage> stages = new LinkedList<>();
+        Deque<Operator<?>> stack = new LinkedList<>();
+        stack.push(resultStage.getFinalOperator());
+        //广度优先
+        Map<Stage, Integer[]> map = new LinkedHashMap<>();
+        int i = resultStage.getStageId();
+        Stage thisStage = resultStage;
+        List<Integer> deps = new ArrayList<>();
+        while (!stack.isEmpty()) {
+            Operator<?> o = stack.pop();
+            if (o instanceof ShuffleMapOperator) {
+                map.put(thisStage, deps.toArray(new Integer[0]));
+                deps.clear();
+                thisStage = stages.pop();
             }
-            finally {
-                executors.shutdown();
+            for (Operator<?> operator : o.getDependencies()) {
+                if (operator instanceof ShuffleMapOperator) {
+                    stages.push(new ShuffleMapStage(operator, ++i));
+                    deps.add(i);
+                }
+                stack.push(operator);
             }
         }
-
-        return new ResultStage<>(dataSet, stages.size());   //最后一个state
+        map.putIfAbsent(thisStage, deps.toArray(new Integer[0]));
+        return map;
     }
 
     @Override
@@ -80,14 +110,36 @@ public class LocalMppContext
     {
         int jobId = nextJobId.getAndIncrement();
         logger.info("starting... job: {}", jobId);
-        ResultStage<E> resultStage = runShuffleMapStage(dataSet);
+        ResultStage<E> resultStage = new ResultStage<>(dataSet, 0); //  //最后一个state
+        Map<Stage, Integer[]> stageMap = findShuffleMapOperator(resultStage);
 
-        SerializableObj<Operator<E>> serializableObj = SerializableObj.of(dataSet);
+        List<Stage> stages = new ArrayList<>(stageMap.keySet());
+        Collections.reverse(stages);
+
+        //---------------------
         ExecutorService executors = Executors.newFixedThreadPool(parallelism);
+        for (Stage stage : stages) {
+            if (stage instanceof ShuffleMapStage) {
+                logger.info("starting... stage: {}, id {}", stage, stage.getStageId());
+                SerializableObj<Stage> serializableStage = SerializableObj.of(stage);
+                Integer[] deps = stageMap.getOrDefault(stage, new Integer[0]);
+
+                Stream.of(stage.getPartitions()).map(partition -> CompletableFuture.runAsync(() -> {
+                    Stage s = serializableStage.getValue();
+                    s.compute(partition, TaskContext.of(s.getStageId(), deps));
+                }, executors)).collect(Collectors.toList())
+                        .forEach(x -> x.join());
+            }
+        }
+
+        //result stage ------
+        SerializableObj<ResultStage<E>> serializableObj = SerializableObj.of(resultStage);
         try {
+            Integer[] deps = stageMap.getOrDefault(resultStage, new Integer[0]);
             return Stream.of(resultStage.getPartitions()).map(partition -> CompletableFuture.supplyAsync(() -> {
-                Operator<E> operator = serializableObj.getValue();
-                Iterator<E> iterator = operator.compute(partition, resultStage::getStageId);
+                Operator<E> operator = serializableObj.getValue().getFinalOperator();
+                Iterator<E> iterator = operator.compute(partition,
+                        TaskContext.of(resultStage.getStageId(), deps));
                 return function.apply(iterator);
             }, executors)).collect(Collectors.toList()).stream()
                     .map(x -> x.join())

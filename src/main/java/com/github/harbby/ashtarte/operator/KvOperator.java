@@ -10,6 +10,7 @@ import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
+import java.util.stream.StreamSupport;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
@@ -25,6 +26,7 @@ public class KvOperator<K, V>
     {
         super(dataSet);
         this.dataSet = dataSet;
+        this.partitioner = new HashPartitioner<>(dataSet.numPartitions());
     }
 
     @Override
@@ -52,13 +54,20 @@ public class KvOperator<K, V>
     public <W> KvDataSet<K, Tuple2<V, W>> join(DataSet<Tuple2<K, W>> kvDataSet)
     {
         checkState(kvDataSet instanceof Operator, kvDataSet + "not instanceof Operator");
+        Operator<Tuple2<K, Iterable<?>[]>> joinOperator = new JoinOperator<>(partitioner, dataSet, kvDataSet);
 
-        ShuffleMapOperator<K, V> shuffleMapper1 = new ShuffleMapOperator<>(dataSet, partitioner);
-        ShuffleMapOperator<K, W> shuffleMapper2 = new ShuffleMapOperator<>((Operator<Tuple2<K, W>>) kvDataSet
-                , partitioner);
-
-        Operator<Tuple2<K, Tuple2<V, W>>> operator = new JoinOperator<>(shuffleMapper1, shuffleMapper2);
-        return operator.kvDataSet(k->k.f1(), v->v.f2());
+        DataSet<Tuple2<K, Tuple2<V, W>>> operator = joinOperator.map(x -> {
+            Iterable<V> v = (Iterable<V>) x.f2()[0];
+            Iterable<W> w = (Iterable<W>) x.f2()[1];
+            return new Tuple2<>(x.f1(), new Tuple2<>(v, w));
+        }).flatMapIterator(x -> {
+            Tuple2<Iterable<V>, Iterable<W>> values = x.f2();
+            return StreamSupport.stream(values.f1().spliterator(), false)
+                    .flatMap(x2 -> StreamSupport.stream(values.f2().spliterator(), false).map(x3 -> new Tuple2<>(x2, x3)))
+                    .map(x3 -> new Tuple2<>(x.f1(), x3))
+                    .iterator();
+        });
+        return operator.kvDataSet(k -> k.f1(), v -> v.f2());
     }
 
     @Override

@@ -12,6 +12,8 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import java.io.IOException;
 import java.util.Iterator;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * 按宽依赖将state进行划分
  * state之间串行执行
@@ -19,18 +21,18 @@ import java.util.Iterator;
 public class ShuffleMapOperator<K, V>
         extends Operator<Void>
 {
-    private final Operator<Tuple2<K, V>> operator;
+    private final Operator<? extends Tuple2<K, V>> operator;
     private final Partitioner<K> partitioner;
 
-    public ShuffleMapOperator(Operator<Tuple2<K, V>> operator, Partitioner<K> partitioner)
+    public ShuffleMapOperator(Operator<? extends Tuple2<K, V>> operator, Partitioner<K> partitioner)
     {
         //use default HashPartitioner
         super(operator);
-        this.partitioner = partitioner;
+        this.partitioner = requireNonNull(partitioner, "partitioner is null");
         this.operator = operator;
     }
 
-    public ShuffleMapOperator(Operator<Tuple2<K, V>> operator, int numReducePartitions)
+    public ShuffleMapOperator(Operator<? extends Tuple2<K, V>> operator, int numReducePartitions)
     {
         //use default HashPartitioner
         this(operator, new HashPartitioner<>(numReducePartitions));
@@ -55,7 +57,7 @@ public class ShuffleMapOperator<K, V>
                 split.getId(),
                 partitioner)) {
 
-            Iterator<Tuple2<K, V>> iterator = operator.compute(split, taskContext);
+            Iterator<? extends Tuple2<K, V>> iterator = operator.compute(split, taskContext);
             shuffleWriter.write(iterator);
         }
         catch (IOException e) {

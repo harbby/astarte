@@ -16,11 +16,17 @@ public class JoinDemo
                 .filter(x -> !"".equals(x.trim()));
 
         KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> x.substring(0, 1), x -> 1L);
-        DataSet<Tuple2<String, Long>> worldCounts = kvDataSet.partitionBy(2).reduceByKey(Long::sum);
-        worldCounts.print();
+        KvDataSet<String, Long> worldCounts = kvDataSet.partitionBy(2).reduceByKey(Long::sum);
+        //worldCounts.print();
 
-        KvDataSet<String, Tuple2<Long, Long>> ds2 = kvDataSet.join(worldCounts);
+        KvDataSet<String, Long> worldLengths = worlds.kvDataSet(x -> x.substring(0, 1), x -> (long) x.length())
+                .partitionBy(2).reduceByKey(Long::sum);
+        //worldLengths.print();
 
+        KvDataSet<String, Tuple2<Long, Long>> ds2 = worldLengths
+                .join(worldCounts);
+
+        // a,(41, 143)
         ds2.foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
     }
 }

@@ -4,19 +4,17 @@ import com.github.harbby.ashtarte.MppContext;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.DataSet;
-import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.function.Filter;
-import com.github.harbby.ashtarte.api.function.FlatMapper;
 import com.github.harbby.ashtarte.api.function.Foreach;
 import com.github.harbby.ashtarte.api.function.KeyedFunction;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
-import com.github.harbby.ashtarte.utils.CheckUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -25,29 +23,27 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
+import static java.util.Objects.requireNonNull;
 
 public abstract class Operator<ROW>
         implements DataSet<ROW>
 {
     private static final AtomicInteger nextDataSetId = new AtomicInteger(0);  //发号器
     private final transient MppContext context;
-    private final Operator<?> dataSet;
     private final int id = nextDataSetId.getAndIncrement();
+    private final Operator<?>[] dataSets;
+
+    protected Operator(Operator<?>... dataSets)
+    {
+        checkState(dataSets != null && dataSets.length > 0, "dataSet is Empty");
+        this.dataSets = dataSets;
+        this.context = dataSets[0].getContext();
+    }
 
     protected Operator(MppContext context)
     {
-        this(context, null);
-    }
-
-    private Operator(MppContext context, Operator<?> dataSet)
-    {
-        this.context = context;
-        this.dataSet = CheckUtil.checkSerialize(dataSet);
-    }
-
-    protected Operator(Operator<?> dataSet)
-    {
-        this(dataSet.getContext(), dataSet);
+        this.context = requireNonNull(context, "context is null");
+        this.dataSets = new Operator<?>[0];
     }
 
     @Override
@@ -57,7 +53,7 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public MppContext getContext()
+    public final MppContext getContext()
     {
         return context;
     }
@@ -74,14 +70,20 @@ public abstract class Operator<ROW>
         return null;
     }
 
-    public Operator<?> lastParent()
+    protected final Operator<?> lastParent()
     {
-        return dataSet;
+        return getDependencies().get(getDependencies().size() - 1);
+    }
+
+    public List<Operator<?>> getDependencies()
+    {
+        return Arrays.asList(dataSets);
     }
 
     @Override
     public Partition[] getPartitions()
     {
+        Operator<?> dataSet = lastParent();
         checkState(dataSet != null, this.getClass() + " Parent Operator is null, Source Operator mush @Override Method");
         return dataSet.getPartitions();
     }
@@ -116,17 +118,17 @@ public abstract class Operator<ROW>
     @Override
     public <OUT> DataSet<OUT> flatMap(Mapper<ROW, OUT[]> flatMapper)
     {
-        return new FlatMapDataSet<>(this, flatMapper);
+        return new FlatMapOperator<>(this, flatMapper);
     }
 
     @Override
-    public <OUT> DataSet<OUT> flatMap(FlatMapper<ROW, OUT> flatMapper)
+    public <OUT> DataSet<OUT> flatMapIterator(Mapper<ROW, Iterator<OUT>> flatMapper)
     {
-        return new FlatMapDataSet<>(this, flatMapper);
+        return new FlatMapIteratorOperator<>(this, flatMapper);
     }
 
     @Override
-    public <OUT> DataSet<OUT> mapPartition(FlatMapper<Iterator<ROW>, OUT> flatMapper)
+    public <OUT> DataSet<OUT> mapPartition(Mapper<Iterator<ROW>, Iterator<OUT>> flatMapper)
     {
         return new MapPartitionOperator<>(this, flatMapper);
     }

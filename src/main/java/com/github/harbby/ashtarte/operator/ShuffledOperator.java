@@ -41,14 +41,10 @@ public class ShuffledOperator<KEY, AggValue>
     @Override
     public Iterator<Tuple2<KEY, AggValue>> compute(Partition split, TaskContext taskContext)
     {
-        int shuffleId = taskContext.getStageId() - 1;
-
-        return ShuffleManager.getReader(shuffleId, split.getId());
-
-//        return groupBy.entrySet().stream().filter(entry -> !entry.getValue().isEmpty()).map(entry -> {
-//            OUT value = mapperReduce.map(entry.getValue().stream().map(x -> x.f2()).iterator());
-//            return Tuple2.of(entry.getKey(), value);
-//        }).iterator();
+        for (int shuffleId : taskContext.getDependStages()) {
+            return ShuffleManager.getReader(shuffleId, split.getId());
+        }
+        throw new RuntimeException();
     }
 }
 
