@@ -1,35 +1,35 @@
 package com.github.harbby.ashtarte.example;
 
 import com.github.harbby.ashtarte.MppContext;
-import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.lang.reflect.Array;
+import java.util.Arrays;
 
-public class Join2
-{
-    public static void main(String[] args)
-    {
+public class Join2 {
+    public static void main(String[] args) {
         MppContext mppContext = MppContext.builder().setParallelism(1).getOrCreate();
         String sparkHome = System.getenv("SPARK_HOME");
 
-        DataSet<String> ds = mppContext.textFile(sparkHome + "/README.md");
-        DataSet<String> worlds = ds.flatMap(input -> input.toLowerCase().split(" "))
-                .filter(x -> !"".equals(x.trim()));
+        KvDataSet<String, Integer> ds1 = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 8),
+                Tuple2.of("hp", 10),
+                Tuple2.of("hp1", 19),
+                Tuple2.of("hp2", 20)
+        ), 1);
 
-        KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> x.substring(0, 1), x -> 1L);
-        KvDataSet<String, Long> worldCounts = kvDataSet.partitionBy(2).reduceByKey(Long::sum);
+        KvDataSet<String, String> ds2 = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", "xi'an"),
+                Tuple2.of("hp1", "chengdu")
+        ), 2);
+
+        KvDataSet<String, Integer> worldCounts = ds1.reduceByKey(Integer::sum);
         worldCounts.print();
 
-        KvDataSet<String, Long> worldLengths = worlds.kvDataSet(x -> x.substring(0, 1), x -> (long) x.length())
-                .partitionBy(2).reduceByKey(Long::sum);
-        worldLengths.print();
-
-        KvDataSet<String, Tuple2<Long, Long>> ds2 = worldLengths
-                .join(worldCounts);
+        KvDataSet<String, Tuple2<Integer, String>> out = worldCounts
+                .leftJoin(ds2);
 
         // a,(143, 41)
-        ds2.foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
+        out.foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
     }
 }

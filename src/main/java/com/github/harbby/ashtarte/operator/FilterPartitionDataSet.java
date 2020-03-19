@@ -3,33 +3,29 @@ package com.github.harbby.ashtarte.operator;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.function.Filter;
-import com.google.common.collect.Iterators;
+import com.github.harbby.gadtry.base.Iterators;
 
 import java.util.Iterator;
 
 public class FilterPartitionDataSet<ROW>
-        extends Operator<ROW>
-{
-    private final Operator<ROW> parentOp;
+        extends Operator<ROW> {
+    private final Operator<ROW> dataSet;
     private final Filter<ROW> filter;
 
-    public FilterPartitionDataSet(Operator<ROW> parentOp, Filter<ROW> filter)
-    {
-        super(parentOp);
-        this.parentOp = parentOp;
+    public FilterPartitionDataSet(Operator<ROW> dataSet, Filter<ROW> filter) {
+        super(dataSet);
+        this.dataSet = dataSet;
         this.filter = filter;
     }
 
     @Override
-    public Partition[] getPartitions()
-    {
-        return parentOp.getPartitions();
+    public Partition[] getPartitions() {
+        return dataSet.getPartitions();
     }
 
     @Override
-    public Iterator<ROW> compute(Partition partition, TaskContext taskContext)
-    {
-        return Iterators.filter(parentOp.compute(partition, taskContext), filter::filter);
+    public Iterator<ROW> compute(Partition partition, TaskContext taskContext) {
+        return Iterators.filter(dataSet.compute(partition, taskContext), filter::filter);
     }
 }
 

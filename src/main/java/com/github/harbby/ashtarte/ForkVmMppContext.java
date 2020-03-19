@@ -17,7 +17,7 @@ public class ForkVmMppContext
     }
 
     @Override
-    public <E, R> List<R> runJob(Operator<E> dataSet, Function<Iterator<E>, R> function)
+    public <E, R> List<R> runJob(Operator<E> dataSet, Function<Iterator<E>, R> action)
     {
         throw new UnsupportedOperationException("this method have't support!");
 //        Partition[] partitions = dataSet.getPartitions();

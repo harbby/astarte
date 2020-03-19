@@ -38,14 +38,8 @@ public class LocalMppContext
 {
     private static final Logger logger = LoggerFactory.getLogger(LocalMppContext.class);
     private final AtomicInteger nextJobId = new AtomicInteger(0);  //发号器
-    private final AtomicInteger nextShuffleId = new AtomicInteger(0);
 
     private int parallelism = 1;
-
-    public int newShuffleId()
-    {
-        return nextShuffleId.getAndIncrement();
-    }
 
     @Override
     public void setParallelism(int parallelism)
@@ -106,7 +100,7 @@ public class LocalMppContext
     }
 
     @Override
-    public <E, R> List<R> runJob(Operator<E> dataSet, Function<Iterator<E>, R> function)
+    public <E, R> List<R> runJob(Operator<E> dataSet, Function<Iterator<E>, R> action)
     {
         int jobId = nextJobId.getAndIncrement();
         logger.info("starting... job: {}", jobId);
@@ -140,7 +134,7 @@ public class LocalMppContext
                 Operator<E> operator = serializableObj.getValue().getFinalOperator();
                 Iterator<E> iterator = operator.compute(partition,
                         TaskContext.of(resultStage.getStageId(), deps));
-                return function.apply(iterator);
+                return action.apply(iterator);
             }, executors)).collect(Collectors.toList()).stream()
                     .map(x -> x.join())
                     .collect(Collectors.toList());

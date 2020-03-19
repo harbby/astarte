@@ -1,8 +1,8 @@
 package com.github.harbby.ashtarte.api;
 
+import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
-import com.google.common.collect.Iterators;
 
 import java.io.DataInputStream;
 import java.io.File;
@@ -11,14 +11,13 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.stream.Stream;
 
-public final class ShuffleManager
-{
-    public static <K, V> Iterator<Tuple2<K, V>> getReader(int shuffleId, int reduceId)
-    {
+public final class ShuffleManager {
+    public static <K, V> Iterator<Tuple2<K, V>> getReader(int shuffleId, int reduceId) {
         File dataDir = new File("/tmp/shuffle/");
         //todo: 此处为 demo
         Iterator<Iterator<Tuple2<K, V>>> iterator = Stream.of(dataDir.listFiles())
-                .filter(x -> x.getName().startsWith("shuffle_" + shuffleId + "_") && x.getName().endsWith("_" + reduceId + ".data"))
+                .filter(x -> x.getName().startsWith("shuffle_" + shuffleId + "_")
+                        && x.getName().endsWith("_" + reduceId + ".data"))
                 .map(file -> {
                     ArrayList<Tuple2<K, V>> out = new ArrayList<>();
                     try {
@@ -32,8 +31,7 @@ public final class ShuffleManager
                         }
                         dataInputStream.close();
                         return out.iterator();
-                    }
-                    catch (Exception e) {
+                    } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                 }).iterator();

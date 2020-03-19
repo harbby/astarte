@@ -11,6 +11,7 @@ public class JoinDemo
     {
         MppContext mppContext = MppContext.builder().setParallelism(1).getOrCreate();
         String sparkHome = System.getenv("SPARK_HOME");
+
         DataSet<String> ds = mppContext.textFile(sparkHome + "/README.md");
         DataSet<String> worlds = ds.flatMap(input -> input.toLowerCase().split(" "))
                 .filter(x -> !"".equals(x.trim()));
@@ -26,7 +27,7 @@ public class JoinDemo
         KvDataSet<String, Tuple2<Long, Long>> ds2 = worldLengths
                 .join(worldCounts);
 
-        // a,(41, 143)
+        // a,(143, 41)
         ds2.foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
     }
 }
