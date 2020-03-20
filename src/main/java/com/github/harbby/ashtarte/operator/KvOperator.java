@@ -6,6 +6,7 @@ import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Partition;
+import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -28,7 +29,46 @@ public class KvOperator<K, V>
     }
 
     @Override
+    public DataSet<K> keys() {
+        return dataSet.map(Tuple2::f1);
+    }
+
+    @Override
+    public DataSet<V> values() {
+        return dataSet.map(Tuple2::f2);
+    }
+
+    @Override
+    public KvOperator<K, V> distinct() {
+        Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.distinct();
+        return new KvOperator<>(dataSet);
+    }
+
+    @Override
+    public KvOperator<K, V> cache() {
+        Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.cache();
+        return new KvOperator<>(dataSet);
+    }
+
+    @Override
+    public KvOperator<K, V> rePartition(int numPartition) {
+        Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.rePartition(numPartition);
+        return new KvOperator<>(dataSet);
+    }
+
+    @Override
+    public KvDataSet<K, Iterable<V>> groupByKey() {
+        Partitioner<K> partitioner = new HashPartitioner<>(dataSet.numPartitions());
+        ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(this, partitioner);
+        ShuffledOperator<K, V> shuffleReducer = new ShuffledOperator<>(shuffleMapper);
+
+        return new KvOperator<>(new FullAggOperator<>(shuffleReducer, x -> x));
+    }
+
+
+    @Override
     public KvDataSet<K, V> partitionBy(Partitioner<K> partitioner) {
+        //todo: return newKvOperator
         this.partitioner = requireNonNull(partitioner, "partitioner is null");
         return this;
     }
@@ -59,14 +99,14 @@ public class KvOperator<K, V>
         checkState(kvDataSet instanceof Operator, kvDataSet + "not instanceof Operator");
         Operator<Tuple2<K, Iterable<?>[]>> joinOperator = new JoinOperator<>(partitioner, dataSet, kvDataSet);
 
-        DataSet<Tuple2<K, Tuple2<V, W>>> operator = joinOperator.flatMapIterator(x -> {
+        Operator<Tuple2<K, Tuple2<V, W>>> operator = joinOperator.flatMapIterator(x -> {
             Iterable<V> v = (Iterable<V>) x.f2()[0];
             Iterable<W> w = (Iterable<W>) x.f2()[1];
 
             Iterator<Tuple2<V, W>> iterator = Iterators.cartesian(v, w, joinMode);
             return Iterators.map(iterator, it -> new Tuple2<>(x.f1(), it));
         });
-        return operator.kvDataSet(k -> k.f1(), v -> v.f2());
+        return new KvOperator<>(operator);
     }
 
     @Override

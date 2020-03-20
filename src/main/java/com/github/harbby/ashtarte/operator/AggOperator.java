@@ -2,49 +2,44 @@ package com.github.harbby.ashtarte.operator;
 
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
-import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
-import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
+import java.util.HashMap;
 import java.util.Iterator;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 /**
  * this pipiline agg Operator
  */
 public class AggOperator<K, V>
-        extends Operator<Tuple2<K, V>>
-{
+        extends Operator<Tuple2<K, V>> {
     private final Operator<Tuple2<K, V>> operator;
-    private final Mapper<Iterator<V>, V> agg;
+    private final Reducer<V> reducer;
 
-    public AggOperator(Operator<Tuple2<K, V>> operator, Reducer<V> reducer)
-    {
+    public AggOperator(Operator<Tuple2<K, V>> operator, Reducer<V> reducer) {
         super(operator);
         this.operator = operator;
-        this.agg = iterator -> Iterators.reduce(iterator, reducer::reduce);
-    }
-
-    public AggOperator(Operator<Tuple2<K, V>> operator, Mapper<Iterator<V>, V> reducer)
-    {
-        super(operator);
-        this.operator = operator;
-        this.agg = reducer;
+        this.reducer = reducer;
     }
 
     @Override
-    public Iterator<Tuple2<K, V>> compute(Partition split, TaskContext taskContext)
-    {
+    public Iterator<Tuple2<K, V>> compute(Partition split, TaskContext taskContext) {
         Iterator<Tuple2<K, V>> input = operator.compute(split, taskContext);
-
-        //todo: 需要增量计算
-        Iterator<Tuple2<K, Iterator<V>>> input1 = Iterators.toStream(input)
-                .collect(Collectors.groupingBy(Tuple2::f1))
-                .entrySet().stream()
-                .map(x -> new Tuple2<>(x.getKey(), x.getValue().stream().map(Tuple2::f2).iterator()))
+        // 这里是增量计算的 复杂度= O(1) + log(m)
+        Map<K, V> aggState = new HashMap<>();
+        while (input.hasNext()) {
+            Tuple2<K, V> tp = input.next();
+            V value = aggState.get(tp.f1());
+            if (value == null) {
+                value = tp.f2();
+            } else {
+                value = reducer.reduce(value, tp.f2());
+            }
+            aggState.put(tp.f1(), value);
+        }
+        return aggState.entrySet().stream()
+                .map(x -> new Tuple2<>(x.getKey(), x.getValue()))
                 .iterator();
-
-        return Iterators.map(input1, x -> new Tuple2<>(x.f1(), agg.map(x.f2())));
     }
 }

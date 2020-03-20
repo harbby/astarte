@@ -16,5 +16,5 @@ public interface KeyedFunction<KEY, ROW>
      */
     <VALUE> DataSet<Tuple2<KEY, VALUE>> agg(Mapper<ROW, VALUE> keyGetter, Reducer<VALUE> reducer);
 
-    <VALUE> DataSet<Tuple2<KEY, VALUE>> map(Mapper<Iterator<ROW>, VALUE> mapperReduce);
+    <VALUE> DataSet<Tuple2<KEY, VALUE>> map(Mapper<Iterable<ROW>, VALUE> mapperReduce);
 }

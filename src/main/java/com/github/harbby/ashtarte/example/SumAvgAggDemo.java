@@ -15,7 +15,7 @@ public class SumAvgAggDemo
         DataSet<String> worlds = ds.flatMap(input -> input.toLowerCase().split(" "))
                 .filter(x -> !"".equals(x.trim()));
 
-        KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> x, x -> 1L);
+        KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> new Tuple2<>(x, 1L));
         DataSet<Tuple2<String, Long>> worldCounts = kvDataSet.partitionBy(2).reduceByKey(Long::sum);
 
         DataSet<Tuple2<String, Double>> worldCounts2 = worldCounts

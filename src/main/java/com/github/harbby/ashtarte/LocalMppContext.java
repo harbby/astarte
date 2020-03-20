@@ -12,14 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,22 +27,19 @@ import static com.github.harbby.gadtry.base.MoreObjects.checkState;
  * Local achieve
  */
 public class LocalMppContext
-        implements MppContext
-{
+        implements MppContext {
     private static final Logger logger = LoggerFactory.getLogger(LocalMppContext.class);
     private final AtomicInteger nextJobId = new AtomicInteger(0);  //发号器
 
     private int parallelism = 1;
 
     @Override
-    public void setParallelism(int parallelism)
-    {
+    public void setParallelism(int parallelism) {
         checkState(parallelism > 0, "parallelism > 0, your %s", parallelism);
         this.parallelism = parallelism;
     }
 
-    private <E> List<Operator<?>> findShuffleMapOperator1(Operator<E> dataSet)
-    {
+    private <E> List<Operator<?>> findShuffleMapOperator1(Operator<E> dataSet) {
         List<Operator<?>> shuffleMapOperators = new ArrayList<>();
         Deque<Operator<?>> stack = new LinkedList<>();
         stack.push(dataSet);
@@ -70,8 +60,7 @@ public class LocalMppContext
      * 使用栈结构 可以优化递归算法
      */
 
-    private <E> Map<Stage, Integer[]> findShuffleMapOperator(ResultStage<E> resultStage)
-    {
+    private <E> Map<Stage, Integer[]> findShuffleMapOperator(ResultStage<E> resultStage) {
         Deque<Stage> stages = new LinkedList<>();
         Deque<Operator<?>> stack = new LinkedList<>();
         stack.push(resultStage.getFinalOperator());
@@ -100,8 +89,7 @@ public class LocalMppContext
     }
 
     @Override
-    public <E, R> List<R> runJob(Operator<E> dataSet, Function<Iterator<E>, R> action)
-    {
+    public <E, R> List<R> runJob(Operator<E> dataSet, Function<Iterator<E>, R> action) {
         int jobId = nextJobId.getAndIncrement();
         logger.info("starting... job: {}", jobId);
         ResultStage<E> resultStage = new ResultStage<>(dataSet, 0); //  //最后一个state
@@ -114,7 +102,7 @@ public class LocalMppContext
         ExecutorService executors = Executors.newFixedThreadPool(parallelism);
         for (Stage stage : stages) {
             if (stage instanceof ShuffleMapStage) {
-                logger.info("starting... stage: {}, id {}", stage, stage.getStageId());
+                logger.info("starting... stage: {}, id {}", stage, stages.size() - stage.getStageId());
                 SerializableObj<Stage> serializableStage = SerializableObj.of(stage);
                 Integer[] deps = stageMap.getOrDefault(stage, new Integer[0]);
 
@@ -138,13 +126,11 @@ public class LocalMppContext
             }, executors)).collect(Collectors.toList()).stream()
                     .map(x -> x.join())
                     .collect(Collectors.toList());
-        }
-        finally {
+        } finally {
             executors.shutdown();
             try {
                 FileUtils.deleteDirectory(new File("/tmp/shuffle"));
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 logger.error("clear job tmp dir {} faild", "/tmp/shuffle");
             }
         }

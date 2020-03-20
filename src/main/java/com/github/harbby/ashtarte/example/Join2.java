@@ -9,14 +9,13 @@ import java.util.Arrays;
 public class Join2 {
     public static void main(String[] args) {
         MppContext mppContext = MppContext.builder().setParallelism(1).getOrCreate();
-        String sparkHome = System.getenv("SPARK_HOME");
 
         KvDataSet<String, Integer> ds1 = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", 8),
                 Tuple2.of("hp", 10),
                 Tuple2.of("hp1", 19),
                 Tuple2.of("hp2", 20)
-        ), 1);
+        ));
 
         KvDataSet<String, String> ds2 = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", "xi'an"),

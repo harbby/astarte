@@ -4,6 +4,7 @@ import com.github.harbby.ashtarte.MppContext;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.DataSet;
+import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.function.*;
 import com.github.harbby.gadtry.base.Iterators;
@@ -26,7 +27,7 @@ public abstract class Operator<ROW>
     private final int id = nextDataSetId.getAndIncrement();
     private final Operator<?>[] dataSets;
 
-    protected Operator(Operator<?>... dataSets) {
+    public Operator(Operator<?>... dataSets) {
         checkState(dataSets != null && dataSets.length > 0, "dataSet is Empty");
         this.dataSets = dataSets;
         this.context = dataSets[0].getContext();
@@ -75,13 +76,18 @@ public abstract class Operator<ROW>
     public abstract Iterator<ROW> compute(Partition split, TaskContext taskContext);
 
     @Override
+    public DataSet<ROW> distinct() {
+        return new DistinctOperator<>(this);
+    }
+
+    @Override
     public DataSet<ROW> cache() {
         return new CacheOperator<>(this);
     }
 
     @Override
-    public <K, V> KvOperator<K, V> kvDataSet(Mapper<ROW, K> keyMapper, Mapper<ROW, V> valueMapper) {
-        Operator<Tuple2<K, V>> mapOperator = this.map(x -> new Tuple2<>(keyMapper.map(x), valueMapper.map(x)));
+    public <K, V> KvOperator<K, V> kvDataSet(Mapper<ROW, Tuple2<K, V>> kvMapper) {
+        Operator<Tuple2<K, V>> mapOperator = this.map(kvMapper);
         return new KvOperator<>(mapOperator);
     }
 
@@ -101,7 +107,7 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public <OUT> DataSet<OUT> flatMapIterator(Mapper<ROW, Iterator<OUT>> flatMapper) {
+    public <OUT> Operator<OUT> flatMapIterator(Mapper<ROW, Iterator<OUT>> flatMapper) {
         return new FlatMapIteratorOperator<>(this, flatMapper);
     }
 

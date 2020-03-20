@@ -39,9 +39,11 @@ public interface DataSet<ROW>
 
     public Partitioner getPartitioner();
 
-    <K, V> KvDataSet<K, V> kvDataSet(Mapper<ROW, K> keyMapper, Mapper<ROW, V> valueMapper);
+    <K, V> KvDataSet<K, V> kvDataSet(Mapper<ROW, Tuple2<K,V>> kvMapper);
 
     DataSet<ROW> cache();
+
+    DataSet<ROW> distinct();
 
     public DataSet<ROW> rePartition(int numPartition);
 
