@@ -1,5 +1,6 @@
 package com.github.harbby.ashtarte.operator;
 
+import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.function.Reducer;
@@ -17,10 +18,16 @@ public class AggOperator<K, V>
     private final Operator<Tuple2<K, V>> operator;
     private final Reducer<V> reducer;
 
-    public AggOperator(Operator<Tuple2<K, V>> operator, Reducer<V> reducer) {
+    protected AggOperator(Operator<Tuple2<K, V>> operator, Reducer<V> reducer) {
         super(operator);
         this.operator = operator;
         this.reducer = reducer;
+    }
+
+    @Override
+    public Partitioner getPartitioner() {
+        // Reducer<V> reducer 聚合不会发生Key的变化因此，我们可以传递Partitioner下去
+        return operator.getPartitioner();
     }
 
     @Override

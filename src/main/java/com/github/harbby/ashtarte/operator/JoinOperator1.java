@@ -32,15 +32,6 @@ public class JoinOperator1<K, V, W>
         checkState(shuffleMapper1.getPartitioner() == shuffleMapper2.getPartitioner());
     }
 
-    private static class JoinedPartition
-            extends Partition
-    {
-        public JoinedPartition(int index)
-        {
-            super(index);
-        }
-    }
-
     @Override
     public Partition[] getPartitions()
     {

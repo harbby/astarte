@@ -5,24 +5,24 @@ import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.ShuffleManager;
+import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.IntStream;
 
-public class JoinOperator<K>
-        //extends KvOperator<K, Tuple2<V, W>>
+public class ShuffleJoinOperator<K>
         extends Operator<Tuple2<K, Iterable<?>[]>>
 {
     private final DataSet<? extends Tuple2<K, ?>>[] kvDataSets;
-    private final Partitioner<K> partitioner;
+    private final Partitioner partitioner;
 
     @SafeVarargs
-    protected JoinOperator(Partitioner<K> partitioner, DataSet<? extends Tuple2<K, ?>>... kvDataSets)
+    protected ShuffleJoinOperator(Partitioner partitioner,
+            DataSet<? extends Tuple2<K, ?>>... kvDataSets)
     {
         super(kvDataSets[0].getContext());
         this.kvDataSets = kvDataSets;
@@ -41,6 +41,12 @@ public class JoinOperator<K>
     }
 
     @Override
+    public Partitioner getPartitioner()
+    {
+        return partitioner;
+    }
+
+    @Override
     public Partition[] getPartitions()
     {
         return IntStream.range(0, partitioner.numPartitions())
@@ -53,28 +59,10 @@ public class JoinOperator<K>
     @Override
     public Iterator<Tuple2<K, Iterable<?>[]>> compute(Partition split, TaskContext taskContext)
     {
-        Map<K, Iterable<?>[]> map = new HashMap<>();
         int[] deps = taskContext.getDependStages();
-
-        for (int i = 0; i < deps.length; i++) {
-            int shuffleId = deps[i];
-            Iterator<Tuple2<K, Object>> iterator = ShuffleManager.getReader(shuffleId, split.getId());
-
-            while (iterator.hasNext()) {
-                Tuple2<K, Object> t = iterator.next();
-                Iterable<?>[] values = map.get(t.f1());
-                if (values == null) {
-                    values = new Iterable[deps.length];
-                    for (int j = 0; j < deps.length; j++) {
-                        values[j] = new ArrayList<>();
-                    }
-                    map.put(t.f1(), values);
-                }
-                ((List<Object>) values[i]).add(t.f2());
-            }
-        }
-
-        return map.entrySet().stream().map(x -> new Tuple2<>(x.getKey(), x.getValue()))
+        Iterator<Iterator<Tuple2<K, Object>>> iterators = Arrays.stream(deps)
+                .mapToObj(shuffleId -> ShuffleManager.<K, Object>getReader(shuffleId, split.getId()))
                 .iterator();
+        return Iterators.join(iterators, deps.length);
     }
 }

@@ -1,6 +1,9 @@
 package com.github.harbby.ashtarte.api;
 
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
+
 import java.io.Serializable;
+import java.util.Objects;
 
 public class Partition
         implements Serializable
@@ -26,6 +29,15 @@ public class Partition
     @Override
     public boolean equals(Object obj)
     {
-        return super.equals(obj);
+        if (this == obj) {
+            return true;
+        }
+
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+
+        Partition other = (Partition) obj;
+        return Objects.equals(this.index, other.index);
     }
 }

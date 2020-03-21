@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
+import static com.github.harbby.gadtry.base.Throwables.throwsThrowable;
 
 /**
  * Local achieve
@@ -98,8 +99,14 @@ public class LocalMppContext
         List<Stage> stages = new ArrayList<>(stageMap.keySet());
         Collections.reverse(stages);
 
+        new GraphScheduler(this).runGraph(stageMap);
         //---------------------
         ExecutorService executors = Executors.newFixedThreadPool(parallelism);
+        try {
+            FileUtils.deleteDirectory(new File("/tmp/shuffle"));
+        } catch (IOException e) {
+            throwsThrowable(e);
+        }
         for (Stage stage : stages) {
             if (stage instanceof ShuffleMapStage) {
                 logger.info("starting... stage: {}, id {}", stage, stages.size() - stage.getStageId());

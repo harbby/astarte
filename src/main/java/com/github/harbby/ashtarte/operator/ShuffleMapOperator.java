@@ -9,7 +9,6 @@ import com.github.harbby.ashtarte.api.ShuffleWriter;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.io.IOException;
 import java.util.Iterator;
 
 import static java.util.Objects.requireNonNull;
@@ -22,9 +21,9 @@ public class ShuffleMapOperator<K, V>
         extends Operator<Void>
 {
     private final Operator<? extends Tuple2<K, V>> operator;
-    private final Partitioner<K> partitioner;
+    private final Partitioner partitioner;
 
-    public ShuffleMapOperator(Operator<? extends Tuple2<K, V>> operator, Partitioner<K> partitioner)
+    public ShuffleMapOperator(Operator<? extends Tuple2<K, V>> operator, Partitioner partitioner)
     {
         //use default HashPartitioner
         super(operator);
@@ -35,7 +34,7 @@ public class ShuffleMapOperator<K, V>
     public ShuffleMapOperator(Operator<? extends Tuple2<K, V>> operator, int numReducePartitions)
     {
         //use default HashPartitioner
-        this(operator, new HashPartitioner<>(numReducePartitions));
+        this(operator, new HashPartitioner(numReducePartitions));
     }
 
     @Override
@@ -44,7 +43,7 @@ public class ShuffleMapOperator<K, V>
         return operator.getPartitions();
     }
 
-    public Partitioner<K> getPartitioner()
+    public Partitioner getPartitioner()
     {
         return partitioner;
     }
@@ -56,11 +55,10 @@ public class ShuffleMapOperator<K, V>
                 taskContext.getStageId(),
                 split.getId(),
                 partitioner)) {
-
             Iterator<? extends Tuple2<K, V>> iterator = operator.compute(split, taskContext);
             shuffleWriter.write(iterator);
         }
-        catch (IOException e) {
+        catch (Exception e) {
             throw new AshtarteException("shuffle map task failed", e);
         }
         return Iterators.empty();

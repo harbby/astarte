@@ -1,7 +1,9 @@
 package com.github.harbby.ashtarte;
 
-public class HashPartitioner<K>
-        extends Partitioner<K>
+import java.util.Objects;
+
+public class HashPartitioner
+        extends Partitioner
 {
     private final int numPartitions;
 
@@ -17,8 +19,29 @@ public class HashPartitioner<K>
     }
 
     @Override
-    public int getPartition(K key)
+    public int getPartition(Object key)
     {
         return (key.hashCode() & Integer.MAX_VALUE) % numPartitions;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return numPartitions;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+
+        HashPartitioner other = (HashPartitioner) obj;
+        return Objects.equals(this.numPartitions, other.numPartitions);
     }
 }

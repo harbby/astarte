@@ -4,7 +4,6 @@ import com.github.harbby.ashtarte.MppContext;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.DataSet;
-import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.function.*;
 import com.github.harbby.gadtry.base.Iterators;
@@ -30,7 +29,7 @@ public abstract class Operator<ROW>
     public Operator(Operator<?>... dataSets) {
         checkState(dataSets != null && dataSets.length > 0, "dataSet is Empty");
         this.dataSets = dataSets;
-        this.context = dataSets[0].getContext();
+        this.context = requireNonNull(dataSets[0].getContext(), "context is null");
     }
 
     protected Operator(MppContext context) {
@@ -54,7 +53,7 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public Partitioner<?> getPartitioner() {
+    public Partitioner getPartitioner() {
         return null;
     }
 
@@ -62,7 +61,7 @@ public abstract class Operator<ROW>
         return getDependencies().get(getDependencies().size() - 1);
     }
 
-    public List<Operator<?>> getDependencies() {
+    public List<? extends Operator<?>> getDependencies() {
         return Arrays.asList(dataSets);
     }
 
@@ -77,7 +76,23 @@ public abstract class Operator<ROW>
 
     @Override
     public DataSet<ROW> distinct() {
-        return new DistinctOperator<>(this);
+        return this.distinct(numPartitions());
+    }
+
+    @Override
+    public DataSet<ROW> distinct(int numPartition) {
+        return this.kvDataSet(x -> new Tuple2<>(x, null))
+                .reduceByKey((x, y) -> x, numPartition)
+                .map(Tuple2::f1);  //使用map()更安全，因为我们不能将Partitioner传递下去
+                //.keys();  // 这里不推荐使用keys(),使用.map() 更加强调不会传递Partitioner
+    }
+
+    @Override
+    public DataSet<ROW> rePartition(int numPartition) {
+        ShuffleMapOperator<ROW, ROW> shuffleMapOperator =
+                new ShuffleMapOperator<>(this.map(x -> new Tuple2<>(x, null)), numPartition);
+        ShuffledOperator<ROW, ROW> shuffleReducer = new ShuffledOperator<>(shuffleMapOperator);
+        return shuffleReducer.map(Tuple2::f1);
     }
 
     @Override
@@ -92,13 +107,10 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public DataSet<ROW> rePartition(int numPartition) {
-        return new RePartitionOperator<>(this, numPartition);
-    }
-
-    @Override
     public <OUT> Operator<OUT> map(Mapper<ROW, OUT> mapper) {
-        return new MapOperator<>(this, mapper);
+        return new MapPartitionOperator<>(this,
+                it -> Iterators.map(it, mapper::map)
+                , false);
     }
 
     @Override
@@ -113,12 +125,15 @@ public abstract class Operator<ROW>
 
     @Override
     public <OUT> DataSet<OUT> mapPartition(Mapper<Iterator<ROW>, Iterator<OUT>> flatMapper) {
-        return new MapPartitionOperator<>(this, flatMapper);
+        return new MapPartitionOperator<>(this, flatMapper, false);
     }
 
     @Override
     public DataSet<ROW> filter(Filter<ROW> filter) {
-        return new FilterPartitionDataSet<>(this, filter);
+        return new MapPartitionOperator<>(
+                this,
+                it -> Iterators.filter(it, filter::filter),
+                false);
     }
 
     @Override
@@ -132,7 +147,7 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, Partitioner<KEY> partitioner) {
+    public <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, Partitioner partitioner) {
         return new KeyedDataSet<>(this, keyGetter, partitioner);
     }
 

@@ -5,10 +5,10 @@ import java.io.Serializable;
 /**
  * numReduceTasks = numPartitions
  */
-public abstract class Partitioner<KEY>
+public abstract class Partitioner
         implements Serializable
 {
     public abstract int numPartitions();
 
-    public abstract int getPartition(KEY key);
+    public abstract int getPartition(Object key);
 }

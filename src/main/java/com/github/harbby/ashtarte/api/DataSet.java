@@ -45,6 +45,8 @@ public interface DataSet<ROW>
 
     DataSet<ROW> distinct();
 
+    DataSet<ROW> distinct(int numPartition);
+
     public DataSet<ROW> rePartition(int numPartition);
 
     <OUT> DataSet<OUT> map(Mapper<ROW, OUT> mapper);
@@ -61,5 +63,5 @@ public interface DataSet<ROW>
 
     <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, int numReduce);
 
-    <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, Partitioner<KEY> partitioner);
+    <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, Partitioner partitioner);
 }

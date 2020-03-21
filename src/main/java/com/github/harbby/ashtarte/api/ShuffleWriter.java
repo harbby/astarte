@@ -26,7 +26,7 @@ public interface ShuffleWriter<KEY, VALUE>
     public static <KEY, VALUE> ShuffleWriter<KEY, VALUE> createShuffleWriter(
             int shuffleId,
             int mapId,
-            Partitioner<KEY> partitioner)
+            Partitioner partitioner)
     {
         return new HashShuffle<>(shuffleId, mapId, partitioner);
     }
@@ -34,11 +34,11 @@ public interface ShuffleWriter<KEY, VALUE>
     public static class HashShuffle<KEY, VALUE>
             implements ShuffleWriter<KEY, VALUE>
     {
-        private final Partitioner<KEY> partitioner;
+        private final Partitioner partitioner;
         private final int shuffleId;
         private final int mapId;
 
-        public HashShuffle(int shuffleId, int mapId, Partitioner<KEY> partitioner)
+        public HashShuffle(int shuffleId, int mapId, Partitioner partitioner)
         {
             this.partitioner = requireNonNull(partitioner, "partitioner is null");
             this.shuffleId = shuffleId;

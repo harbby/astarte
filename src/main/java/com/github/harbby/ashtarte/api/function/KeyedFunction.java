@@ -1,20 +1,18 @@
 package com.github.harbby.ashtarte.api.function;
 
 import com.github.harbby.ashtarte.api.DataSet;
+import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.util.Iterator;
+public interface KeyedFunction<K, ROW> {
+    KvDataSet<K, Long> count();
 
-public interface KeyedFunction<KEY, ROW>
-{
-    DataSet<Tuple2<KEY, Long>> count();
-
-    DataSet<Tuple2<KEY, Double>> avg(Mapper<ROW, Double> keyGetter);
+    KvDataSet<K, Double> avg(Mapper<ROW, Double> keyGetter);
 
     /**
      * agg_if
      */
-    <VALUE> DataSet<Tuple2<KEY, VALUE>> agg(Mapper<ROW, VALUE> keyGetter, Reducer<VALUE> reducer);
+    <V> KvDataSet<K, V> agg(Mapper<ROW, V> keyGetter, Reducer<V> reducer);
 
-    <VALUE> DataSet<Tuple2<KEY, VALUE>> map(Mapper<Iterable<ROW>, VALUE> mapperReduce);
+    <V> KvDataSet<K, V> map(Mapper<Iterable<ROW>, V> mapperReduce);
 }
