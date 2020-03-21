@@ -21,7 +21,7 @@ public class FlatMapOperator<IN, OUT>
 
     @Override
     public Iterator<OUT> compute(Partition partition, TaskContext taskContext) {
-        return Iterators.concat(Iterators.map(dataSet.compute(partition, taskContext),
+        return Iterators.concat(Iterators.map(dataSet.computeOrCache(partition, taskContext),
                 row -> Stream.of(flatMapper.map(row)).iterator()));
     }
 }

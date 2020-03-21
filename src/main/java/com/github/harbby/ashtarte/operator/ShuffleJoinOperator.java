@@ -27,10 +27,7 @@ public class ShuffleJoinOperator<K>
             Operator<? extends Tuple2<K, ?>>... kvDataSets)
     {
         super(kvDataSets[0].getContext());
-
-        this.kvDataSets = Stream.of(kvDataSets).map(x-> unboxing(x))
-        .toArray(Operator[]::new);
-
+        this.kvDataSets = unboxing(kvDataSets);
         this.partitioner = partitioner;
     }
 

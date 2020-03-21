@@ -17,7 +17,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -49,6 +48,16 @@ public abstract class Operator<ROW>
         else {
             return operator;
         }
+    }
+
+    @SuppressWarnings({"unchecked"})
+    protected static <E> Operator<? extends E>[] unboxing(Operator<? extends E>[] operators)
+    {
+        Operator<? extends E>[] outArray = new Operator[operators.length];
+        for (int i = 0; i < operators.length; i++) {
+            outArray[i] = unboxing(operators[i]);
+        }
+        return outArray;
     }
 
     protected Operator(MppContext context)
@@ -100,13 +109,18 @@ public abstract class Operator<ROW>
         return dataSet.getPartitions();
     }
 
+    public boolean isMarkedCache()
+    {
+        return markedCache;
+    }
+
     protected abstract Iterator<ROW> compute(Partition split, TaskContext taskContext);
 
-    private final AtomicBoolean markedCache = new AtomicBoolean(false);
+    private boolean markedCache = false;
 
     public final Iterator<ROW> computeOrCache(Partition split, TaskContext taskContext)
     {
-        if (markedCache.get()) {
+        if (markedCache) {
             return CacheOperator.compute(this, id, split, taskContext);
         }
         else {
@@ -117,9 +131,8 @@ public abstract class Operator<ROW>
     @Override
     public DataSet<ROW> cache()
     {
-//        markedCache.set(true);
-//        return this;
-        return new CacheOperator<>(this);
+        markedCache = true;
+        return this;
     }
 
     @Override

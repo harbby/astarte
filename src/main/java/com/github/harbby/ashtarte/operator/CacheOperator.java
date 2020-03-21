@@ -23,7 +23,7 @@ public class CacheOperator<E>
     List<Operator<?>> list = new ArrayList<>();
     private final static Map<Integer, List<?>> cacheMemMap = new ConcurrentHashMap<>();
 
-    protected CacheOperator(Operator<E> dataSet)
+    public CacheOperator(Operator<E> dataSet)
     {
         super(dataSet);
         this.dataSet = unboxing(dataSet);
@@ -63,12 +63,14 @@ public class CacheOperator<E>
     {
         int key = jobId * 100 + split.getId();
         List<E> cacheData = (List<E>) cacheMemMap.get(key);
+
+        List<Integer> deps = IntStream.of(taskContext.getDependStages()).mapToObj(x->x).collect(Collectors.toList());
         if (cacheData != null) {
-            List<Integer> deps = IntStream.of(taskContext.getDependStages()).mapToObj(x->x).collect(Collectors.toList());
             System.out.println("-----" + dataSet.getId() +" dep:" + deps + "缓存命中---");
             return cacheData.iterator();
         }
         else {
+            System.out.println("-----" + dataSet.getId() +" dep:" + deps + "缓存失效---");
             final List<E> data = new ArrayList<>();
             Iterator<E> iterator = dataSet.compute(split, taskContext);
             return new Iterator<E>()

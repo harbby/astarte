@@ -49,7 +49,7 @@ public class FullAggOperator<K, V, OUT>
     @Override
     public Iterator<Tuple2<K, OUT>> compute(Partition split, TaskContext taskContext)
     {
-        Iterator<Tuple2<K, V>> input = dataSet.compute(split, taskContext);
+        Iterator<Tuple2<K, V>> input = dataSet.computeOrCache(split, taskContext);
 
         //todo: 未增量计算
         Map<K, Collection<V>> kGroup = new HashMap<>();

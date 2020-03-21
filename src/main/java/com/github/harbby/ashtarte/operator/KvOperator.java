@@ -11,6 +11,7 @@ import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
+import java.util.Comparator;
 import java.util.Iterator;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
@@ -27,7 +28,7 @@ public class KvOperator<K, V>
         this.dataSet = unboxing(dataSet);
     }
 
-    public Operator<Tuple2<K, V>> getDataSet()
+    public Operator<? extends Tuple2<K, V>> getDataSet()
     {
         return dataSet;
     }
@@ -36,6 +37,12 @@ public class KvOperator<K, V>
     public Partitioner getPartitioner()
     {
         return dataSet.getPartitioner();
+    }
+
+    @Override
+    public Iterator<Tuple2<K, V>> compute(Partition split, TaskContext taskContext)
+    {
+        return dataSet.computeOrCache(split, taskContext);
     }
 
     @Override
@@ -92,11 +99,8 @@ public class KvOperator<K, V>
     @Override
     public KvOperator<K, V> cache()
     {
-        Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.cache();
-        if (dataSet instanceof KvOperator) {
-            return (KvOperator<K, V>) dataSet;
-        }
-        return new KvOperator<>(dataSet);
+        this.dataSet.cache();
+        return this;
     }
 
     @Override
@@ -178,17 +182,18 @@ public class KvOperator<K, V>
     private <W> KvDataSet<K, Tuple2<V, W>> join(DataSet<Tuple2<K, W>> rightDataSet, Iterators.JoinMode joinMode)
     {
         checkState(rightDataSet instanceof Operator, rightDataSet + "not instanceof Operator");
+        Operator<Tuple2<K, W>> rightOperator = unboxing((Operator<Tuple2<K, W>>) rightDataSet);
 
         Operator<Tuple2<K, Iterable<?>[]>> joinOperator;
         Partitioner leftPartitioner = dataSet.getPartitioner();
         Partitioner rightPartitioner = rightDataSet.getPartitioner();
         if (leftPartitioner != null && leftPartitioner.equals(rightPartitioner)) {
             // 因为上一个stage已经按照相同的分区器, 将数据分好，因此这里我们无需shuffle
-            joinOperator = new LocalJoinOperator<>(leftPartitioner, dataSet, (Operator<Tuple2<K, W>>) rightDataSet);
+            joinOperator = new LocalJoinOperator<>(leftPartitioner, dataSet, rightOperator);
         }
         else {
             Partitioner partitioner = new HashPartitioner(dataSet.numPartitions());
-            joinOperator = new ShuffleJoinOperator<>(partitioner, dataSet, (Operator<Tuple2<K, W>>) rightDataSet);
+            joinOperator = new ShuffleJoinOperator<>(partitioner, dataSet, rightOperator);
         }
 
         Operator<Tuple2<K, Tuple2<V, W>>> operator = joinOperator.flatMapIterator(x -> {
@@ -204,8 +209,32 @@ public class KvOperator<K, V>
     }
 
     @Override
-    public Iterator<Tuple2<K, V>> compute(Partition split, TaskContext taskContext)
+    public KvDataSet<K, V> union(DataSet<Tuple2<K, V>> kvDataSet)
     {
-        return dataSet.compute(split, taskContext);
+        checkState(kvDataSet instanceof Operator, kvDataSet + "not instanceof Operator");
+        Operator<Tuple2<K, V>> otherDataSet = unboxing((Operator<Tuple2<K, V>>) kvDataSet);
+        Partitioner partitioner = new HashPartitioner(10);
+        return new KvOperator<>(new ShuffleUnionOperator<>(partitioner, dataSet, otherDataSet));
+    }
+
+    @Override
+    public KvDataSet<K, V> unionAll(DataSet<Tuple2<K, V>> kvDataSet)
+    {
+        checkState(kvDataSet instanceof Operator, kvDataSet + "not instanceof Operator");
+        Operator<Tuple2<K, V>> otherDataSet = unboxing((Operator<Tuple2<K, V>>) kvDataSet);
+
+        return new KvOperator<>(new UnionAllOperator<>(dataSet, otherDataSet));
+    }
+
+    @Override
+    public KvDataSet<K, V> sortByKey(Comparator<K> comparator)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public KvDataSet<K, V> sortByValue(Comparator<V> comparator)
+    {
+        throw new UnsupportedOperationException();
     }
 }

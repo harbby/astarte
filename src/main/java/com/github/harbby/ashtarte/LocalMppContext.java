@@ -1,6 +1,7 @@
 package com.github.harbby.ashtarte;
 
 import com.github.harbby.ashtarte.api.Stage;
+import com.github.harbby.ashtarte.operator.CacheOperator;
 import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.ashtarte.operator.ShuffleMapOperator;
 import com.github.harbby.ashtarte.utils.SerializableObj;
@@ -12,7 +13,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Deque;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -49,60 +50,59 @@ public class LocalMppContext
         this.parallelism = parallelism;
     }
 
-    private <E> List<Operator<?>> findShuffleMapOperator1(Operator<E> dataSet)
-    {
-        List<Operator<?>> shuffleMapOperators = new ArrayList<>();
-        Deque<Operator<?>> stack = new LinkedList<>();
-        stack.push(dataSet);
-        //广度优先
-        while (!stack.isEmpty()) {
-            Operator<?> o = stack.pop();
-            for (Operator<?> operator : o.getDependencies()) {
-                if (operator instanceof ShuffleMapOperator) {
-                    shuffleMapOperators.add(operator);
-                }
-                stack.push(operator);
-            }
-        }
-        return shuffleMapOperators;
-    }
+//    private <E> List<Operator<?>> findShuffleMapOperator1(Operator<E> dataSet)
+//    {
+//        List<Operator<?>> shuffleMapOperators = new ArrayList<>();
+//        Deque<Operator<?>> stack = new LinkedList<>();
+//        stack.push(dataSet);
+//        //广度优先
+//        while (!stack.isEmpty()) {
+//            Operator<?> o = stack.pop();
+//            for (Operator<?> operator : o.getDependencies()) {
+//                if (operator instanceof ShuffleMapOperator) {
+//                    shuffleMapOperators.add(operator);
+//                }
+//                stack.push(operator);
+//            }
+//        }
+//        return shuffleMapOperators;
+//    }
 
     /**
      * 使用栈结构 可以优化递归算法
      */
-
-    private <E> Map<Stage, List<Integer>> findShuffleMapOperator2(ResultStage<E> resultStage) {
-        Deque<Stage> stages = new LinkedList<>();
-        Deque<Operator<?>> stack = new LinkedList<>();
-        stack.push(resultStage.getFinalOperator());
-        //广度优先
-        Map<Stage, List<Integer>> map = new LinkedHashMap<>();
-        int i = resultStage.getStageId();
-        Stage thisStage = resultStage;
-        List<Integer> deps = new ArrayList<>();
-        while (!stack.isEmpty()) {
-            Operator<?> o = stack.pop();
-            if (o instanceof ShuffleMapOperator) {
-                map.put(thisStage, new ArrayList<>(deps));
-                deps.clear();
-                thisStage = stages.pop();
-            }
-            for (Operator<?> operator : o.getDependencies()) {
-                if (operator instanceof ShuffleMapOperator) {
-                    stages.push(new ShuffleMapStage(operator, ++i));
-                    deps.add(i);
-                }
-                stack.push(operator);
-            }
-        }
-        map.putIfAbsent(thisStage, new ArrayList<>(deps));
-        return map;
-    }
+//    private <E> Map<Stage, List<Integer>> findShuffleMapOperator2(ResultStage<E> resultStage) {
+//        Deque<Stage> stages = new LinkedList<>();
+//        Deque<Operator<?>> stack = new LinkedList<>();
+//        stack.push(resultStage.getFinalOperator());
+//        //广度优先
+//        Map<Stage, List<Integer>> map = new LinkedHashMap<>();
+//        int i = resultStage.getStageId();
+//        Stage thisStage = resultStage;
+//        List<Integer> deps = new ArrayList<>();
+//        while (!stack.isEmpty()) {
+//            Operator<?> o = stack.pop();
+//            if (o instanceof ShuffleMapOperator) {
+//                map.put(thisStage, new ArrayList<>(deps));
+//                deps.clear();
+//                thisStage = stages.pop();
+//            }
+//            for (Operator<?> operator : o.getDependencies()) {
+//                if (operator instanceof ShuffleMapOperator) {
+//                    stages.push(new ShuffleMapStage(operator, ++i));
+//                    deps.add(i);
+//                }
+//                stack.push(operator);
+//            }
+//        }
+//        map.putIfAbsent(thisStage, new ArrayList<>(deps));
+//        return map;
+//    }
 
     /**
      * 广度优先
      * V3
-     * */
+     */
     private Map<Stage, List<Integer>> findShuffleMapOperator(ResultStage<?> resultStage)
     {
         Map<Operator<?>, Stage> mapping = new HashMap<>();
@@ -118,7 +118,7 @@ public class LocalMppContext
         while (!stack.isEmpty()) {
             Operator<?> o = stack.poll();
             Stage thisStage = mapping.get(o);
-            for (Operator<?> operator : o.getDependencies()) {
+            for (Operator<?> operator : getDependencies(o)) {
                 if (operator instanceof ShuffleMapOperator) {
                     ShuffleMapStage newStage = new ShuffleMapStage(operator, ++i);
                     mapping.put(operator, newStage);
@@ -133,6 +133,25 @@ public class LocalMppContext
         }
 
         return map;
+    }
+
+    public static int num = 0;
+    public List<? extends Operator<?>> getDependencies(Operator<?> operator)
+    {
+        List<? extends Operator<?>> operators = operator.getDependencies();
+        boolean markCache = operator.isMarkedCache();
+
+        if (markCache) {
+            num ++;
+            //return Collections.singletonList();
+            if( num == 5) {
+                return operators;
+            }
+            System.out.println(operator);
+            return Collections.emptyList();
+        }
+
+        return operators;
     }
 
     @Override

@@ -55,7 +55,7 @@ public class ShuffleMapOperator<K, V>
                 taskContext.getStageId(),
                 split.getId(),
                 partitioner)) {
-            Iterator<? extends Tuple2<K, V>> iterator = operator.compute(split, taskContext);
+            Iterator<? extends Tuple2<K, V>> iterator = operator.computeOrCache(split, taskContext);
             shuffleWriter.write(iterator);
         }
         catch (Exception e) {

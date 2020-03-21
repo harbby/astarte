@@ -20,7 +20,7 @@ public class FlatMapIteratorOperator<IN, OUT>
 
     @Override
     public Iterator<OUT> compute(Partition split, TaskContext taskContext) {
-        return Iterators.concat(Iterators.map(dataSet.compute(split, taskContext),
+        return Iterators.concat(Iterators.map(dataSet.computeOrCache(split, taskContext),
                 flatMapper::map));
     }
 }

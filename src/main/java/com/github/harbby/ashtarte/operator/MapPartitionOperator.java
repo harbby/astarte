@@ -38,7 +38,7 @@ public class MapPartitionOperator<IN, OUT>
     @Override
     public Iterator<OUT> compute(Partition split, TaskContext taskContext)
     {
-        Iterator<OUT> iterator = flatMapper.map(dataSet.compute(split, taskContext));
+        Iterator<OUT> iterator = flatMapper.map(dataSet.computeOrCache(split, taskContext));
         return requireNonNull(iterator, "MapPartition function return null,your use Iterators.empty()");
     }
 }

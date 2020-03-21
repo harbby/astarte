@@ -7,6 +7,7 @@ import com.github.harbby.ashtarte.operator.KvOperator;
 import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
+import java.util.Comparator;
 import java.util.Iterator;
 
 public interface KvDataSet<K, V>
@@ -49,4 +50,12 @@ public interface KvDataSet<K, V>
     public <W> KvDataSet<K, Tuple2<V, W>> join(DataSet<Tuple2<K, W>> kvDataSet);
 
     public <W> KvDataSet<K, Tuple2<V, W>> leftJoin(DataSet<Tuple2<K, W>> kvDataSet);
+
+    public KvDataSet<K, V> union(DataSet<Tuple2<K, V>> kvDataSet);
+
+    public KvDataSet<K, V> unionAll(DataSet<Tuple2<K, V>> kvDataSet);
+
+    public KvDataSet<K, V> sortByKey(Comparator<K> comparator);
+
+    public KvDataSet<K, V> sortByValue(Comparator<V> comparator);
 }

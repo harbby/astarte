@@ -32,7 +32,7 @@ public class AggOperator<K, V>
 
     @Override
     public Iterator<Tuple2<K, V>> compute(Partition split, TaskContext taskContext) {
-        Iterator<Tuple2<K, V>> input = operator.compute(split, taskContext);
+        Iterator<Tuple2<K, V>> input = operator.computeOrCache(split, taskContext);
         // 这里是增量计算的 复杂度= O(1) + log(m)
         Map<K, V> aggState = new HashMap<>();
         while (input.hasNext()) {
