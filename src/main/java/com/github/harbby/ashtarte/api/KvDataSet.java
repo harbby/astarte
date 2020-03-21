@@ -51,9 +51,9 @@ public interface KvDataSet<K, V>
 
     public <W> KvDataSet<K, Tuple2<V, W>> leftJoin(DataSet<Tuple2<K, W>> kvDataSet);
 
-    public KvDataSet<K, V> union(DataSet<Tuple2<K, V>> kvDataSet);
+    public KvDataSet<K, V> union(DataSet<Tuple2<K, V>>... kvDataSet);
 
-    public KvDataSet<K, V> unionAll(DataSet<Tuple2<K, V>> kvDataSet);
+    public KvDataSet<K, V> unionAll(DataSet<Tuple2<K, V>>... kvDataSet);
 
     public KvDataSet<K, V> sortByKey(Comparator<K> comparator);
 

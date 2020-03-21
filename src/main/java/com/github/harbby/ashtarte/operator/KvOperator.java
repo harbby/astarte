@@ -208,22 +208,19 @@ public class KvOperator<K, V>
         return new KvOperator<>(operator);
     }
 
+    @SafeVarargs
     @Override
-    public KvDataSet<K, V> union(DataSet<Tuple2<K, V>> kvDataSet)
+    public final KvDataSet<K, V> union(DataSet<Tuple2<K, V>>... kvDataSet)
     {
-        checkState(kvDataSet instanceof Operator, kvDataSet + "not instanceof Operator");
-        Operator<Tuple2<K, V>> otherDataSet = unboxing((Operator<Tuple2<K, V>>) kvDataSet);
-        Partitioner partitioner = new HashPartitioner(10);
-        return new KvOperator<>(new ShuffleUnionOperator<>(partitioner, dataSet, otherDataSet));
+        return unionAll(kvDataSet).distinct();
     }
 
+    @SafeVarargs
     @Override
-    public KvDataSet<K, V> unionAll(DataSet<Tuple2<K, V>> kvDataSet)
+    public final KvDataSet<K, V> unionAll(DataSet<Tuple2<K, V>>... kvDataSets)
     {
-        checkState(kvDataSet instanceof Operator, kvDataSet + "not instanceof Operator");
-        Operator<Tuple2<K, V>> otherDataSet = unboxing((Operator<Tuple2<K, V>>) kvDataSet);
-
-        return new KvOperator<>(new UnionAllOperator<>(dataSet, otherDataSet));
+        Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.unionAll(kvDataSets);
+        return new KvOperator<>(dataSet);
     }
 
     @Override

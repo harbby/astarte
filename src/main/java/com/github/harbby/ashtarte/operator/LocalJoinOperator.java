@@ -23,12 +23,14 @@ public class LocalJoinOperator<K>
     private final Operator<Tuple2<K, Object>>[] kvDataSets;
     private final Partitioner partitioner;
 
+    @SuppressWarnings("unchecked")
     @SafeVarargs
     protected LocalJoinOperator(Partitioner partitioner,
             Operator<? extends Tuple2<K, ?>>... kvDataSets)
     {
         super(kvDataSets[0].getContext());
-        this.kvDataSets = (Operator<Tuple2<K, Object>>[]) kvDataSets;
+
+        this.kvDataSets = (Operator<Tuple2<K, Object>>[]) unboxing(kvDataSets);
         this.partitioner = requireNonNull(partitioner, "partitioner is null");
     }
 

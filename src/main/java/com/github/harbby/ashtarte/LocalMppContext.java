@@ -204,7 +204,7 @@ public class LocalMppContext
         finally {
             executors.shutdown();
             try {
-                FileUtils.deleteDirectory(new File("/tmp/shuffle"));
+                FileUtils.deleteDirectory(new File("/tmp/shuffle000"));
             }
             catch (IOException e) {
                 logger.error("clear job tmp dir {} faild", "/tmp/shuffle");

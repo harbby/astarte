@@ -1,6 +1,5 @@
 package com.github.harbby.ashtarte.operator;
 
-import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 
@@ -9,18 +8,17 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static java.util.Objects.requireNonNull;
-
 public class UnionAllOperator<E>
         extends Operator<E>
 {
     private final Operator<E>[] kvDataSets;
 
+    @SuppressWarnings("unchecked")
     @SafeVarargs
     protected UnionAllOperator(Operator<E>... kvDataSets)
     {
         super(kvDataSets);
-        this.kvDataSets = kvDataSets;
+        this.kvDataSets = (Operator<E>[]) unboxing(kvDataSets);
     }
 
     public static class UnionAllPartition
@@ -42,7 +40,7 @@ public class UnionAllOperator<E>
     {
         int i = 0;
         List<Partition> partitions = new ArrayList<>();
-        for (Operator<E> operator : kvDataSets) {
+        for (Operator<? extends E> operator : kvDataSets) {
             for (Partition partition : operator.getPartitions()) {
                 Partition unionAllPartition = new UnionAllPartition(i, operator.getId(), partition);
                 partitions.add(unionAllPartition);

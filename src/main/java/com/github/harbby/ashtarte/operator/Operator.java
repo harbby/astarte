@@ -42,6 +42,7 @@ public abstract class Operator<ROW>
     @SuppressWarnings({"unchecked", "rawtypes"})
     protected static <E> Operator<E> unboxing(Operator<E> operator)
     {
+        requireNonNull(operator, "operator is null");
         if (operator instanceof KvOperator) {
             return ((KvOperator) operator).getDataSet();
         }
@@ -157,6 +158,27 @@ public abstract class Operator<ROW>
                 new ShuffleMapOperator<>(this.map(x -> new Tuple2<>(x, null)), numPartition);
         ShuffledOperator<ROW, ROW> shuffleReducer = new ShuffledOperator<>(shuffleMapOperator, shuffleMapOperator.getPartitioner());
         return shuffleReducer.map(Tuple2::f1);
+    }
+
+    @Override
+    public DataSet<ROW> union(DataSet<ROW>... kvDataSets)
+    {
+        return unionAll(kvDataSets).distinct();
+    }
+
+    @Override
+    public DataSet<ROW> unionAll(DataSet<ROW>... kvDataSets)
+    {
+        @SuppressWarnings("unchecked")
+        Operator<ROW>[] operators = new Operator[kvDataSets.length + 1];
+        operators[0] = this;
+        for (int i = 0; i < kvDataSets.length; i++) {
+            DataSet<ROW> kvDataSet = kvDataSets[i];
+            checkState(kvDataSet instanceof Operator, kvDataSet + "not instanceof Operator");
+            operators[i + 1] = (Operator<ROW>) kvDataSet;
+        }
+
+        return new UnionAllOperator<>(operators);
     }
 
     @Override
