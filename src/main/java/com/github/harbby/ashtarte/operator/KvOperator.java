@@ -6,16 +6,12 @@ import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Partition;
-import com.github.harbby.ashtarte.api.function.AggFunction;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.collection.mutable.MutableSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 
@@ -28,7 +24,12 @@ public class KvOperator<K, V>
     public KvOperator(Operator<Tuple2<K, V>> dataSet)
     {
         super(dataSet);
-        this.dataSet = dataSet;
+        this.dataSet = unboxing(dataSet);
+    }
+
+    public Operator<Tuple2<K, V>> getDataSet()
+    {
+        return dataSet;
     }
 
     @Override
@@ -92,6 +93,9 @@ public class KvOperator<K, V>
     public KvOperator<K, V> cache()
     {
         Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.cache();
+        if (dataSet instanceof KvOperator) {
+            return (KvOperator<K, V>) dataSet;
+        }
         return new KvOperator<>(dataSet);
     }
 
@@ -113,7 +117,7 @@ public class KvOperator<K, V>
         else {
             // 进行shuffle
             ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(dataSet, dataSet.numPartitions());
-            ShuffledOperator<K, V> shuffleReducer = new ShuffledOperator<>(shuffleMapper);
+            ShuffledOperator<K, V> shuffleReducer = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
             return new KvOperator<>(new FullAggOperator<>(shuffleReducer, x -> x));
         }
     }
@@ -122,7 +126,7 @@ public class KvOperator<K, V>
     public KvDataSet<K, V> partitionBy(Partitioner partitioner)
     {
         ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(dataSet, partitioner);
-        ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper);
+        ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
         return new KvOperator<>(shuffledOperator);
     }
 
@@ -154,7 +158,7 @@ public class KvOperator<K, V>
         else {
             // 进行shuffle
             ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(dataSet, partitioner);
-            ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper);
+            ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
             return new KvOperator<>(new AggOperator<>(shuffledOperator, reducer));
         }
     }
@@ -176,7 +180,7 @@ public class KvOperator<K, V>
         checkState(rightDataSet instanceof Operator, rightDataSet + "not instanceof Operator");
 
         Operator<Tuple2<K, Iterable<?>[]>> joinOperator;
-        Partitioner leftPartitioner = null; //dataSet.getPartitioner();
+        Partitioner leftPartitioner = dataSet.getPartitioner();
         Partitioner rightPartitioner = rightDataSet.getPartitioner();
         if (leftPartitioner != null && leftPartitioner.equals(rightPartitioner)) {
             // 因为上一个stage已经按照相同的分区器, 将数据分好，因此这里我们无需shuffle
@@ -184,7 +188,7 @@ public class KvOperator<K, V>
         }
         else {
             Partitioner partitioner = new HashPartitioner(dataSet.numPartitions());
-            joinOperator = new ShuffleJoinOperator<>(partitioner, dataSet, rightDataSet);
+            joinOperator = new ShuffleJoinOperator<>(partitioner, dataSet, (Operator<Tuple2<K, W>>) rightDataSet);
         }
 
         Operator<Tuple2<K, Tuple2<V, W>>> operator = joinOperator.flatMapIterator(x -> {

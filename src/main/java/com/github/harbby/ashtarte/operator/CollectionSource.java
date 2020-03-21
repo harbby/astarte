@@ -12,12 +12,12 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-public class CollectionDataSet<E>
+public class CollectionSource<E>
         extends Operator<E> {
     private final int parallelism;
     private final Collection<E> collection;
 
-    public CollectionDataSet(MppContext context, Collection<E> collection, int parallelism) {
+    public CollectionSource(MppContext context, Collection<E> collection, int parallelism) {
         super(context);
         this.collection = collection;
         this.parallelism = parallelism;

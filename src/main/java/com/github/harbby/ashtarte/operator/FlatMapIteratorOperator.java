@@ -15,7 +15,7 @@ public class FlatMapIteratorOperator<IN, OUT>
     protected FlatMapIteratorOperator(Operator<IN> dataSet, Mapper<IN, Iterator<OUT>> flatMapper) {
         super(dataSet);
         this.flatMapper = flatMapper;
-        this.dataSet = dataSet;
+        this.dataSet = unboxing(dataSet);
     }
 
     @Override

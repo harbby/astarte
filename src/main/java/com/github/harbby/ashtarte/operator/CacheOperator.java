@@ -3,16 +3,19 @@ package com.github.harbby.ashtarte.operator;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
-import com.github.harbby.gadtry.collection.immutable.ImmutableList;
+import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 //import com.google.common.collect.MapMaker;
 
+@Deprecated
 public class CacheOperator<E>
         extends Operator<E>
 {
@@ -23,7 +26,7 @@ public class CacheOperator<E>
     protected CacheOperator(Operator<E> dataSet)
     {
         super(dataSet);
-        this.dataSet = dataSet;
+        this.dataSet = unboxing(dataSet);
         list.add(dataSet);
     }
 
@@ -33,16 +36,16 @@ public class CacheOperator<E>
         return dataSet.getPartitioner();
     }
 
-    @Override
-    public List<? extends Operator<?>> getDependencies()
-    {
-        try {
-            return ImmutableList.copy(list);
-        }
-        finally {
-            list.clear();
-        }
-    }
+//    @Override
+//    public List<? extends Operator<?>> getDependencies()
+//    {
+//        try {
+//            return ImmutableList.copy(list);
+//        }
+//        finally {
+//            list.clear();
+//        }
+//    }
 
     @Override
     public Partition[] getPartitions()
@@ -53,8 +56,16 @@ public class CacheOperator<E>
     @Override
     public Iterator<E> compute(Partition split, TaskContext taskContext)
     {
-        List<E> cacheData = (List<E>) cacheMemMap.get(getId() * 100 + split.getId());
+        return compute(dataSet, getId(), split, taskContext);
+    }
+
+    public static <E> Iterator<E> compute(Operator<E> dataSet, int jobId, Partition split, TaskContext taskContext)
+    {
+        int key = jobId * 100 + split.getId();
+        List<E> cacheData = (List<E>) cacheMemMap.get(key);
         if (cacheData != null) {
+            List<Integer> deps = IntStream.of(taskContext.getDependStages()).mapToObj(x->x).collect(Collectors.toList());
+            System.out.println("-----" + dataSet.getId() +" dep:" + deps + "缓存命中---");
             return cacheData.iterator();
         }
         else {
@@ -67,7 +78,8 @@ public class CacheOperator<E>
                 {
                     boolean hasNext = iterator.hasNext();
                     if (!hasNext) {
-                        cacheMemMap.put(getId() * 100 + split.getId(), data);
+                        cacheMemMap.put(key, data);
+                        System.out.println("-------------cacde done----------");
                     }
                     return hasNext;
                 }

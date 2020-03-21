@@ -28,7 +28,7 @@ public class ShuffleMapOperator<K, V>
         //use default HashPartitioner
         super(operator);
         this.partitioner = requireNonNull(partitioner, "partitioner is null");
-        this.operator = operator;
+        this.operator = unboxing(operator);
     }
 
     public ShuffleMapOperator(Operator<? extends Tuple2<K, V>> operator, int numReducePartitions)

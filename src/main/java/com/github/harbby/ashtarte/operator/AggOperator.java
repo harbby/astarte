@@ -20,7 +20,7 @@ public class AggOperator<K, V>
 
     protected AggOperator(Operator<Tuple2<K, V>> operator, Reducer<V> reducer) {
         super(operator);
-        this.operator = operator;
+        this.operator = unboxing(operator);
         this.reducer = reducer;
     }
 

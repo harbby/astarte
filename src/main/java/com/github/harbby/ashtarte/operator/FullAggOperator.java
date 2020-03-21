@@ -35,7 +35,7 @@ public class FullAggOperator<K, V, OUT>
             Mapper<K, Collection<V>> collectionCreater)
     {
         super(dataSet);
-        this.dataSet = requireNonNull(dataSet, "dataSet is null");
+        this.dataSet = requireNonNull(unboxing(dataSet), "dataSet is null");
         this.agg = requireNonNull(agg);
         this.collectionCreater = requireNonNull(collectionCreater, "collectionCreater is null");
     }

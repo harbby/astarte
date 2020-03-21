@@ -1,10 +1,12 @@
-package com.github.harbby.ashtarte.operator;
+package com.github.harbby.ashtarte;
 
-import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.Stage;
+import com.github.harbby.ashtarte.operator.Operator;
+import com.github.harbby.ashtarte.operator.ShuffleMapOperator;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
+import static com.github.harbby.gadtry.base.MoreObjects.toStringHelper;
 
 public class ShuffleMapStage
         implements Stage
@@ -26,7 +28,7 @@ public class ShuffleMapStage
 
     public void compute(Partition split, TaskContext taskContext)
     {
-        operator.compute(split, taskContext);
+        operator.computeOrCache(split, taskContext);
     }
 
     @Override
@@ -39,5 +41,14 @@ public class ShuffleMapStage
     public Operator<?> getFinalOperator()
     {
         return operator;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("id", stageId)
+                .add("finalOperator", operator)
+                .toString();
     }
 }

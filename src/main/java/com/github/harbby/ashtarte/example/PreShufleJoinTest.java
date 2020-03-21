@@ -6,8 +6,10 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Arrays;
 
-public class Join2 {
-    public static void main(String[] args) {
+public class PreShufleJoinTest
+{
+    public static void main(String[] args)
+    {
         MppContext mppContext = MppContext.builder().setParallelism(1).getOrCreate();
 
         KvDataSet<String, Integer> ageDs = mppContext.makeKvDataSet(Arrays.asList(
@@ -15,17 +17,19 @@ public class Join2 {
                 Tuple2.of("hp", 10),
                 Tuple2.of("hp1", 19),
                 Tuple2.of("hp2", 20)
-        )).reduceByKey(Integer::sum);;
+        )).reduceByKey(Integer::sum);
 
         KvDataSet<String, String> cityDs = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", "xi'an"),
                 Tuple2.of("hp1", "chengdu")
-        ), 2);
+        ), 2)
+                .partitionBy(1);
+                //.distinct();
 
-        ageDs.print();
+        //ageDs.print();
         KvDataSet<String, Tuple2<Integer, String>> out = ageDs.leftJoin(cityDs);
 
         // a,(143, 41)
-        out.foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
+        out.distinct().foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
     }
 }

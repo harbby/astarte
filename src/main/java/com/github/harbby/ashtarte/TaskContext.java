@@ -1,6 +1,6 @@
 package com.github.harbby.ashtarte;
 
-import java.util.stream.Stream;
+import java.util.List;
 
 public interface TaskContext
 {
@@ -8,14 +8,9 @@ public interface TaskContext
 
     int[] getDependStages();
 
-    public static TaskContext of(int stageId, Integer[] depStages)
+    public static TaskContext of(int stageId, List<Integer> depStages)
     {
-        int[] intArray = Stream.of(depStages).mapToInt(x -> x).toArray();
-        return of(stageId, intArray);
-    }
-
-    public static TaskContext of(int stageId, int[] depStages)
-    {
+        int[] deps = depStages.stream().mapToInt(x -> x).toArray();
         return new TaskContext()
         {
             @Override
@@ -27,7 +22,7 @@ public interface TaskContext
             @Override
             public int[] getDependStages()
             {
-                return depStages;
+                return deps;
             }
         };
     }

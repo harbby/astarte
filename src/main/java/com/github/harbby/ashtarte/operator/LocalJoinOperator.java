@@ -5,12 +5,14 @@ import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -59,9 +61,21 @@ public class LocalJoinOperator<K>
     @Override
     public Iterator<Tuple2<K, Iterable<?>[]>> compute(Partition split, TaskContext taskContext)
     {
-        Iterator<Iterator<Tuple2<K, Object>>> iterators = Arrays.stream(kvDataSets)
-                .map(operator -> operator.compute(split, taskContext))
-                .iterator();
+        int[] deps = taskContext.getDependStages();
+
+        checkState(deps.length == kvDataSets.length);
+        Iterator<Iterator<Tuple2<K, Object>>> iterators = IntStream.range(0, deps.length)
+                .mapToObj(i -> {
+                    int shuffleId = deps[i];
+                    TaskContext context = TaskContext.of(taskContext.getStageId()
+                            , ImmutableList.of(shuffleId));
+                    return kvDataSets[i].compute(split, context);
+                }).iterator();
+
+//        Iterator<Iterator<Tuple2<K, Object>>> iterators = Arrays.stream(kvDataSets)
+//                .map(operator -> operator.compute(split, taskContext))
+//                .iterator();
+
         return Iterators.join(iterators, kvDataSets.length);
     }
 }

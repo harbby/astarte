@@ -1,8 +1,11 @@
-package com.github.harbby.ashtarte.operator;
+package com.github.harbby.ashtarte;
 
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.Stage;
+import com.github.harbby.ashtarte.operator.Operator;
+
+import static com.github.harbby.gadtry.base.MoreObjects.toStringHelper;
 
 public class ResultStage<E>
         implements Stage
@@ -31,12 +34,21 @@ public class ResultStage<E>
     @Override
     public void compute(Partition split, TaskContext taskContext)
     {
-        operator.compute(split, taskContext);
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public int getStageId()
     {
         return stageId;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("id", stageId)
+                .add("finalOperator", operator)
+                .toString();
     }
 }

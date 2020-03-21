@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 public class ShuffleJoinOperator<K>
         extends Operator<Tuple2<K, Iterable<?>[]>>
@@ -20,12 +21,16 @@ public class ShuffleJoinOperator<K>
     private final DataSet<? extends Tuple2<K, ?>>[] kvDataSets;
     private final Partitioner partitioner;
 
+    @SuppressWarnings("unchecked")
     @SafeVarargs
     protected ShuffleJoinOperator(Partitioner partitioner,
-            DataSet<? extends Tuple2<K, ?>>... kvDataSets)
+            Operator<? extends Tuple2<K, ?>>... kvDataSets)
     {
         super(kvDataSets[0].getContext());
-        this.kvDataSets = kvDataSets;
+
+        this.kvDataSets = Stream.of(kvDataSets).map(x-> unboxing(x))
+        .toArray(Operator[]::new);
+
         this.partitioner = partitioner;
     }
 

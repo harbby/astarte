@@ -3,6 +3,7 @@ package com.github.harbby.ashtarte;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.gadtry.graph.Graph;
 
+import java.util.List;
 import java.util.Map;
 
 public class GraphScheduler {
@@ -12,15 +13,16 @@ public class GraphScheduler {
         this.mppContext = mppContext;
     }
 
-    public void runGraph(Map<Stage, Integer[]> stages) {
+    public void runGraph(Map<Stage, List<Integer>> stages) {
         Graph.GraphBuilder<Stage, Void> builder = Graph.builder();
         for (Stage stage : stages.keySet()) {
             builder.addNode(stage.getStageId() + "", stage);
         }
 
-        for (Map.Entry<Stage, Integer[]> entry : stages.entrySet()) {
+        for (Map.Entry<Stage, List<Integer>> entry : stages.entrySet()) {
             for (int id : entry.getValue()) {
-                builder.addEdge(id + "", entry.getKey().getStageId() + "");
+                builder.addEdge(entry.getKey().getStageId() + "", id + "");
+                //builder.addEdge(id + "", entry.getKey().getStageId()+"");
             }
 
         }
