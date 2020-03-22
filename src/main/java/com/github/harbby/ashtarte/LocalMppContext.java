@@ -182,9 +182,6 @@ public class LocalMppContext
         for (Stage stage : stages) {
             if (stage instanceof ShuffleMapStage) {
                 logger.info("starting... shuffleMapStage: {}, id {}", stage, stage.getStageId());
-                if(stage.getStageId() == 66) {
-                    System.out.println();
-                }
                 SerializableObj<Stage> serializableStage = SerializableObj.of(stage);
                 Map<Integer, Integer> deps = stageMap.getOrDefault(stage, Collections.emptyMap());
 
