@@ -104,6 +104,20 @@ public class KvOperator<K, V>
     }
 
     @Override
+    public KvDataSet<K, V> cache(CacheOperator.CacheMode cacheMode)
+    {
+        this.dataSet.cache(cacheMode);
+        return this;
+    }
+
+    @Override
+    public KvOperator<K, V> unCache()
+    {
+        this.dataSet.unCache();
+        return this;
+    }
+
+    @Override
     public KvOperator<K, V> rePartition(int numPartition)
     {
         Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.rePartition(numPartition);

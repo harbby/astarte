@@ -3,6 +3,7 @@ package com.github.harbby.ashtarte.api;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
+import com.github.harbby.ashtarte.operator.CacheOperator;
 import com.github.harbby.ashtarte.operator.KvOperator;
 import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -30,6 +31,10 @@ public interface KvDataSet<K, V>
     public KvDataSet<K, V> rePartition(int numPartition);
 
     KvDataSet<K, V> cache();
+
+    KvDataSet<K, V> cache(CacheOperator.CacheMode cacheMode);
+
+    KvDataSet<K, V> unCache();
 
     KvDataSet<K, V> distinct();
 

@@ -13,7 +13,8 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
+
+import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 
 public class ShuffleJoinOperator<K>
         extends Operator<Tuple2<K, Iterable<?>[]>>
@@ -61,9 +62,12 @@ public class ShuffleJoinOperator<K>
     @Override
     public Iterator<Tuple2<K, Iterable<?>[]>> compute(Partition split, TaskContext taskContext)
     {
-        int[] deps = taskContext.getDependStages();
+        Integer[] deps = taskContext.getDependStages();
+        for (Integer shuffleId : deps) {
+            checkState(shuffleId != null, "shuffleId is null");
+        }
         Iterator<Iterator<Tuple2<K, Object>>> iterators = Arrays.stream(deps)
-                .mapToObj(shuffleId -> ShuffleManager.<K, Object>getReader(shuffleId, split.getId()))
+                .map(shuffleId -> ShuffleManager.<K, Object>getReader(shuffleId, split.getId()))
                 .iterator();
         return Iterators.join(iterators, deps.length);
     }

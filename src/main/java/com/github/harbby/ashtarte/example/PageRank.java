@@ -5,7 +5,6 @@ import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -22,10 +21,10 @@ public class PageRank
 
         DataSet<String> lines = mppContext.textFile(sparkHome + "/data/mllib/pagerank_data.txt");
         //KvDataSet<String,? extends Iterable<String>>
-        KvDataSet<String, ? extends Iterable<String>> links = lines.kvDataSet(s -> {
+        KvDataSet<String, Iterable<String>> links = lines.kvDataSet(s -> {
             String[] parts = s.split("\\s+");
             return new Tuple2<>(parts[0], parts[1]);
-        }).groupByKey().cache();
+        }).unionAll(mppContext.makeEmptyDataSet()).cache().groupByKey().cache();
 
 //        links = mppContext.makeKvDataSet(Arrays.asList(
 //                new Tuple2<>("1", Arrays.asList("2", "3", "4")),

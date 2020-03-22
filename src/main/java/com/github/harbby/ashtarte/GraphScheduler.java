@@ -13,13 +13,13 @@ public class GraphScheduler {
         this.mppContext = mppContext;
     }
 
-    public void runGraph(Map<Stage, List<Integer>> stages) {
+    public void runGraph(Map<Stage,? extends List<Integer>> stages) {
         Graph.GraphBuilder<Stage, Void> builder = Graph.builder();
         for (Stage stage : stages.keySet()) {
             builder.addNode(stage.getStageId() + "", stage);
         }
 
-        for (Map.Entry<Stage, List<Integer>> entry : stages.entrySet()) {
+        for (Map.Entry<Stage,? extends List<Integer>> entry : stages.entrySet()) {
             for (int id : entry.getValue()) {
                 builder.addEdge(entry.getKey().getStageId() + "", id + "");
                 //builder.addEdge(id + "", entry.getKey().getStageId()+"");

@@ -7,6 +7,7 @@ import com.github.harbby.ashtarte.api.function.Foreach;
 import com.github.harbby.ashtarte.api.function.KeyedFunction;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
+import com.github.harbby.ashtarte.operator.CacheOperator;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.Serializable;
@@ -46,7 +47,14 @@ public interface DataSet<ROW>
 
     <K, V> KvDataSet<K, V> kvDataSet(Mapper<ROW, Tuple2<K, V>> kvMapper);
 
-    DataSet<ROW> cache();
+    DataSet<ROW> cache(CacheOperator.CacheMode cacheMode);
+
+    default DataSet<ROW> cache()
+    {
+        return cache(CacheOperator.CacheMode.MEM_ONLY);
+    }
+
+    DataSet<ROW> unCache();
 
     DataSet<ROW> distinct();
 

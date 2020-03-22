@@ -1,9 +1,10 @@
 package com.github.harbby.ashtarte;
 
-import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.operator.Operator;
+
+import java.util.Objects;
 
 import static com.github.harbby.gadtry.base.MoreObjects.toStringHelper;
 
@@ -50,5 +51,27 @@ public class ResultStage<E>
                 .add("id", stageId)
                 .add("finalOperator", operator)
                 .toString();
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(operator, stageId);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+
+        ResultStage other = (ResultStage) obj;
+        return Objects.equals(this.operator, other.operator) &&
+                Objects.equals(this.stageId, other.stageId);
     }
 }

@@ -12,6 +12,8 @@ import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -27,6 +29,8 @@ import static java.util.Objects.requireNonNull;
 public abstract class Operator<ROW>
         implements DataSet<ROW>
 {
+    protected static final Logger logger = LoggerFactory.getLogger(Operator.class);
+
     private static final AtomicInteger nextDataSetId = new AtomicInteger(0);  //发号器
     private final transient MppContext context;
     private final int id = nextDataSetId.getAndIncrement();
@@ -130,9 +134,28 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public DataSet<ROW> cache()
+    public DataSet<ROW> cache(CacheOperator.CacheMode cacheMode)
     {
+        checkState(cacheMode == CacheOperator.CacheMode.MEM_ONLY, "目前只支持mem模式");
         markedCache = true;
+        return this;
+    }
+
+    /**
+     * todo: 需重新实现
+     */
+    @Override
+    public DataSet<ROW> unCache()
+    {
+        checkState(!(this instanceof KvOperator) && this.isMarkedCache(),
+                "this DataSet not cached");
+        //blocking = true
+        //todo: 通过job触发 代价比较重(会出发额外的stage多计算)，后续应该改为通信解决(斩断dag血缘)
+        context.runJob(this, iterator -> {
+            CacheOperator.unCacheExec(id);
+            return true;
+        });
+        markedCache = false;
         return this;
     }
 

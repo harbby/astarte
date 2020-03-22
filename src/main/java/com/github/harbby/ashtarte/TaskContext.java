@@ -7,16 +7,16 @@ public interface TaskContext
 {
     int getStageId();
 
-    int[] getDependStages();
+    Integer[] getDependStages();
 
-    public static TaskContext of(int stageId, int depStages)
+    public static TaskContext of(int stageId, Integer depStages)
     {
         return of(stageId, Collections.singletonList(depStages));
     }
 
     public static TaskContext of(int stageId, List<Integer> depStages)
     {
-        int[] deps = depStages.stream().mapToInt(x -> x).toArray();
+        Integer[] deps = depStages.toArray(new Integer[0]);
         return new TaskContext()
         {
             @Override
@@ -26,7 +26,7 @@ public interface TaskContext
             }
 
             @Override
-            public int[] getDependStages()
+            public Integer[] getDependStages()
             {
                 return deps;
             }

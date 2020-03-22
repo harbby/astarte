@@ -10,16 +10,26 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 
 public interface MppContext
 {
-
     public default <K, V> KvDataSet<K, V> makeKvDataSet(Collection<Tuple2<K, V>> collection, int parallelism)
     {
         return new KvOperator<>(new CollectionSource<>(this, collection, parallelism));
+    }
+
+    public default <V> DataSet<V> makeEmptyDataSet()
+    {
+        return makeEmptyDataSet(1);
+    }
+
+    public default <V> DataSet<V> makeEmptyDataSet(int parallelism)
+    {
+        return new CollectionSource<>(this, Collections.emptyList(), parallelism);
     }
 
     public default <K, V> KvDataSet<K, V> makeKvDataSet(Collection<Tuple2<K, V>> collection)

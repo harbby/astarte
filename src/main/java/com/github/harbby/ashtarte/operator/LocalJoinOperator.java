@@ -12,6 +12,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -62,17 +63,12 @@ public class LocalJoinOperator<K>
     @Override
     public Iterator<Tuple2<K, Iterable<?>[]>> compute(Partition split, TaskContext taskContext)
     {
-        int[] deps = taskContext.getDependStages();
+        Integer[] deps = taskContext.getDependStages();
 
-        //checkState(deps.length == kvDataSets.length);
-        if (deps.length == 1) {
-            deps = new int[] {5, deps[0]};
-        }
-        int[] finalDeps = deps;
-
-        Iterator<Iterator<Tuple2<K, Object>>> iterators = IntStream.range(0, finalDeps.length)
+        checkState(deps.length == kvDataSets.length);
+        Iterator<Iterator<Tuple2<K, Object>>> iterators = IntStream.range(0, deps.length)
                 .mapToObj(i -> {
-                    int shuffleId = finalDeps[i];
+                    Integer shuffleId = deps[i];
                     TaskContext context = TaskContext.of(taskContext.getStageId()
                             , ImmutableList.of(shuffleId));
                     return kvDataSets[i].computeOrCache(split, context);
