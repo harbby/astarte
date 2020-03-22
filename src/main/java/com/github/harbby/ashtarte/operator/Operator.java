@@ -11,11 +11,12 @@ import com.github.harbby.ashtarte.api.function.Foreach;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.gadtry.collection.immutable.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -34,12 +35,12 @@ public abstract class Operator<ROW>
     private static final AtomicInteger nextDataSetId = new AtomicInteger(0);  //发号器
     private final transient MppContext context;
     private final int id = nextDataSetId.getAndIncrement();
-    private final Operator<?>[] dataSets;
+    private final List<Operator<?>> dataSets;
 
     public Operator(Operator<?>... dataSets)
     {
         checkState(dataSets != null && dataSets.length > 0, "dataSet is Empty");
-        this.dataSets = Stream.of(dataSets).map(Operator::unboxing).toArray(Operator<?>[]::new);
+        this.dataSets = Stream.of(dataSets).map(Operator::unboxing).collect(Collectors.toList());
         this.context = requireNonNull(dataSets[0].getContext(), "getContext is null " + dataSets[0]);
     }
 
@@ -68,7 +69,7 @@ public abstract class Operator<ROW>
     protected Operator(MppContext context)
     {
         this.context = requireNonNull(context, "context is null");
-        this.dataSets = new Operator<?>[0];
+        this.dataSets = new ArrayList<>();
     }
 
     @Override
@@ -102,7 +103,14 @@ public abstract class Operator<ROW>
 
     public List<? extends Operator<?>> getDependencies()
     {
-        return Arrays.asList(dataSets);
+        return ImmutableList.copy(dataSets);
+    }
+
+    public void clearDependencies()
+    {
+        if (this instanceof ShuffledOperator || this instanceof ShuffleJoinOperator) {
+            dataSets.clear();
+        }
     }
 
     @Override

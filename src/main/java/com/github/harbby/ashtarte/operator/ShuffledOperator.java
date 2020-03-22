@@ -12,6 +12,12 @@ import java.util.stream.IntStream;
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 
 /**
+ * 每个stage只需包含自己相关算子的引用。这样序列化dag时将只会包含自己相关引用
+ * 以此目前Stage仅有的两个firstOperator是[ShuffledOperator, ShuffleJoinOperator]
+ * 我们在[ShuffledOperator, ShuffleJoinOperator]算子里不能包含任何Operator的引用.
+ * see: clearOperatorDependencies
+ *
+ * <p>
  * shuffle Reducer reader
  */
 public class ShuffledOperator<KEY, AggValue>

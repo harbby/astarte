@@ -3,7 +3,9 @@ package com.github.harbby.ashtarte;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.operator.Operator;
+import com.github.harbby.ashtarte.operator.ShuffleJoinOperator;
 import com.github.harbby.ashtarte.operator.ShuffleMapOperator;
+import com.github.harbby.ashtarte.operator.ShuffledOperator;
 import com.github.harbby.ashtarte.utils.SerializableObj;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
@@ -156,6 +158,33 @@ public class LocalMppContext
         return map;
     }
 
+    /**
+     * 清理ShuffledOperator和ShuffleJoinOperator的Operator依赖
+     * 清理依赖后,每个stage将只包含自己相关的Operator引用
+     * <p>
+     * 为什么要清理? 如果不清理，序列化stage时则会抛出StackOverflowError
+     * demo: pageRank demo迭代数可以超过120了,不清理则会抛出StackOverflowError
+     */
+    private void clearOperatorDependencies(List<Stage> stages)
+    {
+        Queue<Operator<?>> stack = new LinkedList<>();
+        for (Stage stage : stages) {
+            stack.add(stage.getFinalOperator());
+        }
+        //广度优先
+        while (!stack.isEmpty()) {
+            Operator<?> o = stack.poll();
+            for (Operator<?> operator : o.getDependencies()) {
+                if (operator instanceof ShuffledOperator || operator instanceof ShuffleJoinOperator) {
+                    operator.clearDependencies();
+                }
+                else {
+                    stack.add(operator);
+                }
+            }
+        }
+    }
+
     @Override
     public <E, R> List<R> runJob(Operator<E> finalOperator, Function<Iterator<E>, R> action)
     {
@@ -170,7 +199,8 @@ public class LocalMppContext
 
         List<Stage> stages = new ArrayList<>(stageMap.keySet());
         stages.sort((x, y) -> Integer.compare(y.getStageId(), x.getStageId()));
-        new GraphScheduler(this).runGraph(stageMap);
+        clearOperatorDependencies(stages);
+        //new GraphScheduler(this).runGraph(stageMap);  //dag过大时会栈溢出
         //---------------------
         ExecutorService executors = Executors.newFixedThreadPool(parallelism);
         try {

@@ -16,6 +16,24 @@ public class JoinOperatorTest
             .getOrCreate();
 
     @Test
+    public void ajoinAHashShuffleJointest()
+    {
+        //todo: 这个例子如果使用 ShuffleJoin则无法跑通，只能使用localJoin跑通
+        //原因在dag 依赖信息存在缺少(仅在该场景存在)
+        KvDataSet<String, Integer> ageDs = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 18),
+                Tuple2.of("hp1", 19),
+                Tuple2.of("hp2", 20)
+        )).distinct();
+        List<Tuple2<String, Tuple2<Integer, Integer>>> data = ageDs.join(ageDs).collect();
+
+        Assert.assertEquals(data,
+                Arrays.asList(Tuple2.of("hp", Tuple2.of(18, 18)),
+                        Tuple2.of("hp1", Tuple2.of(19, 19)),
+                        Tuple2.of("hp2", Tuple2.of(20, 20))));
+    }
+
+    @Test
     public void ajoinb_test()
     {
         KvDataSet<String, Integer> ageDs = mppContext.makeKvDataSet(Arrays.asList(

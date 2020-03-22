@@ -9,6 +9,12 @@ import org.junit.Test;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * pageRank 由google创始人 拉里·佩奇（Larry Page）发明.
+ * <p>
+ * 该算法为迭代型,且结果收敛
+ * 迭代此时将影响收敛度
+ */
 public class PageRankTest
 {
     private final MppContext mppContext = MppContext.builder()
@@ -16,16 +22,17 @@ public class PageRankTest
             .getOrCreate();
 
     @Test
-    public void pageRank4itersTest() {
+    public void pageRank4itersTest()
+    {
 
-        int iters = 120;  //迭代次数
+        int iters = 1000;  //迭代次数
         String sparkHome = System.getenv("SPARK_HOME");
 
         DataSet<String> lines = mppContext.textFile(sparkHome + "/data/mllib/pagerank_data.txt");
         KvDataSet<String, Iterable<String>> links = lines.kvDataSet(s -> {
             String[] parts = s.split("\\s+");
             return new Tuple2<>(parts[0], parts[1]);
-        }).distinct(1).groupByKey().cache();
+        }).distinct().groupByKey().cache();
 
         KvDataSet<String, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {
