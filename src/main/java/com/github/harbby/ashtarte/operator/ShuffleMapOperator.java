@@ -9,6 +9,7 @@ import com.github.harbby.ashtarte.api.ShuffleWriter;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
+import java.io.IOException;
 import java.util.Iterator;
 
 import static java.util.Objects.requireNonNull;
@@ -58,7 +59,7 @@ public class ShuffleMapOperator<K, V>
             Iterator<? extends Tuple2<K, V>> iterator = operator.computeOrCache(split, taskContext);
             shuffleWriter.write(iterator);
         }
-        catch (Exception e) {
+        catch (IOException e) {
             throw new AshtarteException("shuffle map task failed", e);
         }
         return Iterators.empty();

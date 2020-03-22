@@ -8,8 +8,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static com.github.harbby.gadtry.base.MoreObjects.checkState;
-
 public class UnionAllOperator<E>
         extends Operator<E>
 {
@@ -64,13 +62,9 @@ public class UnionAllOperator<E>
     protected Iterator<E> compute(Partition split, TaskContext taskContext)
     {
         UnionAllPartition unionAllPartition = (UnionAllPartition) split;
-        Integer[] depShuffles = taskContext.getDependStages();
-        checkState(depShuffles.length == kvDataSets.length);
-
-        for (int i = 0; i < kvDataSets.length; i++) {
-            if (unionAllPartition.operatorId == kvDataSets[i].getId()) {
-                TaskContext context = TaskContext.of(taskContext.getStageId(), depShuffles[i]);
-                return kvDataSets[i].computeOrCache(unionAllPartition.partition, context);
+        for (Operator<E> operator : kvDataSets) {
+            if (unionAllPartition.operatorId == operator.getId()) {
+                return operator.computeOrCache(unionAllPartition.partition, taskContext);
             }
         }
         throw new IllegalStateException();

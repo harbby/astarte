@@ -16,12 +16,12 @@ public class SumAvgAggDemo
                 .filter(x -> !"".equals(x.trim()));
 
         KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> new Tuple2<>(x, 1L));
-        DataSet<Tuple2<String, Long>> worldCounts = kvDataSet.partitionBy(2).reduceByKey(Long::sum);
+        KvDataSet<String, Long> worldCounts = kvDataSet.partitionBy(2).reduceByKey(Long::sum);
 
         DataSet<Tuple2<String, Double>> worldCounts2 = worldCounts
                 .rePartition(4)
-                .groupBy(x -> x.f1().substring(0, 1), 3)
-                .avg(x -> Double.valueOf(x.f2()));
+                .mapKeys(k -> k.substring(0, 1))
+                .avgValues(Double::valueOf, 3);
 
         worldCounts2.foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
     }

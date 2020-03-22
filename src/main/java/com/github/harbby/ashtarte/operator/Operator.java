@@ -1,5 +1,6 @@
 package com.github.harbby.ashtarte.operator;
 
+import com.github.harbby.ashtarte.HashPartitioner;
 import com.github.harbby.ashtarte.MppContext;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
@@ -7,7 +8,6 @@ import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.function.Filter;
 import com.github.harbby.ashtarte.api.function.Foreach;
-import com.github.harbby.ashtarte.api.function.KeyedFunction;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.gadtry.base.Iterators;
@@ -40,7 +40,7 @@ public abstract class Operator<ROW>
     {
         checkState(dataSets != null && dataSets.length > 0, "dataSet is Empty");
         this.dataSets = Stream.of(dataSets).map(Operator::unboxing).toArray(Operator<?>[]::new);
-        this.context = requireNonNull(dataSets[0].getContext(), "context is null");
+        this.context = requireNonNull(dataSets[0].getContext(), "getContext is null " + dataSets[0]);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -151,7 +151,7 @@ public abstract class Operator<ROW>
                 "this DataSet not cached");
         //blocking = true
         //todo: 通过job触发 代价比较重(会出发额外的stage多计算)，后续应该改为通信解决(斩断dag血缘)
-        context.runJob(this, iterator -> {
+        context.runJob(unboxing(this), iterator -> {
             CacheOperator.unCacheExec(id);
             return true;
         });
@@ -168,10 +168,16 @@ public abstract class Operator<ROW>
     @Override
     public DataSet<ROW> distinct(int numPartition)
     {
+        return distinct(new HashPartitioner(numPartition));
+    }
+
+    @Override
+    public DataSet<ROW> distinct(Partitioner partitioner)
+    {
         return this.kvDataSet(x -> new Tuple2<>(x, null))
-                .reduceByKey((x, y) -> x, numPartition)
+                .reduceByKey((x, y) -> x, partitioner)
                 .map(Tuple2::f1);  //使用map()更安全，因为我们不能将Partitioner传递下去
-        //.keys();  // 这里不推荐使用keys(),使用.map() 更加强调不会传递Partitioner
+        //.keys();  // 这里不推荐使用keys(),使用.map() 更加强调不会传递Partitioner;
     }
 
     @Override
@@ -184,24 +190,29 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public DataSet<ROW> union(DataSet<ROW>... kvDataSets)
+    public DataSet<ROW> union(DataSet<ROW> dataSet)
     {
-        return unionAll(kvDataSets).distinct();
+        return unionAll(dataSet).distinct();
     }
 
     @Override
-    public DataSet<ROW> unionAll(DataSet<ROW>... kvDataSets)
+    public DataSet<ROW> union(DataSet<ROW> dataSet, int numPartition)
     {
-        @SuppressWarnings("unchecked")
-        Operator<ROW>[] operators = new Operator[kvDataSets.length + 1];
-        operators[0] = this;
-        for (int i = 0; i < kvDataSets.length; i++) {
-            DataSet<ROW> kvDataSet = kvDataSets[i];
-            checkState(kvDataSet instanceof Operator, kvDataSet + "not instanceof Operator");
-            operators[i + 1] = (Operator<ROW>) kvDataSet;
-        }
+        return union(dataSet, new HashPartitioner(numPartition));
+    }
 
-        return new UnionAllOperator<>(operators);
+    @Override
+    public DataSet<ROW> union(DataSet<ROW> dataSets, Partitioner partitioner)
+    {
+        return unionAll(dataSets).distinct(partitioner);
+    }
+
+    @Override
+    public DataSet<ROW> unionAll(DataSet<ROW> dataSet)
+    {
+        requireNonNull(dataSet, "dataSet is null");
+        checkState(dataSet instanceof Operator, dataSet + "not instanceof Operator");
+        return new UnionAllOperator<>(this, (Operator<ROW>) dataSet);
     }
 
     @Override
@@ -246,30 +257,12 @@ public abstract class Operator<ROW>
                 false);
     }
 
-    @Override
-    public <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter)
-    {
-        return new KeyedDataSet<>(this, keyGetter);
-    }
-
-    @Override
-    public <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, int numReduce)
-    {
-        return new KeyedDataSet<>(this, keyGetter, numReduce);
-    }
-
-    @Override
-    public <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, Partitioner partitioner)
-    {
-        return new KeyedDataSet<>(this, keyGetter, partitioner);
-    }
-
     //---action operator
     @Override
     public List<ROW> collect()
     {
         //todo: 使用其他比ImmutableList复杂度更低的操作
-        return context.runJob(this, x -> x)
+        return context.runJob(unboxing(this), x -> x)
                 .stream()
                 .flatMap(Iterators::toStream)
                 .collect(Collectors.toList());
@@ -278,20 +271,20 @@ public abstract class Operator<ROW>
     @Override
     public long count()
     {
-        return context.runJob(this, Iterators::size).stream().mapToLong(x -> x).sum();
+        return context.runJob(unboxing(this), Iterators::size).stream().mapToLong(x -> x).sum();
     }
 
     @Override
     public Optional<ROW> reduce(Reducer<ROW> reducer)
     {
-        return context.runJob(this, iterator -> Iterators.reduce(iterator, reducer::reduce))
+        return context.runJob(unboxing(this), iterator -> Iterators.reduce(iterator, reducer::reduce))
                 .stream().reduce(reducer::reduce);
     }
 
     @Override
     public void foreach(Foreach<ROW> foreach)
     {
-        context.runJob(this, iterator -> {
+        context.runJob(unboxing(this), iterator -> {
             while (iterator.hasNext()) {
                 foreach.apply(iterator.next());
             }
@@ -302,7 +295,7 @@ public abstract class Operator<ROW>
     @Override
     public void foreachPartition(Foreach<Iterator<ROW>> partitionForeach)
     {
-        context.runJob(this, iterator -> {
+        context.runJob(unboxing(this), iterator -> {
             partitionForeach.apply(iterator);
             return true;
         });
@@ -311,7 +304,7 @@ public abstract class Operator<ROW>
     @Override
     public void print(int limit)
     {
-        context.runJob(this, iterator -> {
+        context.runJob(unboxing(this), iterator -> {
             Iterator<ROW> limitIterator = Iterators.limit(iterator, limit);
             while (limitIterator.hasNext()) {
                 System.out.println((limitIterator.next()));
@@ -323,7 +316,7 @@ public abstract class Operator<ROW>
     @Override
     public void print()
     {
-        context.runJob(this, iterator -> {
+        context.runJob(unboxing(this), iterator -> {
             while (iterator.hasNext()) {
                 System.out.println((iterator.next()));
             }

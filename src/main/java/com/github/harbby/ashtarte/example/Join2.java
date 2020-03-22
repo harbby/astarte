@@ -15,7 +15,7 @@ public class Join2 {
                 Tuple2.of("hp", 10),
                 Tuple2.of("hp1", 19),
                 Tuple2.of("hp2", 20)
-        )).reduceByKey(Integer::sum);;
+        )).reduceByKey(Integer::sum);
 
         KvDataSet<String, String> cityDs = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", "xi'an"),

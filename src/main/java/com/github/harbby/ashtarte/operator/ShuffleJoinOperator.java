@@ -9,9 +9,9 @@ import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
@@ -21,6 +21,7 @@ public class ShuffleJoinOperator<K>
 {
     private final DataSet<? extends Tuple2<K, ?>>[] kvDataSets;
     private final Partitioner partitioner;
+    private final List<ShuffleMapOperator<K, ?>> shuffleMapOperators;
 
     @SuppressWarnings("unchecked")
     @SafeVarargs
@@ -28,15 +29,20 @@ public class ShuffleJoinOperator<K>
             Operator<? extends Tuple2<K, ?>>... kvDataSets)
     {
         super(kvDataSets[0].getContext());
-        this.kvDataSets = unboxing(kvDataSets);
+        Operator<? extends Tuple2<K, ?>>[] unboxingOps = unboxing(kvDataSets);
+
+        this.kvDataSets = unboxingOps;
         this.partitioner = partitioner;
+        this.shuffleMapOperators = createShuffleMapOps(unboxingOps, partitioner);
     }
 
-    @Override
-    public List<Operator<?>> getDependencies()
+    private static <K> List<ShuffleMapOperator<K, ?>> createShuffleMapOps(
+            Operator<? extends Tuple2<K, ?>>[] kvDataSets,
+            Partitioner partitioner)
     {
-        List<Operator<?>> deps = new ArrayList<>(kvDataSets.length);
+        List<ShuffleMapOperator<K, ?>> deps = new ArrayList<>(kvDataSets.length);
         for (DataSet<? extends Tuple2<K, ?>> dataSet : kvDataSets) {
+            @SuppressWarnings("unchecked")
             Operator<Tuple2<K, Object>> operator = (Operator<Tuple2<K, Object>>) dataSet;
             deps.add(new ShuffleMapOperator<>(operator, partitioner));
         }
@@ -44,9 +50,21 @@ public class ShuffleJoinOperator<K>
     }
 
     @Override
+    public List<? extends Operator<?>> getDependencies()
+    {
+        return shuffleMapOperators;
+    }
+
+    @Override
     public Partitioner getPartitioner()
     {
         return partitioner;
+    }
+
+    @Override
+    public int numPartitions()
+    {
+        return partitioner.numPartitions();
     }
 
     @Override
@@ -62,13 +80,15 @@ public class ShuffleJoinOperator<K>
     @Override
     public Iterator<Tuple2<K, Iterable<?>[]>> compute(Partition split, TaskContext taskContext)
     {
-        Integer[] deps = taskContext.getDependStages();
-        for (Integer shuffleId : deps) {
+        Map<Integer, Integer> deps = taskContext.getDependStages();
+        for (Integer shuffleId : deps.values()) {
             checkState(shuffleId != null, "shuffleId is null");
         }
-        Iterator<Iterator<Tuple2<K, Object>>> iterators = Arrays.stream(deps)
-                .map(shuffleId -> ShuffleManager.<K, Object>getReader(shuffleId, split.getId()))
-                .iterator();
-        return Iterators.join(iterators, deps.length);
+        Iterator<Iterator<Tuple2<K, Object>>> iterators = shuffleMapOperators.stream().map(operator -> {
+            int shuffleId = deps.get(operator.getId());
+            return ShuffleManager.<K, Object>getReader(shuffleId, split.getId());
+        }).iterator();
+
+        return Iterators.join(iterators, kvDataSets.length);
     }
 }

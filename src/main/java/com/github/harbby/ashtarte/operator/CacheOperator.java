@@ -66,16 +66,14 @@ public class CacheOperator<E>
     {
         @SuppressWarnings("unchecked")
         Iterable<E>[] jobCachePartitons = (Iterable<E>[]) cacheMemMap.computeIfAbsent(jobId, key -> new Iterable[dataSet.numPartitions()]);
-        ;
 
-        List<Integer> deps = Stream.of(taskContext.getDependStages()).collect(Collectors.toList());
         Iterable<E> partitionCache = jobCachePartitons[split.getId()];
         if (partitionCache != null) {
-            logger.debug("-----{} cached dep stage: {}缓存命中---", dataSet, deps);
+            logger.debug("-----{} cached dep stage: {}缓存命中---", dataSet, taskContext.getDependStages());
             return partitionCache.iterator();
         }
         else {
-            logger.debug("-----{} cached dep stage: {}缓存失效---", dataSet, deps);
+            logger.debug("-----{} cached dep stage: {}缓存失效---", dataSet, taskContext.getDependStages());
             final List<E> data = new ArrayList<>();
             Iterator<E> iterator = dataSet.compute(split, taskContext);
             return new Iterator<E>()
@@ -86,7 +84,7 @@ public class CacheOperator<E>
                     boolean hasNext = iterator.hasNext();
                     if (!hasNext) {
                         jobCachePartitons[split.getId()] = data;  //原子操作，线程安全
-                        logger.debug("-----{} cached dep stage: {} cacde write done---", dataSet, deps);
+                        logger.debug("-----{} cached dep stage: {} cacde write done---", dataSet, taskContext.getDependStages());
                     }
                     return hasNext;
                 }

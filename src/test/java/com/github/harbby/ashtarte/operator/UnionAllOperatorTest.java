@@ -41,17 +41,43 @@ public class UnionAllOperatorTest
     }
 
     @Test
-    public void unionAllNoShuffleTest()
+    public void unionAllOneShuffleTest()
     {
         KvDataSet<String, Integer> ds1 = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", 18)
-        ));
+        )).mapValues(x -> x);
 
         KvDataSet<String, Integer> ds2 = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", 2),
                 Tuple2.of("hp1", 19),
                 Tuple2.of("hp2", 21)
-        ), 2).reduceByKey(Integer::sum);
+        ), 2).reduceByKey(Integer::sum).mapValues(x -> x);
+        //.distinct();
+
+        //ageDs.print();
+        KvDataSet<String, Integer> out = ds1.unionAll(ds2).reduceByKey(Integer::sum);
+
+        Assert.assertEquals(out.numPartitions(), ds1.numPartitions() + ds2.numPartitions());
+
+        List<Tuple2<String, Integer>> data = out.collect();
+        Assert.assertEquals(data,
+                Arrays.asList(Tuple2.of("hp", 20),
+                        Tuple2.of("hp1", 19),
+                        Tuple2.of("hp2", 21)));
+    }
+
+    @Test
+    public void unionAllNoShuffleTest()
+    {
+        KvDataSet<String, Integer> ds1 = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 18)
+        )).mapValues(x -> x);
+
+        KvDataSet<String, Integer> ds2 = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 2),
+                Tuple2.of("hp1", 19),
+                Tuple2.of("hp2", 21)
+        ), 2).mapValues(x -> x);
         //.distinct();
 
         //ageDs.print();

@@ -1,10 +1,10 @@
 package com.github.harbby.ashtarte;
 
+import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.ashtarte.operator.ShuffleMapOperator;
 import com.github.harbby.ashtarte.utils.SerializableObj;
-import com.github.harbby.gadtry.collection.immutable.ImmutableList;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +30,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.github.harbby.gadtry.base.MoreObjects.checkArgument;
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static com.github.harbby.gadtry.base.Throwables.throwsThrowable;
 
@@ -70,124 +71,20 @@ public class LocalMppContext
 //    }
 
     /**
-     * 使用栈结构 可以优化递归算法
-     */
-//    private <E> Map<Stage, List<Integer>> findShuffleMapOperator2(ResultStage<E> resultStage) {
-//        Deque<Stage> stages = new LinkedList<>();
-//        Deque<Operator<?>> stack = new LinkedList<>();
-//        stack.push(resultStage.getFinalOperator());
-//        //广度优先
-//        Map<Stage, List<Integer>> map = new LinkedHashMap<>();
-//        int i = resultStage.getStageId();
-//        Stage thisStage = resultStage;
-//        List<Integer> deps = new ArrayList<>();
-//        while (!stack.isEmpty()) {
-//            Operator<?> o = stack.pop();
-//            if (o instanceof ShuffleMapOperator) {
-//                map.put(thisStage, new ArrayList<>(deps));
-//                deps.clear();
-//                thisStage = stages.pop();
-//            }
-//            for (Operator<?> operator : o.getDependencies()) {
-//                if (operator instanceof ShuffleMapOperator) {
-//                    stages.push(new ShuffleMapStage(operator, ++i));
-//                    deps.add(i);
-//                }
-//                stack.push(operator);
-//            }
-//        }
-//        map.putIfAbsent(thisStage, new ArrayList<>(deps));
-//        return map;
-//    }
-
-    /**
      * 广度优先
-     * V3
+     * V5
      */
-//    private Map<Stage, List<Integer>> findShuffleMapOperator(Operator<?> finalDataSet)
-//    {
-//        Map<Operator<?>, Stage> mapping = new HashMap<>();
-//        Map<Stage, List<Integer>> map = new LinkedHashMap<>();
-//        Queue<Operator<?>> stack = new LinkedList<>();
-//
-//        Stage resultStage = new ResultStage<>(finalDataSet, 0);
-//        stack.add(finalDataSet);
-//        mapping.put(resultStage.getFinalOperator(), resultStage);
-//        map.put(resultStage, new LinkedList<>());
-//
-//        Map<Operator<?>, Set<Stage>> markCached = new LinkedHashMap<>();
-//        //广度优先
-//        int i = resultStage.getStageId();
-//        while (!stack.isEmpty()) {
-//            Operator<?> o = stack.poll();
-//            Stage thisStage = mapping.get(o);
-//
-//            List<? extends Operator<?>> depOperators;
-//            if (o.isMarkedCache()) {
-//                //put(op, thisStage) , save thisStage dep markedOperator
-//                markCached.computeIfAbsent(o, k -> new HashSet<>()).add(thisStage);
-//                depOperators = Collections.emptyList();
-//            }
-//            else {
-//                depOperators = o.getDependencies();
-//            }
-//            for (Operator<?> operator : depOperators) {
-//                if (operator instanceof ShuffleMapOperator) {
-//                    ShuffleMapStage newStage = new ShuffleMapStage(operator, ++i);
-//                    mapping.put(operator, newStage);
-//                    map.put(newStage, new LinkedList<>());
-//                    map.get(thisStage).add(i);
-//                }
-//                else {
-//                    mapping.put(operator, thisStage);
-//                }
-//                stack.add(operator);
-//            }
-//
-//            // cached Operator Analysis ---
-//            if (stack.isEmpty() && !markCached.isEmpty()) {
-//                Iterator<Map.Entry<Operator<?>, Set<Stage>>> markCachedIterator = markCached.entrySet().iterator();
-//                Map.Entry<Operator<?>, Set<Stage>> entry = markCachedIterator.next();
-//                Operator<?> markCachedOperator = entry.getKey();
-//                markCachedIterator.remove();
-//                for (Operator<?> child : markCachedOperator.getDependencies()) {
-//                    stack.add(child);
-//                    //todo: if 推测失败
-//                    checkState(!(child instanceof ShuffleMapOperator), "推测失败");
-//                    mapping.put(child, thisStage);  //这里凭感觉推测,不可能是 ShuffleMapOperator
-//                    //---------递归推测cached Operator的前置依赖
-//                    Map<Stage, List<Integer>> markedDeps = findShuffleMapOperator(child);
-//                    if (!markedDeps.isEmpty()) {
-//                        for (Stage stage : entry.getValue()) {
-//                            LinkedList<Integer> deps = (LinkedList<Integer>) map.get(stage);
-//                            for (int id : markedDeps.entrySet().iterator().next().getValue()) {
-//                                deps.addFirst(i + id);
-//                            }
-//                            //deps.addFirst(i + 1);   //这里依然凭感觉 推测出每个cache()之前必然会有一个次shuffle(shuffle map task)
-//                        }
-//                    }
-//                }
-//                logger.info("begin analysis markCachedOperator {}", markCachedOperator);
-//            }
-//        }
-//
-//        return map;
-//    }
-
-    /**
-     * 广度优先
-     * V4
-     */
-    private Map<Stage, List<Integer>> findShuffleMapOperator(Operator<?> finalDataSet)
+    private Map<Stage, Map<Integer, Integer>> findShuffleMapOperator(Operator<?> finalDataSet)
     {
         Map<Operator<?>, Stage> mapping = new HashMap<>();
-        Map<Stage, List<Integer>> map = new LinkedHashMap<>();
+        //Map<thisStage, Map<shuffleMapId, shuffleMapStage>>
+        Map<Stage, Map<Integer, Integer>> map = new LinkedHashMap<>();
         Queue<Operator<?>> stack = new LinkedList<>();
 
         Stage resultStage = new ResultStage<>(finalDataSet, 0);
         stack.add(finalDataSet);
         mapping.put(resultStage.getFinalOperator(), resultStage);
-        map.put(resultStage, new LinkedList<>());
+        map.put(resultStage, new LinkedHashMap<>());
 
         Map<Operator<?>, Set<Stage>> markCached = new LinkedHashMap<>();
         //广度优先
@@ -207,10 +104,17 @@ public class LocalMppContext
             }
             for (Operator<?> operator : depOperators) {
                 if (operator instanceof ShuffleMapOperator) {
-                    ShuffleMapStage newStage = new ShuffleMapStage(operator, ++i);
+                    Map<Integer, Integer> stageDeps = map.get(thisStage);
+                    Integer operatorDependStage = stageDeps.get(operator.getId());
+                    if (operatorDependStage != null && operatorDependStage != i + 1) {
+                        logger.info("find 当前相同的shuffleMapStage,将优化为只有一个");
+                        continue;
+                    }
+
+                    ShuffleMapStage newStage = new ShuffleMapStage((ShuffleMapOperator<?, ?>) operator, ++i);
                     mapping.put(operator, newStage);
-                    map.put(newStage, new LinkedList<>());
-                    map.get(thisStage).add(i);
+                    map.put(newStage, new LinkedHashMap<>());
+                    stageDeps.put(operator.getId(), i);
                 }
                 else {
                     mapping.put(operator, thisStage);
@@ -229,15 +133,19 @@ public class LocalMppContext
                     //todo: if 推测失败
                     checkState(!(child instanceof ShuffleMapOperator), "推测失败");
                     mapping.put(child, thisStage);  //这里凭感觉推测,不可能是 ShuffleMapOperator
+
                     //---------递归推测cached Operator的前置依赖
-                    Map<Stage, List<Integer>> markedDeps = findShuffleMapOperator(child);
+                    //下面的推断不是必须的，但是推断后可以让dag show的时候更加清晰,好看.
+                    Map<Stage, Map<Integer, Integer>> markedDeps = findShuffleMapOperator(child);
                     if (!markedDeps.isEmpty()) {
                         for (Stage stage : entry.getValue()) {
-                            LinkedList<Integer> deps = (LinkedList<Integer>) map.get(stage);
-                            for (int id : markedDeps.entrySet().iterator().next().getValue()) {
-                                deps.addFirst(i + id);
+                            Map<Integer, Integer> mergedDeps = new LinkedHashMap<>();
+                            //这里next 我们只取地一个
+                            for (Map.Entry<Integer, Integer> entry1 : markedDeps.values().iterator().next().entrySet()) {
+                                mergedDeps.put(entry1.getKey(), i + entry1.getValue());
                             }
-                            //deps.addFirst(i + 1);   //这里依然凭感觉 推测出每个cache()之前必然会有一个次shuffle(shuffle map task)
+                            mergedDeps.putAll(map.get(stage));
+                            map.put(stage, mergedDeps);
                         }
                     }
                 }
@@ -251,10 +159,13 @@ public class LocalMppContext
     @Override
     public <E, R> List<R> runJob(Operator<E> finalOperator, Function<Iterator<E>, R> action)
     {
+        checkArgument(!(finalOperator instanceof KvDataSet), "use unboxing(this)");
         int jobId = nextJobId.getAndIncrement();
         logger.info("starting... job: {}", jobId);
         logger.info("begin analysis job {} deps to stageDAG", jobId);
-        Map<Stage, List<Integer>> stageMap = findShuffleMapOperator(finalOperator);
+
+        //Map<Stage, Map<Integer, Integer>> stageMap = findShuffleMapOperator3(finalOperator);
+        Map<Stage, Map<Integer, Integer>> stageMap = findShuffleMapOperator(finalOperator);
         ResultStage<E> resultStage = (ResultStage<E>) stageMap.keySet().iterator().next(); //  //最后一个state
 
         List<Stage> stages = new ArrayList<>(stageMap.keySet());
@@ -270,9 +181,12 @@ public class LocalMppContext
         }
         for (Stage stage : stages) {
             if (stage instanceof ShuffleMapStage) {
-                //logger.info("starting... stage: {}, id {}", stage, stage.getStageId());
+                logger.info("starting... shuffleMapStage: {}, id {}", stage, stage.getStageId());
+                if(stage.getStageId() == 66) {
+                    System.out.println();
+                }
                 SerializableObj<Stage> serializableStage = SerializableObj.of(stage);
-                List<Integer> deps = stageMap.getOrDefault(stage, ImmutableList.of());
+                Map<Integer, Integer> deps = stageMap.getOrDefault(stage, Collections.emptyMap());
 
                 Stream.of(stage.getPartitions()).map(partition -> CompletableFuture.runAsync(() -> {
                     Stage s = serializableStage.getValue();
@@ -286,7 +200,7 @@ public class LocalMppContext
         SerializableObj<ResultStage<E>> serializableObj = SerializableObj.of(resultStage);
         logger.info("starting... ResultStage: {}, id {}", resultStage, resultStage.getStageId());
         try {
-            List<Integer> deps = stageMap.getOrDefault(resultStage, ImmutableList.of());
+            Map<Integer, Integer> deps = stageMap.getOrDefault(resultStage, Collections.emptyMap());
             return Stream.of(resultStage.getPartitions()).map(partition -> CompletableFuture.supplyAsync(() -> {
                 Operator<E> operator = serializableObj.getValue().getFinalOperator();
                 Iterator<E> iterator = operator.computeOrCache(partition,
@@ -299,7 +213,7 @@ public class LocalMppContext
         finally {
             executors.shutdown();
             try {
-                FileUtils.deleteDirectory(new File("/tmp/shuffle"));
+                FileUtils.deleteDirectory(new File("/tmp/shuffle000"));
             }
             catch (IOException e) {
                 logger.error("clear job tmp dir {} faild", "/tmp/shuffle");

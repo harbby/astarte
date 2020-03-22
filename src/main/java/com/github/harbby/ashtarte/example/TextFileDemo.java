@@ -2,6 +2,7 @@ package com.github.harbby.ashtarte.example;
 
 import com.github.harbby.ashtarte.MppContext;
 import com.github.harbby.ashtarte.api.DataSet;
+import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 public class TextFileDemo
@@ -14,16 +15,15 @@ public class TextFileDemo
         DataSet<String> worlds = ds.flatMap(input -> input.toLowerCase().split(" "))
                 .filter(x -> !"".equals(x.trim()));
 
-        DataSet<Tuple2<String, Integer>> worldCounts = worlds.map(x -> Tuple2.of(x, 1))
-                .groupBy(x -> x.f1())
-                .agg(x -> x.f2(), (x, y) -> x + y);  //reduceBy()
+        KvDataSet<String, Long> worldCounts = worlds.kvDataSet(x -> Tuple2.of(x, 1L))
+                .reduceByKey((x, y) -> x + y);
 
         //List<String> out = worldCounts.map(x -> x.f1() + "," + x.f2()).collect();  //job1
         //out.forEach(System.out::println);
 
         DataSet<Tuple2<String, Long>> worldCounts2 = worldCounts.rePartition(4)
-                .groupBy(x -> x.f1().substring(0, 1))
-                .agg(x -> 1L, (x, y) -> x + y);
+                .mapKeys(k -> k.substring(0, 1))
+                .reduceByKey((x, y) -> x + y);
 
         //List a1 = worldCounts2.collect();  //job2
         //long cnt = worldCounts2.count();  //job3

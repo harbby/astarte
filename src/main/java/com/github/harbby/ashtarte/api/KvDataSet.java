@@ -14,7 +14,6 @@ import java.util.Iterator;
 public interface KvDataSet<K, V>
         extends DataSet<Tuple2<K, V>>
 {
-
     public static <K, V> KvDataSet<K, V> toKvDataSet(DataSet<Tuple2<K, V>> dataSet)
     {
         return new KvOperator<>((Operator<Tuple2<K, V>>) dataSet);
@@ -25,6 +24,8 @@ public interface KvDataSet<K, V>
     <OUT> KvDataSet<K, OUT> mapValues(Mapper<V, OUT> mapper);
 
     <OUT> KvDataSet<K, OUT> flatMapValues(Mapper<V, Iterator<OUT>> mapper);
+
+    <K1> KvDataSet<K1, V> mapKeys(Mapper<K, K1> mapper);
 
     DataSet<V> values();
 
@@ -40,6 +41,8 @@ public interface KvDataSet<K, V>
 
     KvDataSet<K, V> distinct(int numPartition);
 
+    KvDataSet<K, V> distinct(Partitioner partitioner);
+
     KvDataSet<K, Iterable<V>> groupByKey();
 
     public KvDataSet<K, V> partitionBy(Partitioner partitioner);
@@ -52,13 +55,29 @@ public interface KvDataSet<K, V>
 
     public KvDataSet<K, V> reduceByKey(Reducer<V> reducer, Partitioner partitioner);
 
+    public KvDataSet<K, Double> avgValues(Mapper<V, Double> valueCast);
+
+    public KvDataSet<K, Double> avgValues(Mapper<V, Double> valueCast, int numPartition);
+
+    public KvDataSet<K, Double> avgValues(Mapper<V, Double> valueCast, Partitioner partitioner);
+
+    public KvDataSet<K, Long> countByKey();
+
+    public KvDataSet<K, Long> countByKey(int numPartition);
+
+    public KvDataSet<K, Long> countByKey(Partitioner partitioner);
+
     public <W> KvDataSet<K, Tuple2<V, W>> join(DataSet<Tuple2<K, W>> kvDataSet);
 
     public <W> KvDataSet<K, Tuple2<V, W>> leftJoin(DataSet<Tuple2<K, W>> kvDataSet);
 
-    public KvDataSet<K, V> union(DataSet<Tuple2<K, V>>... kvDataSet);
+    public KvDataSet<K, V> union(DataSet<Tuple2<K, V>> kvDataSet);
 
-    public KvDataSet<K, V> unionAll(DataSet<Tuple2<K, V>>... kvDataSet);
+    public KvDataSet<K, V> union(KvDataSet<K, V> kvDataSet, int numPartition);
+
+    public KvDataSet<K, V> union(KvDataSet<K, V> kvDataSet, Partitioner partitioner);
+
+    public KvDataSet<K, V> unionAll(DataSet<Tuple2<K, V>> kvDataSet);
 
     public KvDataSet<K, V> sortByKey(Comparator<K> comparator);
 

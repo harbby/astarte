@@ -4,13 +4,14 @@ import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.gadtry.collection.mutable.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
-import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.stream.IntStream;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
@@ -22,17 +23,23 @@ public class LocalJoinOperator<K>
         extends Operator<Tuple2<K, Iterable<?>[]>>
 {
     private final Operator<Tuple2<K, Object>>[] kvDataSets;
-    private final Partitioner partitioner;
 
     @SuppressWarnings("unchecked")
     @SafeVarargs
-    protected LocalJoinOperator(Partitioner partitioner,
-            Operator<? extends Tuple2<K, ?>>... kvDataSets)
+    protected LocalJoinOperator(Operator<? extends Tuple2<K, ?>> leftDataSet,
+            Operator<? extends Tuple2<K, ?>>... otherDataSets)
     {
-        super(kvDataSets[0].getContext());
-
-        this.kvDataSets = (Operator<Tuple2<K, Object>>[]) unboxing(kvDataSets);
-        this.partitioner = requireNonNull(partitioner, "partitioner is null");
+        super(requireNonNull(leftDataSet, "leftDataSet is null").getContext());
+        checkState(otherDataSets.length > 0, "must otherDataSets.length > 0");
+        this.kvDataSets = MutableList.<Operator<? extends Tuple2<K, ?>>>builder()
+                .add(leftDataSet)
+                .addAll(otherDataSets)
+                .build()
+                .stream()
+                .map(x -> {
+                    checkState(Objects.equals(leftDataSet.getPartitioner(), x.getPartitioner()));
+                    return unboxing(x);
+                }).toArray(Operator[]::new);
     }
 
     @Override
@@ -44,36 +51,30 @@ public class LocalJoinOperator<K>
     @Override
     public Partition[] getPartitions()
     {
-        return IntStream.range(0, partitioner.numPartitions())
-                .mapToObj(Partition::new).toArray(Partition[]::new);
+        return kvDataSets[0].getPartitions();
     }
 
     @Override
     public int numPartitions()
     {
-        return partitioner.numPartitions();
+        return kvDataSets[0].numPartitions();
     }
 
+    /**
+     * 可能存在return null
+     */
     @Override
     public Partitioner getPartitioner()
     {
-        return partitioner;
+        return kvDataSets[0].getPartitioner();
     }
 
     @Override
     public Iterator<Tuple2<K, Iterable<?>[]>> compute(Partition split, TaskContext taskContext)
     {
-        Integer[] deps = taskContext.getDependStages();
-
-        checkState(deps.length == kvDataSets.length);
-        Iterator<Iterator<Tuple2<K, Object>>> iterators = IntStream.range(0, deps.length)
-                .mapToObj(i -> {
-                    Integer shuffleId = deps[i];
-                    TaskContext context = TaskContext.of(taskContext.getStageId()
-                            , ImmutableList.of(shuffleId));
-                    return kvDataSets[i].computeOrCache(split, context);
-                }).iterator();
-
+        Iterator<Iterator<Tuple2<K, Object>>> iterators = Stream.of(kvDataSets)
+                .map(operator -> operator.computeOrCache(split, taskContext))
+                .iterator();
         return Iterators.join(iterators, kvDataSets.length);
     }
 }

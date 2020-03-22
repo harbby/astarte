@@ -15,13 +15,13 @@ public class PartitionByDemo
         DataSet<String> worlds = ds.flatMap(input -> input.toLowerCase().split(" "))
                 .filter(x -> !"".equals(x.trim()));
 
-        KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> new Tuple2<>(x, 1L));;
-        DataSet<Tuple2<String, Long>> worldCounts = kvDataSet.partitionBy(2).reduceByKey(Long::sum);
+        KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> new Tuple2<>(x, 1L));
+        KvDataSet<String, Long> worldCounts = kvDataSet.partitionBy(2).reduceByKey(Long::sum);
 
-        DataSet<Tuple2<String, Long>> worldCounts2 = worldCounts
+        KvDataSet<String, Long> worldCounts2 = worldCounts
                 .rePartition(4)
-                .groupBy(x -> x.f1().substring(0, 1) , 3)
-                .agg(x -> 1L, (x, y) -> x + y);
+                .mapKeys(k -> k.substring(0, 1))
+                .countByKey(3);
 
         //List a1 = worldCounts2.collect();  //job2
         //long cnt = worldCounts2.count();  //job3

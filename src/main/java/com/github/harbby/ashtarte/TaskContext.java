@@ -1,22 +1,18 @@
 package com.github.harbby.ashtarte;
 
-import java.util.Collections;
-import java.util.List;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.Map;
 
 public interface TaskContext
 {
     int getStageId();
 
-    Integer[] getDependStages();
+    Map<Integer, Integer> getDependStages();
 
-    public static TaskContext of(int stageId, Integer depStages)
+    public static TaskContext of(int stageId, Map<Integer, Integer> depStages)
     {
-        return of(stageId, Collections.singletonList(depStages));
-    }
-
-    public static TaskContext of(int stageId, List<Integer> depStages)
-    {
-        Integer[] deps = depStages.toArray(new Integer[0]);
+        Map<Integer, Integer> deps = ImmutableMap.copyOf(depStages);
         return new TaskContext()
         {
             @Override
@@ -26,7 +22,7 @@ public interface TaskContext
             }
 
             @Override
-            public Integer[] getDependStages()
+            public Map<Integer, Integer> getDependStages()
             {
                 return deps;
             }

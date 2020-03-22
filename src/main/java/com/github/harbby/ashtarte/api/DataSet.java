@@ -4,7 +4,6 @@ import com.github.harbby.ashtarte.MppContext;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.api.function.Filter;
 import com.github.harbby.ashtarte.api.function.Foreach;
-import com.github.harbby.ashtarte.api.function.KeyedFunction;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.ashtarte.operator.CacheOperator;
@@ -60,6 +59,8 @@ public interface DataSet<ROW>
 
     DataSet<ROW> distinct(int numPartition);
 
+    public DataSet<ROW> distinct(Partitioner partitioner);
+
     public DataSet<ROW> rePartition(int numPartition);
 
     <OUT> DataSet<OUT> map(Mapper<ROW, OUT> mapper);
@@ -72,13 +73,11 @@ public interface DataSet<ROW>
 
     DataSet<ROW> filter(Filter<ROW> filter);
 
-    public DataSet<ROW> union(DataSet<ROW>... kvDataSets);
+    public DataSet<ROW> union(DataSet<ROW> dataSet);
 
-    public DataSet<ROW> unionAll(DataSet<ROW>... kvDataSets);
+    public DataSet<ROW> union(DataSet<ROW> dataSet, int numPartition);
 
-    <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter);
+    public DataSet<ROW> union(DataSet<ROW> dataSet, Partitioner partitioner);
 
-    <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, int numReduce);
-
-    <KEY> KeyedFunction<KEY, ROW> groupBy(Mapper<ROW, KEY> keyGetter, Partitioner partitioner);
+    public DataSet<ROW> unionAll(DataSet<ROW> dataSet);
 }

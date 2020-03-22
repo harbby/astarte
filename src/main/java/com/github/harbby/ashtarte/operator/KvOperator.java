@@ -54,6 +54,15 @@ public class KvOperator<K, V>
     }
 
     @Override
+    public <K1> KvDataSet<K1, V> mapKeys(Mapper<K, K1> mapper)
+    {
+        Operator<Tuple2<K1, V>> out = new MapPartitionOperator<>(dataSet,
+                it -> Iterators.map(it, x -> new Tuple2<>(mapper.map(x.f1()), x.f2())),
+                false); //如果想需要保留分区器，则请使用mapValues
+        return new KvOperator<>(out);
+    }
+
+    @Override
     public <OUT> KvDataSet<K, OUT> mapValues(Mapper<V, OUT> mapper)
     {
         Operator<Tuple2<K, OUT>> out = new MapPartitionOperator<>(
@@ -92,7 +101,13 @@ public class KvOperator<K, V>
     @Override
     public KvDataSet<K, V> distinct(int numPartition)
     {
-        Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.distinct(numPartition);
+        return this.distinct(new HashPartitioner(numPartition));
+    }
+
+    @Override
+    public KvDataSet<K, V> distinct(Partitioner partitioner)
+    {
+        Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.distinct(partitioner);
         return new KvOperator<>(dataSet);
     }
 
@@ -182,6 +197,45 @@ public class KvOperator<K, V>
     }
 
     @Override
+    public KvDataSet<K, Double> avgValues(Mapper<V, Double> valueCast)
+    {
+        return avgValues(valueCast, dataSet.numPartitions());
+    }
+
+    @Override
+    public KvDataSet<K, Double> avgValues(Mapper<V, Double> valueCast, int numPartition)
+    {
+        return avgValues(valueCast, new HashPartitioner(numPartition));
+    }
+
+    @Override
+    public KvDataSet<K, Double> avgValues(Mapper<V, Double> valueCast, Partitioner partitioner)
+    {
+        //todo: 需要使用对象池或可变topic来减少ygc
+        return this.mapValues(x -> new Tuple2<>(valueCast.map(x), 1L))
+                .reduceByKey((x, y) -> new Tuple2<>(x.f1() + y.f1(), x.f2() + y.f2()), partitioner)
+                .mapValues(x -> x.f1() / x.f2());
+    }
+
+    @Override
+    public KvDataSet<K, Long> countByKey()
+    {
+        return countByKey(dataSet.numPartitions());
+    }
+
+    @Override
+    public KvDataSet<K, Long> countByKey(int numPartition)
+    {
+        return countByKey(new HashPartitioner(numPartition));
+    }
+
+    @Override
+    public KvDataSet<K, Long> countByKey(Partitioner partitioner)
+    {
+        return this.mapValues(x -> 1L).reduceByKey(Long::sum, partitioner);
+    }
+
+    @Override
     public <W> KvDataSet<K, Tuple2<V, W>> leftJoin(DataSet<Tuple2<K, W>> kvDataSet)
     {
         return join(kvDataSet, Iterators.JoinMode.LEFT_JOIN);
@@ -203,10 +257,14 @@ public class KvOperator<K, V>
         Partitioner rightPartitioner = rightDataSet.getPartitioner();
         if (leftPartitioner != null && leftPartitioner.equals(rightPartitioner)) {
             // 因为上一个stage已经按照相同的分区器, 将数据分好，因此这里我们无需shuffle
-            joinOperator = new LocalJoinOperator<>(leftPartitioner, dataSet, rightOperator);
+            joinOperator = new LocalJoinOperator<>(dataSet, rightOperator);
+        }
+        else if ((Object) rightOperator == dataSet) {
+            return this.mapValues(x-> new Tuple2<>(x, (W) x));
         }
         else {
-            Partitioner partitioner = new HashPartitioner(dataSet.numPartitions());
+            int reduceNum = Math.max(dataSet.numPartitions(), rightDataSet.numPartitions());
+            Partitioner partitioner = new HashPartitioner(reduceNum);
             joinOperator = new ShuffleJoinOperator<>(partitioner, dataSet, rightOperator);
         }
 
@@ -222,18 +280,28 @@ public class KvOperator<K, V>
         return new KvOperator<>(operator);
     }
 
-    @SafeVarargs
     @Override
-    public final KvDataSet<K, V> union(DataSet<Tuple2<K, V>>... kvDataSet)
+    public KvDataSet<K, V> union(DataSet<Tuple2<K, V>> kvDataSet)
     {
         return unionAll(kvDataSet).distinct();
     }
 
-    @SafeVarargs
     @Override
-    public final KvDataSet<K, V> unionAll(DataSet<Tuple2<K, V>>... kvDataSets)
+    public KvDataSet<K, V> union(KvDataSet<K, V> kvDataSet, int numPartition)
     {
-        Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.unionAll(kvDataSets);
+        return union(kvDataSet, new HashPartitioner(numPartition));
+    }
+
+    @Override
+    public KvDataSet<K, V> union(KvDataSet<K, V> kvDataSet, Partitioner partitioner)
+    {
+        return unionAll(kvDataSet).distinct(partitioner);
+    }
+
+    @Override
+    public KvDataSet<K, V> unionAll(DataSet<Tuple2<K, V>> kvDataSet)
+    {
+        Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.unionAll(kvDataSet);
         return new KvOperator<>(dataSet);
     }
 
