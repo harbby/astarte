@@ -6,12 +6,14 @@ import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Partition;
+import com.github.harbby.ashtarte.api.function.Comparator;
+import com.github.harbby.ashtarte.api.function.KvForeach;
+import com.github.harbby.ashtarte.api.function.KvMapper;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.util.Comparator;
 import java.util.Iterator;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
@@ -43,6 +45,18 @@ public class KvOperator<K, V>
     public Iterator<Tuple2<K, V>> compute(Partition split, TaskContext taskContext)
     {
         return dataSet.computeOrCache(split, taskContext);
+    }
+
+    @Override
+    public <OUT> DataSet<OUT> map(KvMapper<K, V, OUT> mapper)
+    {
+        return dataSet.map(x -> mapper.map(x.f1(), x.f2()));
+    }
+
+    @Override
+    public void foreach(KvForeach<K, V> kvKvForeach)
+    {
+        dataSet.foreach(x -> kvKvForeach.foreach(x.f1(), x.f2()));
     }
 
     @Override
@@ -189,8 +203,18 @@ public class KvOperator<K, V>
             return new KvOperator<>(new AggOperator<>(dataSet, reducer));
         }
         else {
+            Operator<Tuple2<K, V>> combineOperator;
+            boolean combine = true;
+            // combine
+            if (combine) {
+                combineOperator = new AggOperator<>(dataSet, reducer);
+            }
+            else {
+                combineOperator = dataSet;
+            }
+
             // 进行shuffle
-            ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(dataSet, partitioner);
+            ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(combineOperator, partitioner);
             ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
             return new KvOperator<>(new AggOperator<>(shuffledOperator, reducer));
         }
@@ -260,7 +284,7 @@ public class KvOperator<K, V>
             joinOperator = new LocalJoinOperator<>(dataSet, rightOperator);
         }
         else if ((Object) rightOperator == dataSet) {
-            return this.mapValues(x-> new Tuple2<>(x, (W) x));
+            return this.mapValues(x -> new Tuple2<>(x, (W) x));
         }
         else {
             int reduceNum = Math.max(dataSet.numPartitions(), rightDataSet.numPartitions());
@@ -308,12 +332,37 @@ public class KvOperator<K, V>
     @Override
     public KvDataSet<K, V> sortByKey(Comparator<K> comparator)
     {
-        throw new UnsupportedOperationException();
+        return sortByKey(comparator, dataSet.numPartitions());
+    }
+
+    @Override
+    public KvDataSet<K, V> sortByKey(Comparator<K> comparator, int numPartitions)
+    {
+        Partitioner partitioner = SortShuffleWriter.createPartitioner(numPartitions, (Operator<K>) this.keys(), comparator);
+        ShuffleMapOperator<K, V> sortShuffleMapOp = new ShuffleMapOperator<>(
+                dataSet,
+                partitioner,
+                comparator);
+
+        SortShuffleWriter.ShuffledMergeSortOperator<K, V> shuffledOperator = new SortShuffleWriter
+                .ShuffledMergeSortOperator<>(
+                sortShuffleMapOp,
+                comparator,
+                sortShuffleMapOp.getPartitioner());
+        return new KvOperator<>(shuffledOperator);
     }
 
     @Override
     public KvDataSet<K, V> sortByValue(Comparator<V> comparator)
     {
-        throw new UnsupportedOperationException();
+        return sortByValue(comparator, dataSet.numPartitions());
+    }
+
+    @Override
+    public KvDataSet<K, V> sortByValue(Comparator<V> comparator, int numPartitions)
+    {
+        return this.kvDataSet(x -> new Tuple2<>(x.f2(), x.f1()))
+                .sortByKey(comparator, numPartitions)
+                .kvDataSet(x -> new Tuple2<>(x.f2(), x.f1()));
     }
 }

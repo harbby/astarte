@@ -14,14 +14,14 @@ public class CoreApiTest
     @Test
     public void fromCollectionTestReturnDataSet()
     {
-        DataSet<String> dataSet = mppContext.fromCollection(Arrays.asList("1", "2", "3"));
+        DataSet<String> dataSet = mppContext.makeDataSet(Arrays.asList("1", "2", "3"));
         Assert.assertNotNull(dataSet);
     }
 
     @Test
     public void fromCollectionTestPartitionSizeReturn4()
     {
-        DataSet<String> dataSet = mppContext.fromCollection(Arrays.asList("1", "2", "3"), 4);
+        DataSet<String> dataSet = mppContext.makeDataSet(Arrays.asList("1", "2", "3"), 4);
         Partition[] partitions = dataSet.getPartitions();
         Assert.assertEquals(partitions.length, 4);
     }
@@ -29,7 +29,7 @@ public class CoreApiTest
     @Test
     public void fromArrayCollectTestReturn123()
     {
-        DataSet<Integer> dataSet = mppContext.fromArray(1, 2, 3);
+        DataSet<Integer> dataSet = mppContext.makeDataSet(1, 2, 3);
         List<Integer> collect = dataSet.collect();
         Assert.assertEquals(Arrays.asList(1, 2, 3), collect);
     }
@@ -37,7 +37,7 @@ public class CoreApiTest
     @Test
     public void fromCollectionTestMapReturnList123()
     {
-        DataSet<String> dataSet = mppContext.fromCollection(Arrays.asList("1", "2", "3"), 4);
+        DataSet<String> dataSet = mppContext.makeDataSet(Arrays.asList("1", "2", "3"), 4);
         DataSet<Integer> mapDataSet = dataSet.map(k -> Integer.parseInt(k));
         List<Integer> mapList = mapDataSet.collect();
         Assert.assertEquals(Arrays.asList(1, 2, 3), mapList);
@@ -46,11 +46,11 @@ public class CoreApiTest
     @Test
     public void cacheTest()
     {
-        DataSet<String> dataSet = mppContext.fromCollection(Arrays.asList("1", "2", "3"), 4);
+        DataSet<String> dataSet = mppContext.makeDataSet(Arrays.asList("1", "2", "3"), 4);
         DataSet<String> rdd = dataSet.cache();
         List<String> r1 = rdd.collect();
 
-        mppContext.fromCollection(Arrays.asList("1", "2", "3"), 4)
+        mppContext.makeDataSet(Arrays.asList("1", "2", "3"), 4)
                 .cache().collect();
         System.out.println();
     }

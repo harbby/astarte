@@ -37,19 +37,24 @@ public interface MppContext
         return new KvOperator<>(new CollectionSource<>(this, collection, 1));
     }
 
-    public default <E> DataSet<E> fromCollection(Collection<E> collection)
+    public default <E> DataSet<E> makeDataSet(Collection<E> collection)
     {
         return new CollectionSource<>(this, collection, 1);
     }
 
-    public default <E> DataSet<E> fromCollection(Collection<E> collection, int parallelism)
+    public default <E> DataSet<E> makeDataSet(Collection<E> collection, int parallelism)
     {
         return new CollectionSource<>(this, collection, parallelism);
     }
 
-    public default <E> DataSet<E> fromArray(E... e)
+    public default <E> DataSet<E> makeDataSet(E... e)
     {
-        return fromCollection(Arrays.asList(e), 1);
+        return makeDataSet(Arrays.asList(e), 1);
+    }
+
+    public default <E> DataSet<E> makeDataSet(E[] e, int parallelism)
+    {
+        return makeDataSet(Arrays.asList(e), parallelism);
     }
 
     public default DataSet<String> textFile(String dirPath)

@@ -4,10 +4,13 @@ import com.github.harbby.ashtarte.MppContext;
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * pageRank 由google创始人 拉里·佩奇（Larry Page）发明.
@@ -24,7 +27,6 @@ public class PageRankTest
     @Test
     public void pageRank4itersTest()
     {
-
         int iters = 1000;  //迭代次数
         String sparkHome = System.getenv("SPARK_HOME");
 
@@ -49,5 +51,11 @@ public class PageRankTest
 
         List<Tuple2<String, Double>> output = ranks.collect();
         output.forEach(tup -> System.out.println(String.format("%s has rank:  %s .", tup.f1(), tup.f2())));
+
+        Map<String, Double> data = output.stream().collect(Collectors.toMap(k -> k.f1(), v -> v.f2()));
+        Assert.assertEquals(data.get("1"), 1.918918918918918D, 1e-7);
+        Assert.assertEquals(data.get("2"), 0.6936936936936938, 1e-7);
+        Assert.assertEquals(data.get("3"), 0.6936936936936938, 1e-7);
+        Assert.assertEquals(data.get("4"), 0.6936936936936938, 1e-7);
     }
 }

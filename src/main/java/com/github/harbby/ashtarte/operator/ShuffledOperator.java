@@ -20,14 +20,13 @@ import static com.github.harbby.gadtry.base.MoreObjects.checkState;
  * <p>
  * shuffle Reducer reader
  */
-public class ShuffledOperator<KEY, AggValue>
-        extends Operator<Tuple2<KEY, AggValue>>
+public class ShuffledOperator<K, V>
+        extends Operator<Tuple2<K, V>>
 {
-
     private final Partitioner partitioner;
     private final int shuffleMapOperatorId;
 
-    public ShuffledOperator(ShuffleMapOperator<KEY, AggValue> operator, Partitioner partitioner)
+    public ShuffledOperator(ShuffleMapOperator<K, V> operator, Partitioner partitioner)
     {
         super(operator);
         this.shuffleMapOperatorId = operator.getId();
@@ -55,7 +54,7 @@ public class ShuffledOperator<KEY, AggValue>
     }
 
     @Override
-    public Iterator<Tuple2<KEY, AggValue>> compute(Partition split, TaskContext taskContext)
+    public Iterator<Tuple2<K, V>> compute(Partition split, TaskContext taskContext)
     {
         Integer shuffleId = taskContext.getDependStages().get(shuffleMapOperatorId);
         checkState(shuffleId != null);

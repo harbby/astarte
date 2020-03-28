@@ -1,9 +1,9 @@
 package com.github.harbby.ashtarte.api;
 
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
-
 import java.io.Serializable;
 import java.util.Objects;
+
+import static com.github.harbby.gadtry.base.MoreObjects.toStringHelper;
 
 public class Partition
         implements Serializable
@@ -18,6 +18,14 @@ public class Partition
     public int getId()
     {
         return index;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("id", index)
+                .toString();
     }
 
     @Override

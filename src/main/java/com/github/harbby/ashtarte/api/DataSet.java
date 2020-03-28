@@ -4,6 +4,7 @@ import com.github.harbby.ashtarte.MppContext;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.api.function.Filter;
 import com.github.harbby.ashtarte.api.function.Foreach;
+import com.github.harbby.ashtarte.api.function.KvMapper;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.ashtarte.operator.CacheOperator;
@@ -48,10 +49,7 @@ public interface DataSet<ROW>
 
     DataSet<ROW> cache(CacheOperator.CacheMode cacheMode);
 
-    default DataSet<ROW> cache()
-    {
-        return cache(CacheOperator.CacheMode.MEM_ONLY);
-    }
+    DataSet<ROW> cache();
 
     DataSet<ROW> unCache();
 
@@ -71,6 +69,8 @@ public interface DataSet<ROW>
 
     <OUT> DataSet<OUT> mapPartition(Mapper<Iterator<ROW>, Iterator<OUT>> flatMapper);
 
+    <OUT> DataSet<OUT> mapPartitionWithId(KvMapper<Integer, Iterator<ROW>, Iterator<OUT>> flatMapper);
+
     DataSet<ROW> filter(Filter<ROW> filter);
 
     public DataSet<ROW> union(DataSet<ROW> dataSet);
@@ -80,4 +80,6 @@ public interface DataSet<ROW>
     public DataSet<ROW> union(DataSet<ROW> dataSet, Partitioner partitioner);
 
     public DataSet<ROW> unionAll(DataSet<ROW> dataSet);
+
+    public KvDataSet<ROW, Long> zipWithIndex();
 }

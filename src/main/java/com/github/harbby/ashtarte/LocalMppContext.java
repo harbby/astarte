@@ -54,24 +54,6 @@ public class LocalMppContext
         this.parallelism = parallelism;
     }
 
-//    private <E> List<Operator<?>> findShuffleMapOperator1(Operator<E> dataSet)
-//    {
-//        List<Operator<?>> shuffleMapOperators = new ArrayList<>();
-//        Deque<Operator<?>> stack = new LinkedList<>();
-//        stack.push(dataSet);
-//        //广度优先
-//        while (!stack.isEmpty()) {
-//            Operator<?> o = stack.pop();
-//            for (Operator<?> operator : o.getDependencies()) {
-//                if (operator instanceof ShuffleMapOperator) {
-//                    shuffleMapOperators.add(operator);
-//                }
-//                stack.push(operator);
-//            }
-//        }
-//        return shuffleMapOperators;
-//    }
-
     /**
      * 广度优先
      * V5
@@ -199,8 +181,8 @@ public class LocalMppContext
 
         List<Stage> stages = new ArrayList<>(stageMap.keySet());
         stages.sort((x, y) -> Integer.compare(y.getStageId(), x.getStageId()));
-        clearOperatorDependencies(stages);
-        //new GraphScheduler(this).runGraph(stageMap);  //dag过大时会栈溢出
+        //clearOperatorDependencies(stages);
+        new GraphScheduler(this).runGraph(stageMap);  //dag过大时会栈溢出
         //---------------------
         ExecutorService executors = Executors.newFixedThreadPool(parallelism);
         try {

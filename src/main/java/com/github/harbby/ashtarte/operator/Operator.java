@@ -5,9 +5,11 @@ import com.github.harbby.ashtarte.MppContext;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.DataSet;
+import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.function.Filter;
 import com.github.harbby.ashtarte.api.function.Foreach;
+import com.github.harbby.ashtarte.api.function.KvMapper;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.gadtry.base.Iterators;
@@ -17,14 +19,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
+import static com.github.harbby.gadtry.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public abstract class Operator<ROW>
@@ -142,6 +147,12 @@ public abstract class Operator<ROW>
     }
 
     @Override
+    public DataSet<ROW> cache()
+    {
+        return this.cache(CacheOperator.CacheMode.MEM_ONLY);
+    }
+
+    @Override
     public DataSet<ROW> cache(CacheOperator.CacheMode cacheMode)
     {
         checkState(cacheMode == CacheOperator.CacheMode.MEM_ONLY, "目前只支持mem模式");
@@ -251,9 +262,15 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public <OUT> DataSet<OUT> mapPartition(Mapper<Iterator<ROW>, Iterator<OUT>> flatMapper)
+    public <OUT> DataSet<OUT> mapPartition(Mapper<Iterator<ROW>, Iterator<OUT>> f)
     {
-        return new MapPartitionOperator<>(this, flatMapper, false);
+        return new MapPartitionOperator<>(this, f, false);
+    }
+
+    @Override
+    public <OUT> DataSet<OUT> mapPartitionWithId(KvMapper<Integer, Iterator<ROW>, Iterator<OUT>> f)
+    {
+        return new MapPartitionOperator<>(this, f, false);
     }
 
     @Override
@@ -263,6 +280,27 @@ public abstract class Operator<ROW>
                 this,
                 it -> Iterators.filter(it, filter::filter),
                 false);
+    }
+
+    @Override
+    public KvDataSet<ROW, Long> zipWithIndex()
+    {
+        List<Tuple2<Integer, Long>> list = this.mapPartitionWithId((id, it) ->
+                Iterators.of(new Tuple2<>(id, Iterators.size(it))))
+                .collect()
+                .stream()
+                .sorted((x, y) -> x.f1().compareTo(y.f1()))
+                .collect(Collectors.toList());
+
+        long index = 0;
+        Map<Integer, Long> info = new HashMap<>();
+        for (Tuple2<Integer, Long> it : list) {
+            info.put(it.f1(), index);
+            index = index + it.f2();
+        }
+        Operator<Tuple2<ROW, Long>> operator = (Operator<Tuple2<ROW, Long>>) this.mapPartitionWithId((id, it) ->
+                Iterators.zipIndex(it, info.get(id)));
+        return new KvOperator<>(operator);
     }
 
     //---action operator
@@ -330,5 +368,13 @@ public abstract class Operator<ROW>
             }
             return true;
         });
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("operatorId", id)
+                .toString();
     }
 }

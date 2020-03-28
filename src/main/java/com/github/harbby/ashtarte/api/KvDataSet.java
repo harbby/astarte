@@ -1,6 +1,9 @@
 package com.github.harbby.ashtarte.api;
 
 import com.github.harbby.ashtarte.Partitioner;
+import com.github.harbby.ashtarte.api.function.Comparator;
+import com.github.harbby.ashtarte.api.function.KvForeach;
+import com.github.harbby.ashtarte.api.function.KvMapper;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.ashtarte.operator.CacheOperator;
@@ -8,7 +11,6 @@ import com.github.harbby.ashtarte.operator.KvOperator;
 import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.util.Comparator;
 import java.util.Iterator;
 
 public interface KvDataSet<K, V>
@@ -16,8 +18,15 @@ public interface KvDataSet<K, V>
 {
     public static <K, V> KvDataSet<K, V> toKvDataSet(DataSet<Tuple2<K, V>> dataSet)
     {
+        if (dataSet instanceof KvDataSet) {
+            return (KvDataSet<K, V>) dataSet;
+        }
         return new KvOperator<>((Operator<Tuple2<K, V>>) dataSet);
     }
+
+    void foreach(KvForeach<K, V> mapper);
+
+    <OUT> DataSet<OUT> map(KvMapper<K, V, OUT> mapper);
 
     DataSet<K> keys();
 
@@ -81,5 +90,9 @@ public interface KvDataSet<K, V>
 
     public KvDataSet<K, V> sortByKey(Comparator<K> comparator);
 
+    public KvDataSet<K, V> sortByKey(Comparator<K> comparator, int numPartitions);
+
     public KvDataSet<K, V> sortByValue(Comparator<V> comparator);
+
+    public KvDataSet<K, V> sortByValue(Comparator<V> comparator, int numPartitions);
 }
