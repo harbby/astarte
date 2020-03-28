@@ -1,6 +1,6 @@
 package com.github.harbby.ashtarte.operator;
 
-import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.BatchContext;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 
@@ -17,7 +17,7 @@ public class CollectionSource<E>
     private final int parallelism;
     private final Collection<E> collection;
 
-    public CollectionSource(MppContext context, Collection<E> collection, int parallelism) {
+    public CollectionSource(BatchContext context, Collection<E> collection, int parallelism) {
         super(context);
         this.collection = collection;
         this.parallelism = parallelism;

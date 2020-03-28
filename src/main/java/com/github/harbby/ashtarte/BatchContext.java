@@ -2,12 +2,14 @@ package com.github.harbby.ashtarte;
 
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
+import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.operator.CollectionSource;
 import com.github.harbby.ashtarte.operator.KvOperator;
 import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.ashtarte.operator.TextFileSource;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -15,7 +17,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 
-public interface MppContext
+public interface BatchContext
 {
     public default <K, V> KvDataSet<K, V> makeKvDataSet(Collection<Tuple2<K, V>> collection, int parallelism)
     {
@@ -64,6 +66,8 @@ public interface MppContext
 
     public void setParallelism(int parallelism);
 
+    public int getParallelism();
+
     public static Builder builder()
     {
         return new Builder();
@@ -71,7 +75,7 @@ public interface MppContext
 
     public static class Builder
     {
-        private final MppContext context = new LocalMppContext();
+        private final BatchContext context = new BatchContextImpl();
 
         public Builder setParallelism(int parallelism)
         {
@@ -79,11 +83,11 @@ public interface MppContext
             return this;
         }
 
-        public MppContext getOrCreate()
+        public BatchContext getOrCreate()
         {
-            return new LocalMppContext();
+            return new BatchContextImpl();
         }
     }
 
-    public <E, R> List<R> runJob(Operator<E> dataSet, Function<Iterator<E>, R> action);
+    public <E, R> List<R> runJob(Operator<E> dataSet, Mapper<Iterator<E>, R> action);
 }

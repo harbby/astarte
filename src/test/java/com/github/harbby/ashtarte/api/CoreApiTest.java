@@ -1,6 +1,6 @@
 package com.github.harbby.ashtarte.api;
 
-import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.BatchContext;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -9,7 +9,7 @@ import java.util.List;
 
 public class CoreApiTest
 {
-    private final MppContext mppContext = MppContext.builder().getOrCreate();
+    private final BatchContext mppContext = BatchContext.builder().getOrCreate();
 
     @Test
     public void fromCollectionTestReturnDataSet()

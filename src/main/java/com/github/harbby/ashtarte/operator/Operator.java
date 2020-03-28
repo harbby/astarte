@@ -1,7 +1,7 @@
 package com.github.harbby.ashtarte.operator;
 
 import com.github.harbby.ashtarte.HashPartitioner;
-import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.BatchContext;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.DataSet;
@@ -38,7 +38,7 @@ public abstract class Operator<ROW>
     protected static final Logger logger = LoggerFactory.getLogger(Operator.class);
 
     private static final AtomicInteger nextDataSetId = new AtomicInteger(0);  //发号器
-    private final transient MppContext context;
+    private final transient BatchContext context;
     private final int id = nextDataSetId.getAndIncrement();
     private final List<Operator<?>> dataSets;
 
@@ -71,7 +71,7 @@ public abstract class Operator<ROW>
         return outArray;
     }
 
-    protected Operator(MppContext context)
+    protected Operator(BatchContext context)
     {
         this.context = requireNonNull(context, "context is null");
         this.dataSets = new ArrayList<>();
@@ -84,7 +84,7 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public final MppContext getContext()
+    public final BatchContext getContext()
     {
         return context;
     }

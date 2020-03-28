@@ -1,6 +1,6 @@
 package com.github.harbby.ashtarte.operator;
 
-import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.BatchContext;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Test;
@@ -9,7 +9,7 @@ import java.util.Arrays;
 
 public class CacheOperatorTest
 {
-    private final MppContext mppContext = MppContext.builder().setParallelism(1).getOrCreate();
+    private final BatchContext mppContext = BatchContext.builder().setParallelism(1).getOrCreate();
 
     @Test
     public void cacheUnCacheTest()

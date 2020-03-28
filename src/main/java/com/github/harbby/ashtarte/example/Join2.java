@@ -1,6 +1,6 @@
 package com.github.harbby.ashtarte.example;
 
-import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.BatchContext;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
@@ -8,7 +8,7 @@ import java.util.Arrays;
 
 public class Join2 {
     public static void main(String[] args) {
-        MppContext mppContext = MppContext.builder().setParallelism(1).getOrCreate();
+        BatchContext mppContext = BatchContext.builder().setParallelism(1).getOrCreate();
 
         KvDataSet<String, Integer> ageDs = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", 8),

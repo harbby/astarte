@@ -1,6 +1,6 @@
 package com.github.harbby.ashtarte.example;
 
-import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.BatchContext;
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.base.Iterators;
@@ -10,7 +10,7 @@ public class SparkGroupByDemo
 {
     public static void main(String[] args)
     {
-        MppContext mppContext = MppContext.builder().setParallelism(1).getOrCreate();
+        BatchContext mppContext = BatchContext.builder().setParallelism(1).getOrCreate();
         String sparkHome = System.getenv("SPARK_HOME");
         DataSet<String> ds = mppContext.textFile(sparkHome + "/README.md");
         DataSet<String> worlds = ds.flatMap(input -> input.toLowerCase().split(" "))

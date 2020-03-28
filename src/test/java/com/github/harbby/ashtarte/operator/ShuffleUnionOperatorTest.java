@@ -1,6 +1,6 @@
 package com.github.harbby.ashtarte.operator;
 
-import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.BatchContext;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.mutable.MutableSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -12,7 +12,7 @@ import java.util.List;
 
 public class ShuffleUnionOperatorTest
 {
-    private final MppContext mppContext = MppContext.builder().setParallelism(1).getOrCreate();
+    private final BatchContext mppContext = BatchContext.builder().setParallelism(1).getOrCreate();
 
     @Test
     public void unionTest()

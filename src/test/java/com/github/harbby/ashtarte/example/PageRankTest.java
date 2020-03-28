@@ -1,6 +1,6 @@
 package com.github.harbby.ashtarte.example;
 
-import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.BatchContext;
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  */
 public class PageRankTest
 {
-    private final MppContext mppContext = MppContext.builder()
+    private final BatchContext mppContext = BatchContext.builder()
             .setParallelism(2)
             .getOrCreate();
 

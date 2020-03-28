@@ -8,9 +8,9 @@ import java.util.Map;
 
 public class GraphScheduler
 {
-    private final MppContext mppContext;
+    private final BatchContext mppContext;
 
-    public GraphScheduler(MppContext mppContext)
+    public GraphScheduler(BatchContext mppContext)
     {
         this.mppContext = mppContext;
     }

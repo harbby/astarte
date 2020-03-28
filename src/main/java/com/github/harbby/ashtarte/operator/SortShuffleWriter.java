@@ -132,35 +132,6 @@ public class SortShuffleWriter<K, V>
         return (K[]) bounds.toArray();
     }
 
-    static class SampleResult<E>
-    {
-        private final long partitionCount;
-        private final int partitionId;
-        private final E[] data;
-
-        public SampleResult(long partitionCount, int partitionId, E[] data)
-        {
-            this.partitionCount = partitionCount;
-            this.partitionId = partitionId;
-            this.data = data;
-        }
-
-        public long getPartitionCount()
-        {
-            return partitionCount;
-        }
-
-        public int getPartitionId()
-        {
-            return partitionId;
-        }
-
-        public E[] getData()
-        {
-            return data;
-        }
-    }
-
     private static <K> List<SampleResult<K>> sketch(Operator<K> operator,
             int sampleSizePerPartition)
     {
@@ -190,6 +161,35 @@ public class SortShuffleWriter<K, V>
         }).collect();
 
         return results;
+    }
+
+    static class SampleResult<E>
+    {
+        private final long partitionCount;
+        private final int partitionId;
+        private final E[] data;
+
+        public SampleResult(long partitionCount, int partitionId, E[] data)
+        {
+            this.partitionCount = partitionCount;
+            this.partitionId = partitionId;
+            this.data = data;
+        }
+
+        public long getPartitionCount()
+        {
+            return partitionCount;
+        }
+
+        public int getPartitionId()
+        {
+            return partitionId;
+        }
+
+        public E[] getData()
+        {
+            return data;
+        }
     }
 
     public static class SorterBuffer<K, V>

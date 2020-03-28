@@ -1,18 +1,18 @@
 package com.github.harbby.ashtarte;
 
+import com.github.harbby.ashtarte.api.AshtarteException;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Stage;
+import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.ashtarte.operator.ShuffleJoinOperator;
 import com.github.harbby.ashtarte.operator.ShuffleMapOperator;
 import com.github.harbby.ashtarte.operator.ShuffledOperator;
-import com.github.harbby.ashtarte.utils.SerializableObj;
-import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -24,26 +24,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkArgument;
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
-import static com.github.harbby.gadtry.base.Throwables.throwsThrowable;
 
 /**
  * Local achieve
  */
-public class LocalMppContext
-        implements MppContext
+public class BatchContextImpl
+        implements BatchContext
 {
-    private static final Logger logger = LoggerFactory.getLogger(LocalMppContext.class);
+    private static final Logger logger = LoggerFactory.getLogger(BatchContextImpl.class);
     private final AtomicInteger nextJobId = new AtomicInteger(1);
+    JobScheduler jobScheduler = new ForkVmJobScheduler(this);
 
     private int parallelism = 1;
 
@@ -52,6 +48,36 @@ public class LocalMppContext
     {
         checkState(parallelism > 0, "parallelism > 0, your %s", parallelism);
         this.parallelism = parallelism;
+    }
+
+    @Override
+    public int getParallelism()
+    {
+        return parallelism;
+    }
+
+    @Override
+    public <E, R> List<R> runJob(Operator<E> finalOperator, Mapper<Iterator<E>, R> action)
+    {
+        checkArgument(!(finalOperator instanceof KvDataSet), "use unboxing(this)");
+        int jobId = nextJobId.getAndIncrement();
+        logger.info("begin analysis job {} deps to stageDAG", jobId);
+
+        //Map<Stage, Map<Integer, Integer>> stageMap = findShuffleMapOperator3(finalOperator);
+        Map<Stage, Map<Integer, Integer>> stageMap = findShuffleMapOperator(finalOperator);
+
+        List<Stage> stages = new ArrayList<>(stageMap.keySet());
+        stages.sort((x, y) -> Integer.compare(y.getStageId(), x.getStageId()));
+        clearOperatorDependencies(stages);  //must after stageDependOpCache cache dag
+
+        new GraphScheduler(this).runGraph(stageMap);
+        //---------------------
+        try {
+            return jobScheduler.runJob(jobId, stages, action, stageMap);
+        }
+        catch (IOException e) {
+            throw new AshtarteException("job failed to run", e);
+        }
     }
 
     /**
@@ -84,7 +110,7 @@ public class LocalMppContext
                 depOperators = Collections.emptyList();
             }
             else {
-                depOperators = o.getDependencies();
+                depOperators = stageDependOpCache.getOrDefault(o.getId(), o.getDependencies());
             }
             for (Operator<?> operator : depOperators) {
                 if (operator instanceof ShuffleMapOperator) {
@@ -158,6 +184,7 @@ public class LocalMppContext
             Operator<?> o = stack.poll();
             for (Operator<?> operator : o.getDependencies()) {
                 if (operator instanceof ShuffledOperator || operator instanceof ShuffleJoinOperator) {
+                    stageDependOpCache.putIfAbsent(operator.getId(), operator.getDependencies());
                     operator.clearDependencies();
                 }
                 else {
@@ -167,66 +194,5 @@ public class LocalMppContext
         }
     }
 
-    @Override
-    public <E, R> List<R> runJob(Operator<E> finalOperator, Function<Iterator<E>, R> action)
-    {
-        checkArgument(!(finalOperator instanceof KvDataSet), "use unboxing(this)");
-        int jobId = nextJobId.getAndIncrement();
-        logger.info("starting... job: {}", jobId);
-        logger.info("begin analysis job {} deps to stageDAG", jobId);
-
-        //Map<Stage, Map<Integer, Integer>> stageMap = findShuffleMapOperator3(finalOperator);
-        Map<Stage, Map<Integer, Integer>> stageMap = findShuffleMapOperator(finalOperator);
-        ResultStage<E> resultStage = (ResultStage<E>) stageMap.keySet().iterator().next(); //  //最后一个state
-
-        List<Stage> stages = new ArrayList<>(stageMap.keySet());
-        stages.sort((x, y) -> Integer.compare(y.getStageId(), x.getStageId()));
-        //clearOperatorDependencies(stages);
-        new GraphScheduler(this).runGraph(stageMap);  //dag过大时会栈溢出
-        //---------------------
-        ExecutorService executors = Executors.newFixedThreadPool(parallelism);
-        try {
-            FileUtils.deleteDirectory(new File("/tmp/shuffle"));
-        }
-        catch (IOException e) {
-            throwsThrowable(e);
-        }
-        for (Stage stage : stages) {
-            if (stage instanceof ShuffleMapStage) {
-                logger.info("starting... shuffleMapStage: {}, id {}", stage, stage.getStageId());
-                SerializableObj<Stage> serializableStage = SerializableObj.of(stage);
-                Map<Integer, Integer> deps = stageMap.getOrDefault(stage, Collections.emptyMap());
-
-                Stream.of(stage.getPartitions()).map(partition -> CompletableFuture.runAsync(() -> {
-                    Stage s = serializableStage.getValue();
-                    s.compute(partition, TaskContext.of(s.getStageId(), deps));
-                }, executors)).collect(Collectors.toList())
-                        .forEach(x -> x.join());
-            }
-        }
-
-        //result stage ------
-        SerializableObj<ResultStage<E>> serializableObj = SerializableObj.of(resultStage);
-        logger.info("starting... ResultStage: {}, id {}", resultStage, resultStage.getStageId());
-        try {
-            Map<Integer, Integer> deps = stageMap.getOrDefault(resultStage, Collections.emptyMap());
-            return Stream.of(resultStage.getPartitions()).map(partition -> CompletableFuture.supplyAsync(() -> {
-                Operator<E> operator = serializableObj.getValue().getFinalOperator();
-                Iterator<E> iterator = operator.computeOrCache(partition,
-                        TaskContext.of(resultStage.getStageId(), deps));
-                return action.apply(iterator);
-            }, executors)).collect(Collectors.toList()).stream()
-                    .map(x -> x.join())
-                    .collect(Collectors.toList());
-        }
-        finally {
-            executors.shutdown();
-            try {
-                FileUtils.deleteDirectory(new File("/tmp/shuffle000"));
-            }
-            catch (IOException e) {
-                logger.error("clear job tmp dir {} faild", "/tmp/shuffle");
-            }
-        }
-    }
+    private Map<Integer, List<? extends Operator<?>>> stageDependOpCache = new ConcurrentHashMap<>();
 }

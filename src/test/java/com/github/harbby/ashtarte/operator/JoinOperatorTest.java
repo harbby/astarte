@@ -1,6 +1,6 @@
 package com.github.harbby.ashtarte.operator;
 
-import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.BatchContext;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
@@ -11,7 +11,7 @@ import java.util.List;
 
 public class JoinOperatorTest
 {
-    private final MppContext mppContext = MppContext.builder()
+    private final BatchContext mppContext = BatchContext.builder()
             .setParallelism(2)
             .getOrCreate();
 

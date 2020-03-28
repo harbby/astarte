@@ -1,6 +1,6 @@
 package com.github.harbby.ashtarte.api;
 
-import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.BatchContext;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.api.function.Filter;
 import com.github.harbby.ashtarte.api.function.Foreach;
@@ -25,7 +25,7 @@ public interface DataSet<ROW>
 
     public int numPartitions();
 
-    public MppContext getContext();
+    public BatchContext getContext();
 
     int getId();
 

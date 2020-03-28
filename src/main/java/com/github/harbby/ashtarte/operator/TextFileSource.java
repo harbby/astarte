@@ -1,6 +1,6 @@
 package com.github.harbby.ashtarte.operator;
 
-import com.github.harbby.ashtarte.MppContext;
+import com.github.harbby.ashtarte.BatchContext;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import sun.nio.cs.StreamDecoder;
@@ -25,7 +25,7 @@ public class TextFileSource
 {
     private final String dir;
 
-    public TextFileSource(MppContext yarkContext, String dir)
+    public TextFileSource(BatchContext yarkContext, String dir)
     {
         super(yarkContext);
         this.dir = dir;
