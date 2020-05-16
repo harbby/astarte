@@ -21,7 +21,7 @@ Welcome to Ashtarte !
     worldCounts.collect()
         .forEach(x -> System.out.println(x.f1() + "," + x.f2()));
 ```
-* pageRank
+* PageRank
 ```
         BatchContext mppContext = BatchContext.builder()
                 .setParallelism(2)
