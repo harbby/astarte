@@ -1,5 +1,6 @@
 package com.github.harbby.ashtarte;
 
+import com.github.harbby.ashtarte.api.AshtarteConf;
 import com.github.harbby.ashtarte.api.AshtarteException;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Stage;
@@ -39,9 +40,15 @@ public class BatchContextImpl
 {
     private static final Logger logger = LoggerFactory.getLogger(BatchContextImpl.class);
     private final AtomicInteger nextJobId = new AtomicInteger(1);
-    JobScheduler jobScheduler = new ForkVmJobScheduler(this);
+    private final AshtarteConf conf = new AshtarteConf();
+    JobScheduler jobScheduler = new LocalJobScheduler(this);
 
     private int parallelism = 1;
+
+    @Override
+    public AshtarteConf getConf() {
+        return conf;
+    }
 
     @Override
     public void setParallelism(int parallelism)

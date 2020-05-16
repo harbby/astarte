@@ -1,5 +1,6 @@
 package com.github.harbby.ashtarte;
 
+import com.github.harbby.ashtarte.api.AshtarteConf;
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.function.Mapper;
@@ -19,6 +20,8 @@ import java.util.function.Function;
 
 public interface BatchContext
 {
+    public AshtarteConf getConf();
+
     public default <K, V> KvDataSet<K, V> makeKvDataSet(Collection<Tuple2<K, V>> collection, int parallelism)
     {
         return new KvOperator<>(new CollectionSource<>(this, collection, parallelism));
