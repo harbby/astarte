@@ -69,7 +69,7 @@ public class CacheOperator<E>
 
         Iterable<E> partitionCache = jobCachePartitons[split.getId()];
         if (partitionCache != null) {
-            logger.debug("-----{} cached dep stage: {}缓存命中---", dataSet, taskContext.getDependStages());
+            logger.debug("-----{} cached dep stage: {} cache hit---", dataSet, taskContext.getDependStages());
             return partitionCache.iterator();
         }
         else {

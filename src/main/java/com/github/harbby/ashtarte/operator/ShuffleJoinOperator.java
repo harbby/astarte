@@ -5,10 +5,12 @@ import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.ShuffleManager;
 import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.gadtry.collection.immutable.ImmutableList;
 import com.github.harbby.gadtry.collection.mutable.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
@@ -22,7 +24,6 @@ import static java.util.Objects.requireNonNull;
  * see: clearOperatorDependencies
  * <p>
  * shuffle join
- *
  */
 public class ShuffleJoinOperator<K>
         extends Operator<Tuple2<K, Iterable<?>[]>>
@@ -31,15 +32,18 @@ public class ShuffleJoinOperator<K>
     private final int dataSetNum;
     private final int[] shuffleMapIds;
 
+    private final transient List<? extends Operator<?>> dependencies;
+
     @SuppressWarnings("unchecked")
     @SafeVarargs
     protected ShuffleJoinOperator(Partitioner partitioner, Operator<? extends Tuple2<K, ?>> leftDataSet,
             Operator<? extends Tuple2<K, ?>>... otherDataSets)
     {
-        super(createShuffleMapOps(partitioner, leftDataSet, otherDataSets));
+        super(leftDataSet.getContext()); //不再传递依赖
         this.partitioner = requireNonNull(partitioner, "requireNonNull");
         this.dataSetNum = 1 + otherDataSets.length;
-        this.shuffleMapIds = this.getDependencies().stream().mapToInt(x -> x.getId()).toArray();
+        this.dependencies = ImmutableList.of(createShuffleMapOps(partitioner, leftDataSet, otherDataSets));
+        this.shuffleMapIds = dependencies.stream().mapToInt(x -> x.getId()).toArray();
     }
 
     private static <K> ShuffleMapOperator<?, ?>[] createShuffleMapOps(
@@ -80,6 +84,12 @@ public class ShuffleJoinOperator<K>
     {
         return IntStream.range(0, partitioner.numPartitions())
                 .mapToObj(Partition::new).toArray(Partition[]::new);
+    }
+
+    @Override
+    public List<? extends Operator<?>> getDependencies()
+    {
+        return dependencies;
     }
 
     /**

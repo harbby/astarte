@@ -74,7 +74,7 @@ public class LocalJobScheduler
             }
         } finally {
             try {
-                FileUtils.deleteDirectory(new File("/tmp/shuffle000"));
+                FileUtils.deleteDirectory(new File("/tmp/shuffle"));
             } catch (IOException e) {
                 logger.error("clear job tmp dir {} faild", "/tmp/shuffle");
             } finally {
