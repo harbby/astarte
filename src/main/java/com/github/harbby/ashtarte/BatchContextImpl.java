@@ -74,7 +74,7 @@ public class BatchContextImpl
         stages.sort((x, y) -> Integer.compare(y.getStageId(), x.getStageId()));
 
         Graph<Stage, Void> graph = toGraph(stageMap);
-        if (stages.size() < 50) {
+        if (stages.size() < 10) {
             logger.info("job graph tree:{}", String.join("\n", graph.printShow()));
         }
         //---------------------
@@ -145,7 +145,6 @@ public class BatchContextImpl
                 markCachedIterator.remove();
                 for (Operator<?> child : markCachedOperator.getDependencies()) {
                     stack.add(child);
-                    //todo: if 推测失败
                     checkState(!(child instanceof ShuffleMapOperator), "推测失败");
                     mapping.put(child, thisStage);  //这里凭感觉推测,不可能是 ShuffleMapOperator
 

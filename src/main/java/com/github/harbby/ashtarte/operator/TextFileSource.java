@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.github.harbby.gadtry.base.Throwables.throwsException;
+import static com.github.harbby.gadtry.base.Throwables.throwsThrowable;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TextFileSource
@@ -64,7 +64,7 @@ public class TextFileSource
             return Files.readAllLines(Paths.get(filePartition.file.toURI())).iterator();
         }
         catch (IOException e) {
-            throw throwsException(e);
+            throw throwsThrowable(e);
         }
     }
 

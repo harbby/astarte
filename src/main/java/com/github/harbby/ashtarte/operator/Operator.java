@@ -13,8 +13,8 @@ import com.github.harbby.ashtarte.api.function.KvMapper;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.collection.immutable.ImmutableList;
-import com.github.harbby.gadtry.collection.mutable.MutableList;
+import com.github.harbby.gadtry.collection.ImmutableList;
+import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -234,6 +234,13 @@ public abstract class Operator<ROW>
     {
         Operator<Tuple2<K, V>> mapOperator = this.map(kvMapper);
         return new KvOperator<>(mapOperator);
+    }
+
+    @Override
+    public <K> KeyValueGroupedOperator<K, ROW> groupByKey(Mapper<ROW, K> mapFunc)
+    {
+        requireNonNull(mapFunc, "mapFunc is null");
+        return new KeyValueGroupedOperator<>(this, mapFunc);
     }
 
     @Override

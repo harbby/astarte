@@ -2,7 +2,7 @@ package com.github.harbby.ashtarte.api.function;
 
 public interface AggFunction<IN, S, OUT>
 {
-    public S getStage();
+    public S getState();
 
     public void addRow(IN input);
 

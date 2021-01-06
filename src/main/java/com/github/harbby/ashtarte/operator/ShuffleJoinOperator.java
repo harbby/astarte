@@ -5,8 +5,8 @@ import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.ShuffleManager;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.collection.immutable.ImmutableList;
-import com.github.harbby.gadtry.collection.mutable.MutableList;
+import com.github.harbby.gadtry.collection.ImmutableList;
+import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
