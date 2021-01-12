@@ -2,7 +2,7 @@ package com.github.harbby.ashtarte.operator;
 
 import com.github.harbby.ashtarte.BatchContext;
 import com.github.harbby.ashtarte.api.KvDataSet;
-import com.github.harbby.gadtry.collection.mutable.MutableSet;
+import com.github.harbby.gadtry.collection.MutableSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;

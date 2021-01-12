@@ -5,7 +5,7 @@ import com.github.harbby.gadtry.base.Serializables;
 import java.io.IOException;
 import java.io.Serializable;
 
-import static com.github.harbby.gadtry.base.Throwables.throwsException;
+import static com.github.harbby.gadtry.base.Throwables.throwsThrowable;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -27,7 +27,7 @@ public class SerializableObj<E extends Serializable>
             this.bytes = Serializables.serialize(obj);
         }
         catch (IOException e) {
-            throw throwsException(e);
+            throw throwsThrowable(e);
         }
     }
 
@@ -59,7 +59,7 @@ public class SerializableObj<E extends Serializable>
             return (E) Serializables.byteToObject(bytes, classLoader);
         }
         catch (IOException | ClassNotFoundException e) {
-            throw throwsException(e);
+            throw throwsThrowable(e);
         }
     }
 }

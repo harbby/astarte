@@ -6,15 +6,12 @@ import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.operator.Operator;
-import com.github.harbby.ashtarte.operator.ShuffleJoinOperator;
 import com.github.harbby.ashtarte.operator.ShuffleMapOperator;
-import com.github.harbby.ashtarte.operator.ShuffledOperator;
-import com.github.harbby.ashtarte.runtime.ClusterScheduler;
+import com.github.harbby.gadtry.graph.Graph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,9 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkArgument;
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
@@ -42,12 +37,14 @@ public class BatchContextImpl
     private static final Logger logger = LoggerFactory.getLogger(BatchContextImpl.class);
     private final AtomicInteger nextJobId = new AtomicInteger(1);
     private final AshtarteConf conf = new AshtarteConf();
-    JobScheduler jobScheduler = new ClusterScheduler(this);
+
+    private final JobScheduler jobScheduler = new LocalJobScheduler(this);
 
     private int parallelism = 1;
 
     @Override
-    public AshtarteConf getConf() {
+    public AshtarteConf getConf()
+    {
         return conf;
     }
 
@@ -71,14 +68,15 @@ public class BatchContextImpl
         int jobId = nextJobId.getAndIncrement();
         logger.info("begin analysis job {} deps to stageDAG", jobId);
 
-        //Map<Stage, Map<Integer, Integer>> stageMap = findShuffleMapOperator3(finalOperator);
         Map<Stage, Map<Integer, Integer>> stageMap = findShuffleMapOperator(finalOperator);
 
         List<Stage> stages = new ArrayList<>(stageMap.keySet());
         stages.sort((x, y) -> Integer.compare(y.getStageId(), x.getStageId()));
-        clearOperatorDependencies(stages);  //must after stageDependOpCache cache dag
 
-        new GraphScheduler(this).runGraph(stageMap);
+        Graph<Stage, Void> graph = toGraph(stageMap);
+        if (stages.size() < 10) {
+            logger.info("job graph tree:{}", String.join("\n", graph.printShow()));
+        }
         //---------------------
         try {
             return jobScheduler.runJob(jobId, stages, action, stageMap);
@@ -89,7 +87,6 @@ public class BatchContextImpl
     }
 
     /**
-     * 广度优先
      * V5
      */
     private Map<Stage, Map<Integer, Integer>> findShuffleMapOperator(Operator<?> finalDataSet)
@@ -118,7 +115,7 @@ public class BatchContextImpl
                 depOperators = Collections.emptyList();
             }
             else {
-                depOperators = stageDependOpCache.getOrDefault(o.getId(), o.getDependencies());
+                depOperators = o.getDependencies();
             }
             for (Operator<?> operator : depOperators) {
                 if (operator instanceof ShuffleMapOperator) {
@@ -148,7 +145,6 @@ public class BatchContextImpl
                 markCachedIterator.remove();
                 for (Operator<?> child : markCachedOperator.getDependencies()) {
                     stack.add(child);
-                    //todo: if 推测失败
                     checkState(!(child instanceof ShuffleMapOperator), "推测失败");
                     mapping.put(child, thisStage);  //这里凭感觉推测,不可能是 ShuffleMapOperator
 
@@ -174,33 +170,20 @@ public class BatchContextImpl
         return map;
     }
 
-    /**
-     * 清理ShuffledOperator和ShuffleJoinOperator的Operator依赖
-     * 清理依赖后,每个stage将只包含自己相关的Operator引用
-     * <p>
-     * 为什么要清理? 如果不清理，序列化stage时则会抛出StackOverflowError
-     * demo: pageRank demo迭代数可以超过120了,不清理则会抛出StackOverflowError
-     */
-    private void clearOperatorDependencies(List<Stage> stages)
+    public static Graph<Stage, Void> toGraph(Map<Stage, ? extends Map<Integer, Integer>> stages)
     {
-        Queue<Operator<?>> stack = new LinkedList<>();
-        for (Stage stage : stages) {
-            stack.add(stage.getFinalOperator());
+        Graph.GraphBuilder<Stage, Void> builder = Graph.builder();
+        for (Stage stage : stages.keySet()) {
+            builder.addNode(stage.getStageId() + "", stage);
         }
-        //广度优先
-        while (!stack.isEmpty()) {
-            Operator<?> o = stack.poll();
-            for (Operator<?> operator : o.getDependencies()) {
-                if (operator instanceof ShuffledOperator || operator instanceof ShuffleJoinOperator) {
-                    stageDependOpCache.putIfAbsent(operator.getId(), operator.getDependencies());
-                    operator.clearDependencies();
-                }
-                else {
-                    stack.add(operator);
-                }
+
+        for (Map.Entry<Stage, ? extends Map<Integer, Integer>> entry : stages.entrySet()) {
+            for (int id : entry.getValue().values()) {
+                builder.addEdge(entry.getKey().getStageId() + "", id + "");
             }
         }
+        Graph<Stage, Void> graph = builder.create();
+        //graph.printShow().forEach(x -> System.out.println(x));
+        return graph;
     }
-
-    private Map<Integer, List<? extends Operator<?>>> stageDependOpCache = new ConcurrentHashMap<>();
 }

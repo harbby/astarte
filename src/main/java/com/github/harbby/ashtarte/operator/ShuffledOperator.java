@@ -4,9 +4,11 @@ import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.ShuffleManager;
+import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.stream.IntStream;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
@@ -26,11 +28,21 @@ public class ShuffledOperator<K, V>
     private final Partitioner partitioner;
     private final int shuffleMapOperatorId;
 
+    /**
+     * 清理ShuffledOperator和ShuffleJoinOperator的Operator依赖
+     * 清理依赖后,每个stage将只包含自己相关的Operator引用
+     * <p>
+     * 为什么要清理? 如果不清理，序列化stage时则会抛出StackOverflowError
+     * demo: pageRank demo迭代数可以超过120了,不清理则会抛出StackOverflowError
+     */
+    private final transient Operator<?> dependOperator;
+
     public ShuffledOperator(ShuffleMapOperator<K, V> operator, Partitioner partitioner)
     {
-        super(operator);
+        super(operator.getContext()); //不再传递依赖
         this.shuffleMapOperatorId = operator.getId();
         this.partitioner = partitioner;
+        this.dependOperator = operator;
     }
 
     public Partition[] getPartitions()
@@ -45,6 +57,12 @@ public class ShuffledOperator<K, V>
         // ShuffledOperator在设计中应该为一切shuffle的后端第一个Operator
         //这里我们提供明确的Partitioner给后续Operator
         return partitioner;
+    }
+
+    @Override
+    public List<? extends Operator<?>> getDependencies()
+    {
+        return ImmutableList.of(dependOperator);
     }
 
     @Override

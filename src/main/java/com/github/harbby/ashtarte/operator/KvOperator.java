@@ -23,6 +23,10 @@ public class KvOperator<K, V>
         implements KvDataSet<K, V>
 {
     private final Operator<Tuple2<K, V>> dataSet;
+    /*
+     * 启用map端combine功能
+     */
+    private boolean combine = true;
 
     public KvOperator(Operator<Tuple2<K, V>> dataSet)
     {
@@ -204,7 +208,6 @@ public class KvOperator<K, V>
         }
         else {
             Operator<Tuple2<K, V>> combineOperator;
-            boolean combine = true;
             // combine
             if (combine) {
                 combineOperator = new AggOperator<>(dataSet, reducer);

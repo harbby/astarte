@@ -4,6 +4,7 @@ import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.function.Reducer;
+import com.github.harbby.gadtry.collection.tuple.Tuple1;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.HashMap;
@@ -38,23 +39,22 @@ public class AggOperator<K, V>
     {
         Iterator<Tuple2<K, V>> input = operator.computeOrCache(split, taskContext);
         // 这里是增量计算的 复杂度= O(1) + log(m)
-        Map<K, V> aggState = new HashMap<>();
+        Map<K, Tuple1<V>> aggState = new HashMap<>();
         int count = 0;
         while (input.hasNext()) {
             Tuple2<K, V> tp = input.next();
-            V value = aggState.get(tp.f1());
+            Tuple1<V> value = aggState.get(tp.f1());
             if (value == null) {
-                value = tp.f2();
+                aggState.put(tp.f1, new Tuple1<>(tp.f2));
             }
             else {
-                value = reducer.reduce(value, tp.f2());
+                value.set(reducer.reduce(value.get(), tp.f2));
             }
-            aggState.put(tp.f1(), value);
             count++;
         }
         logger.info("AggOperator `convergent validity` is {}% {}/{}", aggState.size() * 100.0 / count, aggState.size(), count);
         return aggState.entrySet().stream()
-                .map(x -> new Tuple2<>(x.getKey(), x.getValue()))
+                .map(x -> new Tuple2<>(x.getKey(), x.getValue().get()))
                 .iterator();
     }
 }

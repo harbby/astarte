@@ -8,6 +8,7 @@ import com.github.harbby.ashtarte.api.function.KvMapper;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.ashtarte.operator.CacheOperator;
+import com.github.harbby.ashtarte.operator.KeyValueGroupedOperator;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.Serializable;
@@ -46,6 +47,8 @@ public interface DataSet<ROW>
     public Partitioner getPartitioner();
 
     <K, V> KvDataSet<K, V> kvDataSet(Mapper<ROW, Tuple2<K, V>> kvMapper);
+
+    <K> KeyValueGroupedOperator<K, ROW> groupByKey(Mapper<ROW, K> mapFunc);
 
     DataSet<ROW> cache(CacheOperator.CacheMode cacheMode);
 
