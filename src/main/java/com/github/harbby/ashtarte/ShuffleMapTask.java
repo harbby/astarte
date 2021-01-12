@@ -7,13 +7,13 @@ import com.github.harbby.ashtarte.utils.SerializableObj;
 
 public class ShuffleMapTask<E> implements Task<MapTaskState> {
 
-    private final SerializableObj<Stage> serializableStage;
+    private final Stage stage;
     private final Partition partition;
 
     public ShuffleMapTask(
-            SerializableObj<Stage> serializableStage,
+            Stage stage,
             Partition partition) {
-        this.serializableStage = serializableStage;
+        this.stage = stage;
         this.partition = partition;
     }
 
@@ -24,8 +24,7 @@ public class ShuffleMapTask<E> implements Task<MapTaskState> {
 
     @Override
     public MapTaskState runTask(TaskContext taskContext) {
-        Stage s = serializableStage.getValue();
-        s.compute(partition, taskContext);
+        stage.compute(partition, taskContext);
 
         //throw new UnsupportedOperationException();
         return null;

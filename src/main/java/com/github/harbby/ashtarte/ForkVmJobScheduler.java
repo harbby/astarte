@@ -1,11 +1,8 @@
 package com.github.harbby.ashtarte;
 
-import com.github.harbby.ashtarte.api.AshtarteConf;
-import com.github.harbby.ashtarte.api.Executor;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.api.Task;
 import com.github.harbby.ashtarte.api.function.Mapper;
-import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.ashtarte.utils.SerializableObj;
 import com.github.harbby.gadtry.jvm.JVMLauncher;
 import com.github.harbby.gadtry.jvm.JVMLaunchers;
@@ -20,9 +17,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -49,13 +43,13 @@ public class ForkVmJobScheduler
         try {
             for (Stage stage : jobStages) {
                 int stageId = stage.getStageId();
-                SerializableObj<Stage> serializableStage = SerializableObj.of(stage);
                 Map<Integer, Integer> deps = stageMap.getOrDefault(stage, Collections.emptyMap());
 
                 if (stage instanceof ShuffleMapStage) {
                     logger.info("starting... shuffleMapStage: {}, stageId {}", stage, stage.getStageId());
                     Stream.of(stage.getPartitions()).forEach(partition -> {
-                        Task<MapTaskState> task = new ShuffleMapTask<>(serializableStage, partition);
+                        Task<MapTaskState> task = new ShuffleMapTask<>(stage, partition);
+
                         JVMLauncher<String> jvmLauncher = JVMLaunchers.<String>newJvm()
                                 .setCallable(() -> {
                                     TaskContext taskContext = TaskContext.of(stageId, deps);
@@ -71,7 +65,8 @@ public class ForkVmJobScheduler
                     checkState(stage instanceof ResultStage, "Unknown stage " + stage);
                     logger.info("starting... ResultStage: {}, stageId {}", stage, stage.getStageId());
                     return Stream.of(stage.getPartitions()).map(partition -> {
-                        Task<R> task = new ResultTask<>(serializableStage, action, partition);
+                        Task<R> task = new ResultTask<>(stage, action, partition);
+
                         JVMLauncher<Serializable> jvmLauncher = JVMLaunchers.newJvm()
                                 .setCallable(() -> {
                                     TaskContext taskContext = TaskContext.of(stageId, deps);

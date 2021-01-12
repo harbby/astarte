@@ -11,15 +11,15 @@ import java.util.Iterator;
 
 public class ResultTask<E, R> implements Task<R> {
 
-    private final SerializableObj<Stage> serializableStage;
+    private final Stage stage;
     private final Mapper<Iterator<E>, R> func;
     private final Partition partition;
 
     public ResultTask(
-            SerializableObj<Stage> serializableStage,
+            Stage stage,
             Mapper<Iterator<E>, R> func,
             Partition partition) {
-        this.serializableStage = serializableStage;
+        this.stage = stage;
         this.func = func;
         this.partition = partition;
     }
@@ -32,7 +32,7 @@ public class ResultTask<E, R> implements Task<R> {
     @Override
     public R runTask(TaskContext taskContext) {
         @SuppressWarnings("unchecked")
-        ResultStage<E> resultStage = (ResultStage<E>) serializableStage.getValue();
+        ResultStage<E> resultStage = (ResultStage<E>) stage;
         Operator<E> operator = resultStage.getFinalOperator();
         Iterator<E> iterator = operator.computeOrCache(partition, taskContext);
         R r = func.map(iterator);

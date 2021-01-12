@@ -54,7 +54,7 @@ public class LocalJobScheduler
                     logger.info("starting... shuffleMapStage: {}, id {}", stage, stage.getStageId());
                     Stream.of(stage.getPartitions())
                             .map(partition -> {
-                                Task<MapTaskState> task = new ShuffleMapTask<>(serializableStage, partition);
+                                Task<MapTaskState> task = new ShuffleMapTask<>(serializableStage.getValue(), partition);
                                 return task;
                             })
                             .map(task -> CompletableFuture.runAsync(() -> task.runTask(taskContext), executors))
@@ -65,7 +65,7 @@ public class LocalJobScheduler
                     checkState(stage instanceof ResultStage, "Unknown stage " + stage);
                     logger.info("starting... ResultStage: {}, id {}", stage, stage.getStageId());
                     return Stream.of(stage.getPartitions())
-                            .map(partition -> new ResultTask<>(serializableStage, action, partition))
+                            .map(partition -> new ResultTask<>(serializableStage.getValue(), action, partition))
                             .map(task -> CompletableFuture.supplyAsync(() -> task.runTask(taskContext), executors))
                             .collect(Collectors.toList()).stream()
                             .map(CompletableFuture::join)

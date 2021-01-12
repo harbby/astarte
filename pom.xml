@@ -37,7 +37,13 @@
         <dependency>
             <groupId>com.github.harbby</groupId>
             <artifactId>gadtry</artifactId>
-            <version>1.7.1-SNAPSHOT</version>
+            <version>1.7.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>4.1.50.Final</version>
         </dependency>
 
         <dependency>

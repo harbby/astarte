@@ -9,6 +9,7 @@ import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.ashtarte.operator.ShuffleJoinOperator;
 import com.github.harbby.ashtarte.operator.ShuffleMapOperator;
 import com.github.harbby.ashtarte.operator.ShuffledOperator;
+import com.github.harbby.ashtarte.runtime.ClusterScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,7 +42,7 @@ public class BatchContextImpl
     private static final Logger logger = LoggerFactory.getLogger(BatchContextImpl.class);
     private final AtomicInteger nextJobId = new AtomicInteger(1);
     private final AshtarteConf conf = new AshtarteConf();
-    JobScheduler jobScheduler = new LocalJobScheduler(this);
+    JobScheduler jobScheduler = new ClusterScheduler(this);
 
     private int parallelism = 1;
 
