@@ -37,13 +37,13 @@
         <dependency>
             <groupId>com.github.harbby</groupId>
             <artifactId>gadtry</artifactId>
-            <version>1.8.2</version>
+            <version>1.9.0-SNAPSHOT</version>
         </dependency>
 
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
-            <version>4.1.50.Final</version>
+            <version>4.1.56.Final</version>
         </dependency>
 
         <dependency>

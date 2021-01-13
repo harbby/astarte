@@ -38,7 +38,7 @@ public class BatchContextImpl
     private final AtomicInteger nextJobId = new AtomicInteger(1);
     private final AshtarteConf conf = new AshtarteConf();
 
-    private final JobScheduler jobScheduler = new LocalJobScheduler(this);
+    private final JobScheduler jobScheduler = new ForkVmJobScheduler(this);
 
     private int parallelism = 1;
 

@@ -14,7 +14,7 @@
             <pattern>%d{yy-MM-dd HH:mm:ss} %p[%thread][%F:%L]-%m%n</pattern>
         </encoder>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>DEBUG</level>
+            <level>INFO</level>
         </filter>
     </appender>
     <appender name="INFOFILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
@@ -53,7 +53,7 @@
             <MaxFileSize>10MB</MaxFileSize>
         </triggeringPolicy>
     </appender>
-    <root level="DEBUG">
+    <root level="INFO">
         <appender-ref ref="console"/>
         <appender-ref ref="INFOFILE"/>
         <appender-ref ref="ERRFILE"/>

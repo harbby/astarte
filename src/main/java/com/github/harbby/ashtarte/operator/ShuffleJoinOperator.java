@@ -4,7 +4,7 @@ import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.ShuffleManager;
-import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.ashtarte.deprecated.JoinExperiment;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -108,6 +108,6 @@ public class ShuffleJoinOperator<K>
                     return ShuffleManager.<K, Object>getReader(shuffleId, split.getId());
                 }).iterator();
 
-        return Iterators.join(iterators, dataSetNum);
+        return JoinExperiment.join(iterators, dataSetNum);
     }
 }

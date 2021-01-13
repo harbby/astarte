@@ -4,6 +4,8 @@ import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.operator.Operator;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 import static com.github.harbby.gadtry.base.MoreObjects.toStringHelper;
@@ -14,10 +16,22 @@ public abstract class Stage
     private final Operator<?> operator;
     private final int stageId;
 
+    private Map<Integer, Integer> deps = new HashMap<>();
+
     protected Stage(final Operator<?> operator, int stageId)
     {
         this.operator = operator;
         this.stageId = stageId;
+    }
+
+    public void setDeps(Map<Integer, Integer> deps)
+    {
+        this.deps.putAll(deps);
+    }
+
+    public Map<Integer, Integer> getDeps()
+    {
+        return deps;
     }
 
     public Operator<?> getFinalOperator()

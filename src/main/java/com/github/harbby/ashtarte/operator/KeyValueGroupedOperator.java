@@ -10,6 +10,7 @@ import com.github.harbby.ashtarte.api.function.Reducer;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.Serializable;
+import java.util.Iterator;
 
 public class KeyValueGroupedOperator<K, ROW>
         implements Serializable
@@ -44,5 +45,13 @@ public class KeyValueGroupedOperator<K, ROW>
         ShuffleMapOperator<K, ROW> shuffleMapper = new ShuffleMapOperator<>(kv, kv.numPartitions());
         ShuffledOperator<K, ROW> shuffleReducer = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
         return new KvOperator<>(new PipeLineAggOperator<>(shuffleReducer, collector));
+    }
+
+    public <OUT> DataSet<OUT> mapPartition(Mapper<Iterator<Tuple2<K, ROW>>, Iterator<OUT>> mapper)
+    {
+        Operator<Tuple2<K, ROW>> kv = dataSet.kvDataSet(row -> new Tuple2<>(mapFunc.map(row), row));
+        ShuffleMapOperator<K, ROW> shuffleMapper = new ShuffleMapOperator<>(kv, kv.numPartitions());
+        ShuffledOperator<K, ROW> shuffleReducer = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
+        return shuffleReducer.mapPartition(mapper);
     }
 }

@@ -5,11 +5,12 @@ import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.api.Task;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.operator.Operator;
-import com.github.harbby.ashtarte.utils.SerializableObj;
 
 import java.util.Iterator;
 
-public class ResultTask<E, R> implements Task<R> {
+public class ResultTask<E, R>
+        implements Task<R>
+{
 
     private final Stage stage;
     private final Mapper<Iterator<E>, R> func;
@@ -18,19 +19,28 @@ public class ResultTask<E, R> implements Task<R> {
     public ResultTask(
             Stage stage,
             Mapper<Iterator<E>, R> func,
-            Partition partition) {
+            Partition partition)
+    {
         this.stage = stage;
         this.func = func;
         this.partition = partition;
     }
 
     @Override
-    public long getTaskId() {
-        return 0;
+    public Stage getStage()
+    {
+        return stage;
     }
 
     @Override
-    public R runTask(TaskContext taskContext) {
+    public long getTaskId()
+    {
+        return partition.getId();
+    }
+
+    @Override
+    public R runTask(TaskContext taskContext)
+    {
         @SuppressWarnings("unchecked")
         ResultStage<E> resultStage = (ResultStage<E>) stage;
         Operator<E> operator = resultStage.getFinalOperator();

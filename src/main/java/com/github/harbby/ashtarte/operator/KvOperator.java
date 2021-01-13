@@ -11,6 +11,7 @@ import com.github.harbby.ashtarte.api.function.KvForeach;
 import com.github.harbby.ashtarte.api.function.KvMapper;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.api.function.Reducer;
+import com.github.harbby.ashtarte.deprecated.JoinExperiment;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
@@ -265,16 +266,17 @@ public class KvOperator<K, V>
     @Override
     public <W> KvDataSet<K, Tuple2<V, W>> leftJoin(DataSet<Tuple2<K, W>> kvDataSet)
     {
-        return join(kvDataSet, Iterators.JoinMode.LEFT_JOIN);
+        return join(kvDataSet, JoinExperiment.JoinMode.LEFT_JOIN);
     }
 
     @Override
     public <W> KvDataSet<K, Tuple2<V, W>> join(DataSet<Tuple2<K, W>> kvDataSet)
     {
-        return join(kvDataSet, Iterators.JoinMode.INNER_JOIN);
+        return join(kvDataSet, JoinExperiment.JoinMode.INNER_JOIN);
     }
 
-    private <W> KvDataSet<K, Tuple2<V, W>> join(DataSet<Tuple2<K, W>> rightDataSet, Iterators.JoinMode joinMode)
+    @Deprecated
+    private <W> KvDataSet<K, Tuple2<V, W>> join(DataSet<Tuple2<K, W>> rightDataSet, JoinExperiment.JoinMode joinMode)
     {
         checkState(rightDataSet instanceof Operator, rightDataSet + "not instanceof Operator");
         Operator<Tuple2<K, W>> rightOperator = unboxing((Operator<Tuple2<K, W>>) rightDataSet);
@@ -301,7 +303,7 @@ public class KvOperator<K, V>
             @SuppressWarnings("unchecked")
             Iterable<W> w = (Iterable<W>) x.f2()[1];
 
-            Iterator<Tuple2<V, W>> iterator = Iterators.cartesian(v, w, joinMode);
+            Iterator<Tuple2<V, W>> iterator = JoinExperiment.cartesian(v, w, joinMode);
             return Iterators.map(iterator, it -> new Tuple2<>(x.f1(), it));
         });
         return new KvOperator<>(operator);

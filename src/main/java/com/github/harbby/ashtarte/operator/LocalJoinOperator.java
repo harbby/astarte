@@ -3,7 +3,7 @@ package com.github.harbby.ashtarte.operator;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
-import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.ashtarte.deprecated.JoinExperiment;
 import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
@@ -75,6 +75,6 @@ public class LocalJoinOperator<K>
         Iterator<Iterator<Tuple2<K, Object>>> iterators = Stream.of(kvDataSets)
                 .map(operator -> operator.computeOrCache(split, taskContext))
                 .iterator();
-        return Iterators.join(iterators, kvDataSets.length);
+        return JoinExperiment.join(iterators, kvDataSets.length);
     }
 }
