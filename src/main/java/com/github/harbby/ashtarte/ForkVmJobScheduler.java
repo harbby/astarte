@@ -4,7 +4,7 @@ import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.api.Task;
 import com.github.harbby.ashtarte.api.function.Mapper;
-import com.github.harbby.ashtarte.runtime.DriverNetManagerHandler;
+import com.github.harbby.ashtarte.runtime.DriverNetManager;
 import com.github.harbby.ashtarte.runtime.TaskEvent;
 import com.github.harbby.ashtarte.runtime.TaskManager;
 import com.github.harbby.gadtry.jvm.JVMLaunchers;
@@ -46,9 +46,11 @@ public class ForkVmJobScheduler
     {
         logger.info("starting... job: {}", jobId);
         // start driver manager port
-        DriverNetManagerHandler.start();
+        DriverNetManager driverNetManager = new DriverNetManager();
+        driverNetManager.start();
+
         //启动所有Executor
-        List<VmFuture<Integer>> vms = IntStream.range(0, 2).mapToObj(x -> {
+        List<VmFuture<Integer>> vms = IntStream.range(0, 1).mapToObj(x -> {
             return JVMLaunchers.<Integer>newJvm()
                     .setName("ashtarte.Executor")
                     .task(() -> {
@@ -64,7 +66,7 @@ public class ForkVmJobScheduler
         }).collect(Collectors.toList());
         //wait 等待所有exector上线
         while (true) {
-            if (DriverNetManagerHandler.handlerMap.size() == vms.size()) {
+            if (driverNetManager.handlerMap.size() == vms.size()) {
                 break;
             }
             try {
@@ -81,12 +83,12 @@ public class ForkVmJobScheduler
             Map<Integer, Integer> deps = stageMap.getOrDefault(stage, Collections.emptyMap());
             stage.setDeps(deps);
 
-            stage.setShuffleServices(new HashSet<>(DriverNetManagerHandler.handlerMap.keySet()));
+            stage.setShuffleServices(new HashSet<>(driverNetManager.handlerMap.keySet()));
             if (stage instanceof ShuffleMapStage) {
                 logger.info("starting... shuffleMapStage: {}, id {}", stage, stage.getStageId());
                 for (Partition partition : stage.getPartitions()) {
                     Task<MapTaskState> task = new ShuffleMapTask<>(stage, partition);
-                    DriverNetManagerHandler.handlerMap.values().stream().findAny().get()  //调度策略暂时为　随机调度
+                    driverNetManager.handlerMap.values().stream().findAny().get()  //调度策略暂时为　随机调度
                             .submitTask(task);
                 }
             }
@@ -96,7 +98,7 @@ public class ForkVmJobScheduler
                 logger.info("starting... ResultStage: {}, id {}", stage, stage.getStageId());
                 for (Partition partition : stage.getPartitions()) {
                     ResultTask<E, R> task = new ResultTask<>(stage, action, partition);
-                    DriverNetManagerHandler.handlerMap.values().stream().findAny().get()
+                    driverNetManager.handlerMap.values().stream().findAny().get()
                             .submitTask(task);
                 }
             }
@@ -104,9 +106,10 @@ public class ForkVmJobScheduler
             for (int i = 0; i < stage.getNumPartitions(); i++) {
                 TaskEvent taskEvent = null;
                 try {
-                    taskEvent = DriverNetManagerHandler.queue.take();
+                    taskEvent = driverNetManager.queue.take();
                 }
                 catch (InterruptedException e) {
+                    //todo: job kill
                     e.printStackTrace();
                 }
                 if (stage instanceof ResultStage) {

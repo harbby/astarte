@@ -16,6 +16,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import static com.github.harbby.ashtarte.runtime.ShuffleManagerService.getShuffleWorkDir;
+
 public interface ShuffleWriter<K, V>
         extends Closeable
 {
@@ -25,27 +27,34 @@ public interface ShuffleWriter<K, V>
             throws IOException;
 
     public static <K, V> ShuffleWriter<K, V> createShuffleWriter(
+            String executorUUID,
             int shuffleId,
             int mapId,
             Partitioner partitioner,
             Comparator<K> ordering)
     {
         if (ordering != null) {
-            return new SortShuffleWriter<>(shuffleId, mapId, ordering, partitioner);
+            return new SortShuffleWriter<>(executorUUID, shuffleId, mapId, ordering, partitioner);
         }
-        return new HashShuffleWriter<>(shuffleId, mapId, partitioner);
+        return new HashShuffleWriter<>(executorUUID, shuffleId, mapId, partitioner);
     }
 
     public static class HashShuffleWriter<KEY, VALUE>
             implements ShuffleWriter<KEY, VALUE>
     {
+        private final String executorUUID;
         private final int shuffleId;
         private final int mapId;
         private final Partitioner partitioner;
         private final Map<Integer, DataOutputStream> outputStreamMap = new HashMap<>();
 
-        public HashShuffleWriter(int shuffleId, int mapId, Partitioner partitioner)
+        public HashShuffleWriter(
+                String executorUUID,
+                int shuffleId,
+                int mapId,
+                Partitioner partitioner)
         {
+            this.executorUUID = executorUUID;
             this.shuffleId = shuffleId;
             this.mapId = mapId;
             this.partitioner = partitioner;
@@ -84,7 +93,9 @@ public interface ShuffleWriter<K, V>
         public File getDataFile(int shuffleId, int mapId, int reduceId)
         {
             // spark path /tmp/blockmgr-0b4744ba-bffa-420d-accb-fbc475da7a9d/27/shuffle_101_201_0.data
-            return new File("/tmp/shuffle/shuffle_" + shuffleId + "_" + mapId + "_" + reduceId + ".data");
+            String fileName = "shuffle_" + shuffleId + "_" + mapId + "_" + reduceId + ".data";
+            File shuffleWorkDir = getShuffleWorkDir(executorUUID);
+            return new File(shuffleWorkDir, String.format("%s/%s", 999, fileName));
         }
 
         @Override

@@ -1,5 +1,6 @@
 package com.github.harbby.ashtarte;
 
+import com.github.harbby.ashtarte.runtime.ShuffleClientManager;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -10,7 +11,15 @@ public interface TaskContext
 
     Map<Integer, Integer> getDependStages();
 
-    public static TaskContext of(int stageId, Map<Integer, Integer> depStages)
+    public ShuffleClientManager getShuffleClient();
+
+    public String executorUUID();
+
+    public static TaskContext of(
+            int stageId,
+            Map<Integer, Integer> depStages,
+            ShuffleClientManager shuffleClientManager,
+            String executorUUID)
     {
         Map<Integer, Integer> deps = ImmutableMap.copyOf(depStages);
         return new TaskContext()
@@ -25,6 +34,18 @@ public interface TaskContext
             public Map<Integer, Integer> getDependStages()
             {
                 return deps;
+            }
+
+            @Override
+            public ShuffleClientManager getShuffleClient()
+            {
+                return shuffleClientManager;
+            }
+
+            @Override
+            public String executorUUID()
+            {
+                return executorUUID;
             }
         };
     }

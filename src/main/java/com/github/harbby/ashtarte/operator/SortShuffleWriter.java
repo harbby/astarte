@@ -3,10 +3,11 @@ package com.github.harbby.ashtarte.operator;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
-import com.github.harbby.ashtarte.runtime.ShuffleManagerService;
 import com.github.harbby.ashtarte.api.ShuffleWriter;
 import com.github.harbby.ashtarte.api.function.Comparator;
+import com.github.harbby.ashtarte.runtime.ShuffleManagerService;
 import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.function.exception.Consumer;
 
@@ -33,11 +34,12 @@ public class SortShuffleWriter<K, V>
 
     //spillFile
     public SortShuffleWriter(
+            String executorUUID,
             int shuffleId, int mapId,
             Comparator<K> ordering,
             Partitioner partitioner)
     {
-        super(shuffleId, mapId, partitioner);
+        super(executorUUID, shuffleId, mapId, partitioner);
         this.ordering = ordering;
         this.partitioner = partitioner;
     }
@@ -268,6 +270,7 @@ public class SortShuffleWriter<K, V>
         private final Partitioner partitioner;
         private final int shuffleMapOperatorId;
         private final Comparator<K> ordering;
+        private final transient Operator<?> dependOperator;
 
         public ShuffledMergeSortOperator(ShuffleMapOperator<K, V> operator,
                 Comparator<K> ordering,
@@ -277,6 +280,13 @@ public class SortShuffleWriter<K, V>
             this.shuffleMapOperatorId = operator.getId();
             this.partitioner = partitioner;
             this.ordering = ordering;
+            this.dependOperator = operator;
+        }
+
+        @Override
+        public List<? extends Operator<?>> getDependencies()
+        {
+            return ImmutableList.of(dependOperator);
         }
 
         @Override

@@ -56,6 +56,7 @@ public class ExecutorBackend
     }
 
     public void updateState(Event event)
+            throws IOException
     {
         handler.updateState(event);
     }
@@ -91,7 +92,6 @@ public class ExecutorBackend
         public void channelActive(ChannelHandlerContext ctx)
                 throws Exception
         {
-            super.channelActive(ctx);
             this.ctx = ctx;
         }
 
@@ -102,28 +102,13 @@ public class ExecutorBackend
             cause.printStackTrace();
         }
 
-        /**
-         * 心跳
-         */
-        @Override
-        public void userEventTriggered(ChannelHandlerContext ctx, Object evt)
-                throws Exception
-        {
-            super.userEventTriggered(ctx, evt);
-        }
-
-        public void updateState(Event event)
+        public synchronized void updateState(Event event)
+                throws IOException
         {
             ByteBuf buffer = ctx.alloc().buffer();
-
-            try {
-                byte[] bytes = Serializables.serialize(event);
-                buffer.writeInt(bytes.length).writeBytes(bytes);
-                ctx.writeAndFlush(buffer);
-            }
-            catch (IOException e) {
-                e.printStackTrace();
-            }
+            byte[] bytes = Serializables.serialize(event);
+            buffer.writeInt(bytes.length).writeBytes(bytes);
+            ctx.writeAndFlush(buffer);
         }
     }
 }

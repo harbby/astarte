@@ -33,8 +33,13 @@ public final class ShuffleManagerService
 
 {
     private static final Logger logger = LoggerFactory.getLogger(ShuffleManagerService.class);
-
+    private final File shuffleWorkDir;
     private ChannelFuture future;
+
+    public ShuffleManagerService(String executorUUID)
+    {
+        this.shuffleWorkDir = getShuffleWorkDir(executorUUID);
+    }
 
     public SocketAddress start()
             throws UnknownHostException, InterruptedException
@@ -67,9 +72,16 @@ public final class ShuffleManagerService
         future.channel().closeFuture().sync();
     }
 
-    private static class ShuffleServiceHandler
+    private class ShuffleServiceHandler
             extends ChannelInboundHandlerAdapter
     {
+        @Override
+        public void channelActive(ChannelHandlerContext ctx)
+                throws Exception
+        {
+            logger.info("shuffleService find client {}", ctx.channel().remoteAddress());
+        }
+
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg)
                 throws Exception
@@ -77,21 +89,40 @@ public final class ShuffleManagerService
             ByteBuf in = (ByteBuf) msg;
             int shuffleId = in.readInt();
             int reduceId = in.readInt();
-            Iterator<FileInputStream> iterator = getShuffleDataInput(shuffleId, reduceId);
+            Iterator<FileInputStream> iterator = getShuffleDataInput(shuffleWorkDir, shuffleId, reduceId);
             ByteBuf byteBuf = ctx.alloc().buffer();
+            if (!iterator.hasNext()) {
+                byteBuf.writeInt(-1);
+                ctx.writeAndFlush(byteBuf);
+            }
             while (iterator.hasNext()) {
                 //todo:use 4096 byte zero copy
-                byteBuf.writeBytes(iterator.next(), 20480);
+                FileInputStream inputStream = iterator.next();
+                byteBuf.writeBytes(inputStream, 20480);
                 ctx.channel().writeAndFlush(byteBuf);
             }
-            super.channelRead(ctx, msg);
+        }
+
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
+                throws Exception
+        {
+            logger.error("", cause);
         }
     }
 
-    private static Iterator<FileInputStream> getShuffleDataInput(int shuffleId, int reduceId)
+    public static File getShuffleWorkDir(String executorUUID)
     {
-        File dataDir = new File("/tmp/shuffle/");
-        return Stream.of(dataDir.listFiles())
+        return new File("/tmp/ashtarte-" + executorUUID);
+    }
+
+    private static Iterator<FileInputStream> getShuffleDataInput(File shuffleWorkDir, int shuffleId, int reduceId)
+    {
+        File[] files = new File(shuffleWorkDir, "999").listFiles();
+        if (files == null) {
+            return Iterators.empty();
+        }
+        return Stream.of(files)
                 .filter(x -> x.getName().startsWith("shuffle_" + shuffleId + "_")
                         && x.getName().endsWith("_" + reduceId + ".data"))
                 .map(file -> {

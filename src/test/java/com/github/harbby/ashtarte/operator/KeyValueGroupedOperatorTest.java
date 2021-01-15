@@ -49,7 +49,7 @@ public class KeyValueGroupedOperatorTest
                 "a",
                 "b",
                 "b",
-                "b"), 1);
+                "b"), 2);
 
         Map<Integer, String> result = ds.groupByKey(x -> x.charAt(0) % 2)
                 .mapPartition(partition -> {
