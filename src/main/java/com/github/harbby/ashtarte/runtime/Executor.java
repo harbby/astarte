@@ -47,6 +47,9 @@ public class Executor
                 Stage stage = task.getStage();
                 Set<SocketAddress> shuffleServices = stage.getShuffleServices();
                 TaskContext taskContext = TaskContext.of(stage.getStageId(), stage.getDeps());
+                ShuffleClientManager shuffleClient = new ShuffleClientManager();
+                shuffleClient.start(shuffleServices);
+
                 Object result = task.runTask(taskContext);
                 TaskEvent event = new TaskEvent(task.getClass(), result);
                 executorBackend.updateState(event);
