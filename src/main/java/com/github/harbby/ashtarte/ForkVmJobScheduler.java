@@ -31,10 +31,42 @@ public class ForkVmJobScheduler
 {
     private static final Logger logger = LoggerFactory.getLogger(ForkVmJobScheduler.class);
     private final BatchContext context;
+    private DriverNetManager driverNetManager;
+    private List<VmFuture<Integer>> vms;
 
     public ForkVmJobScheduler(BatchContext context)
     {
         this.context = context;
+        // start driver manager port
+        DriverNetManager driverNetManager = new DriverNetManager();
+        driverNetManager.start();
+        this.driverNetManager = driverNetManager;
+
+        //启动所有Executor
+        this.vms = IntStream.range(0, 1).mapToObj(x -> {
+            return JVMLaunchers.<Integer>newJvm()
+                    .setName("ashtarte.Executor")
+                    .task(() -> {
+                        System.out.println("starting... Executor");
+                        TaskManager.main(new String[0]);
+                        return 0;
+                    })
+                    .setConsole(System.out::print)
+                    .addVmOps("-Dio.netty.leakDetectionLevel=advanced")
+                    .setXmx("2048m")
+                    .build()
+                    .startAsync(Executors.newSingleThreadExecutor());
+        }).collect(Collectors.toList());
+        //wait 等待所有exector上线
+        while (driverNetManager.handlerMap.size() != vms.size()) {
+            try {
+                TimeUnit.MILLISECONDS.sleep(10);
+            }
+            catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        logger.info("all executor({}) init Initialized", vms.size());
     }
 
     @Override
@@ -45,38 +77,6 @@ public class ForkVmJobScheduler
             throws IOException
     {
         logger.info("starting... job: {}", jobId);
-        // start driver manager port
-        DriverNetManager driverNetManager = new DriverNetManager();
-        driverNetManager.start();
-
-        //启动所有Executor
-        List<VmFuture<Integer>> vms = IntStream.range(0, 1).mapToObj(x -> {
-            return JVMLaunchers.<Integer>newJvm()
-                    .setName("ashtarte.Executor")
-                    .task(() -> {
-                        System.out.println("starting... Executor");
-                        TaskManager.main(new String[0]);
-                        return 0;
-                    })
-                    .setConsole(line -> {
-                        System.out.println(line);
-                    })
-                    .build()
-                    .startAsync(Executors.newSingleThreadExecutor());
-        }).collect(Collectors.toList());
-        //wait 等待所有exector上线
-        while (true) {
-            if (driverNetManager.handlerMap.size() == vms.size()) {
-                break;
-            }
-            try {
-                TimeUnit.MILLISECONDS.sleep(10);
-            }
-            catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        logger.info("all executor({}) init Initialized", vms.size());
 
         List<R> rs = new ArrayList<>();
         jobStages.forEach(stage -> {
@@ -119,7 +119,14 @@ public class ForkVmJobScheduler
             //---------------------
             //todo: 如果失败则重新调度该stage
         });
-        vms.forEach(x -> x.cancel());
+        //this.stop();
         return rs;
+    }
+
+    @Override
+    public void stop()
+    {
+        driverNetManager.handlerMap.clear();
+        vms.forEach(x -> x.cancel());
     }
 }

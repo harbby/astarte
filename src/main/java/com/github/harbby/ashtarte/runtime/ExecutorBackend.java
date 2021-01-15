@@ -5,6 +5,8 @@ import com.github.harbby.ashtarte.api.Task;
 import com.github.harbby.gadtry.base.Serializables;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -12,8 +14,10 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import io.netty.util.ReferenceCountUtil;
 
 import java.io.IOException;
+import java.net.SocketAddress;
 
 /**
  * 发送task结束信号给driver
@@ -23,18 +27,17 @@ public class ExecutorBackend
 
 {
     private final Executor executor;
-    private ExecutorBackendHandler handler;
+    private Channel channel;
 
     public ExecutorBackend(Executor executor)
     {
         this.executor = executor;
     }
 
-    public void start()
+    public void start(SocketAddress shuffleServiceAddress)
             throws InterruptedException
     {
         final ExecutorBackendHandler handler = new ExecutorBackendHandler();
-
         NioEventLoopGroup workerGroup = new NioEventLoopGroup();
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(workerGroup)
@@ -51,21 +54,16 @@ public class ExecutorBackend
                         ch.pipeline().addLast(handler);
                     }
                 });
-        bootstrap.connect("localhost", 7079).sync();
-        this.handler = handler;
-    }
-
-    public void updateState(Event event)
-            throws IOException
-    {
-        handler.updateState(event);
+        bootstrap.connect("localhost", 7079)
+                .addListener((ChannelFutureListener) future -> {
+                    this.channel = future.channel();
+                    writeEvent(channel, new ExecutorEvent.ExecutorInitSuccessEvent(shuffleServiceAddress));
+                });
     }
 
     private class ExecutorBackendHandler
             extends LengthFieldBasedFrameDecoder
     {
-        private ChannelHandlerContext ctx;
-
         public ExecutorBackendHandler()
         {
             super(6553600, 0, 4);
@@ -83,16 +81,11 @@ public class ExecutorBackend
             int len = in.readInt();
             byte[] bytes = new byte[len];
             in.readBytes(bytes);
+            ReferenceCountUtil.release(in);
+
             Task<MapTaskState> task = Serializables.byteToObject(bytes);
             executor.runTask(task);
             return task;
-        }
-
-        @Override
-        public void channelActive(ChannelHandlerContext ctx)
-                throws Exception
-        {
-            this.ctx = ctx;
         }
 
         @Override
@@ -101,14 +94,20 @@ public class ExecutorBackend
         {
             cause.printStackTrace();
         }
+    }
 
-        public synchronized void updateState(Event event)
-                throws IOException
-        {
-            ByteBuf buffer = ctx.alloc().buffer();
-            byte[] bytes = Serializables.serialize(event);
-            buffer.writeInt(bytes.length).writeBytes(bytes);
-            ctx.writeAndFlush(buffer);
-        }
+    public synchronized void updateState(Event event)
+            throws IOException
+    {
+        writeEvent(channel, event);
+    }
+
+    private static void writeEvent(Channel channel, Event event)
+            throws IOException
+    {
+        ByteBuf buffer = channel.alloc().buffer();
+        byte[] bytes = Serializables.serialize(event);
+        buffer.writeInt(bytes.length).writeBytes(bytes);
+        channel.writeAndFlush(buffer);
     }
 }

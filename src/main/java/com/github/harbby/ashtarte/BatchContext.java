@@ -88,7 +88,7 @@ public interface BatchContext
 
         public BatchContext getOrCreate()
         {
-            return new BatchContextImpl();
+            return context;
         }
     }
 

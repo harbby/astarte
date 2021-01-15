@@ -51,7 +51,7 @@ public class KeyValueGroupedOperatorTest
                 "b",
                 "b"), 2);
 
-        Map<Integer, String> result = ds.groupByKey(x -> x.charAt(0) % 2)
+        DataSet<Tuple2<Integer, StringBuilder>> dataSet = ds.groupByKey(x -> x.charAt(0) % 2)
                 .mapPartition(partition -> {
                     Map<Integer, StringBuilder> keyGroup = new HashMap<>();
                     while (partition.hasNext()) {
@@ -59,7 +59,8 @@ public class KeyValueGroupedOperatorTest
                         keyGroup.computeIfAbsent(row.f1, k -> new StringBuilder()).append(row.f2);
                     }
                     return keyGroup.entrySet().stream().map(x -> new Tuple2<>(x.getKey(), x.getValue())).iterator();
-                }).collect().stream().collect(Collectors.toMap(k -> k.getKey(), v -> v.getValue().toString()));
+                });
+        Map<Integer, String> result = dataSet.collect().stream().collect(Collectors.toMap(k -> k.getKey(), v -> v.getValue().toString()));
         Assert.assertEquals(result, MutableMap.of(0, "bbb", 1, "aa"));
     }
 }

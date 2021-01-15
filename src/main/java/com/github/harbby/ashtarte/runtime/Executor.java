@@ -33,9 +33,7 @@ public class Executor
         SocketAddress shuffleServiceAddress = service.start();
 
         this.executorBackend = new ExecutorBackend(this);
-        executorBackend.start();
-
-        executorBackend.updateState(new ExecutorEvent.ExecutorInitSuccessEvent(shuffleServiceAddress));
+        executorBackend.start(shuffleServiceAddress);
         service.join();
     }
 
@@ -52,14 +50,16 @@ public class Executor
                 Thread.currentThread().setName("ashtarte-task-" + task.getTaskId());
                 logger.info("starting... task {}", task);
                 TaskEvent event;
+
                 try {
                     Stage stage = task.getStage();
                     Set<SocketAddress> shuffleServices = stage.getShuffleServices();
-                    ShuffleClientManager shuffleClient = new ShuffleClientManager();
-                    shuffleClient.start(shuffleServices);
+                    ShuffleClientManager shuffleClient = ShuffleClientManager.start(shuffleServices);  //异步的
+
                     TaskContext taskContext = TaskContext.of(stage.getStageId(), stage.getDeps(), shuffleClient, executorUUID);
                     Object result = task.runTask(taskContext);
                     event = new TaskEvent(task.getClass(), result);
+                    shuffleClient.close();
                 }
                 catch (Exception e) {
                     event = new TaskEvent(task.getClass(), null);
@@ -68,7 +68,7 @@ public class Executor
                 logger.info("task {} success", task);
                 Thread.currentThread().setName(Thread.currentThread().getName() + "_done");
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 //task failed
                 logger.error("task failed", e);
             }

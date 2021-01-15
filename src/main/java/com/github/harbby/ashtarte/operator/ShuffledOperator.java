@@ -78,7 +78,7 @@ public class ShuffledOperator<K, V>
         Integer shuffleId = taskContext.getDependStages().get(shuffleMapOperatorId);
         checkState(shuffleId != null);
         ShuffleClientManager shuffleClient = taskContext.getShuffleClient();
-        return Iterators.concat(shuffleClient.readShuffleData(shuffleId, split.getId()));
+        return shuffleClient.readShuffleData(shuffleId, split.getId());
     }
 }
 

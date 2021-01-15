@@ -46,6 +46,7 @@ public interface ShuffleWriter<K, V>
         private final int shuffleId;
         private final int mapId;
         private final Partitioner partitioner;
+        //todo: use array index, not hash
         private final Map<Integer, DataOutputStream> outputStreamMap = new HashMap<>();
 
         public HashShuffleWriter(

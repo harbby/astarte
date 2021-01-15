@@ -13,5 +13,10 @@ public interface JobScheduler
     public <E, R> List<R> runJob(int jobId,
             List<Stage> jobStages,
             Mapper<Iterator<E>, R> action,
-            Map<Stage, Map<Integer, Integer>> stageMap) throws IOException;
+            Map<Stage, Map<Integer, Integer>> stageMap)
+            throws IOException;
+
+    public default void stop()
+    {
+    }
 }

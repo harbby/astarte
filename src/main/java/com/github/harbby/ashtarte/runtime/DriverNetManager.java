@@ -6,12 +6,12 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.util.ReferenceCountUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,9 +75,14 @@ public class DriverNetManager
     }
 
     public class DriverNetManagerHandler
-            extends ChannelInboundHandlerAdapter
+            extends LengthFieldBasedFrameDecoder
     {
         private ChannelHandlerContext context;
+
+        public DriverNetManagerHandler()
+        {
+            super(65536, 0, 4);
+        }
 
         @Override
         public void channelActive(ChannelHandlerContext ctx)
@@ -87,19 +92,17 @@ public class DriverNetManager
         }
 
         @Override
-        public void channelRead(ChannelHandlerContext ctx, Object msg)
+        protected Object decode(ChannelHandlerContext ctx, ByteBuf in)
                 throws Exception
         {
-            byte[] bytes;
-            try {
-                ByteBuf in = (ByteBuf) msg;
-                int len = in.readInt();
-                bytes = new byte[len];
-                in.readBytes(bytes);
+            in = (ByteBuf) super.decode(ctx, in);
+            if (in == null) {
+                return null;
             }
-            finally {
-                ReferenceCountUtil.release(msg);
-            }
+            int len = in.readInt();
+            byte[] bytes = new byte[len];
+            in.readBytes(bytes);
+            ReferenceCountUtil.release(in);
             Event event = Serializables.byteToObject(bytes);
             if (event instanceof ExecutorEvent.ExecutorInitSuccessEvent) {
                 SocketAddress shuffleService = ((ExecutorEvent.ExecutorInitSuccessEvent) event).getShuffleServiceAddress();
@@ -107,12 +110,13 @@ public class DriverNetManager
                 handlerMap.put(shuffleService, this);
             }
             else if (event instanceof TaskEvent) {
-                logger.info("task done {}", event);
+                logger.info("task running end {}", event);
                 queue.offer((TaskEvent) event);
             }
             else {
                 throw new UnsupportedOperationException();
             }
+            return event;
         }
 
         @Override
