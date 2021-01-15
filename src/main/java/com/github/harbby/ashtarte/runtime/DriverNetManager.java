@@ -17,9 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.util.HashMap;
-import java.util.Map;
+import java.net.SocketAddress;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -55,15 +53,14 @@ public class DriverNetManager
                     protected void initChannel(SocketChannel ch)
                             throws Exception
                     {
-                        logger.info("find executor {} register", ch.remoteAddress());
-                        DriverNetManagerHandler driverNetManagerHandler = new DriverNetManagerHandler();
-                        ch.pipeline().addLast(driverNetManagerHandler);
-                        handlerMap.put(ch.remoteAddress(), driverNetManagerHandler);
+                        logger.info("find executor {}", ch.remoteAddress());
+                        ch.pipeline().addLast(new DriverNetManagerHandler());
                     }
                 });
 
         try {
-            ChannelFuture future = serverBootstrap.bind(port).sync();
+            this.future = serverBootstrap.bind(port).sync();
+            logger.info("started... driver manager service port is {}", port);
             //future.channel().closeFuture().sync();
         }
         catch (InterruptedException e) {

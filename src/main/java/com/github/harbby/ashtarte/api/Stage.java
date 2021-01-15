@@ -4,9 +4,11 @@ import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.operator.Operator;
 
 import java.io.Serializable;
+import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static com.github.harbby.gadtry.base.MoreObjects.toStringHelper;
 
@@ -17,6 +19,7 @@ public abstract class Stage
     private final int stageId;
 
     private Map<Integer, Integer> deps = new HashMap<>();
+    private Set<SocketAddress> shuffleServices;
 
     protected Stage(final Operator<?> operator, int stageId)
     {
@@ -27,6 +30,16 @@ public abstract class Stage
     public void setDeps(Map<Integer, Integer> deps)
     {
         this.deps.putAll(deps);
+    }
+
+    public void setShuffleServices(Set<SocketAddress> shuffleServices)
+    {
+        this.shuffleServices = shuffleServices;
+    }
+
+    public Set<SocketAddress> getShuffleServices()
+    {
+        return shuffleServices;
     }
 
     public Map<Integer, Integer> getDeps()

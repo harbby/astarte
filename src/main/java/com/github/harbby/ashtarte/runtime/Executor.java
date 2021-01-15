@@ -3,13 +3,12 @@ package com.github.harbby.ashtarte.runtime;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.api.Task;
-import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.net.SocketAddress;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -25,31 +24,23 @@ public class Executor
     private final ExecutorBackend executorBackend;
 
     public Executor()
+            throws Exception
     {
         int vcores = 2;
         pool = Executors.newFixedThreadPool(vcores);
-        this.executorBackend = new ExecutorBackend(this);
 
-        NioEventLoopGroup workerGroup = new NioEventLoopGroup();
-        Bootstrap bootstrap = new Bootstrap();
-        bootstrap.group(workerGroup)
-                .channel(NioSocketChannel.class)
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
-                .option(ChannelOption.SO_KEEPALIVE, true)
-                .option(ChannelOption.TCP_NODELAY, true)
-                .handler(new ChannelInitializer<SocketChannel>()
-                {
-                    @Override
-                    protected void initChannel(SocketChannel ch)
-                            throws Exception
-                    {
-                        ch.pipeline().addLast(executorBackend);
-                    }
-                });
-        bootstrap.connect("localhost", 7079);
+        ShuffleManagerService service = new ShuffleManagerService(executorUUID);
+        SocketAddress shuffleServiceAddress = service.start();
+
+        this.executorBackend = new ExecutorBackend(this);
+        executorBackend.start();
+
+        executorBackend.updateState(new ExecutorEvent.ExecutorInitSuccessEvent(shuffleServiceAddress));
+        service.join();
     }
 
     public static void main(String[] args)
+            throws Exception
     {
         new Executor();
     }

@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -55,10 +56,11 @@ public class ForkVmJobScheduler
                     .task(() -> {
                         System.out.println("starting... Executor");
                         TaskManager.main(new String[0]);
-                        TimeUnit.SECONDS.sleep(60);
                         return 0;
                     })
-                    .setConsole(System.out::println)
+                    .setConsole(line -> {
+                        System.out.println(line);
+                    })
                     .build()
                     .startAsync(Executors.newSingleThreadExecutor());
         }).collect(Collectors.toList());
@@ -80,6 +82,8 @@ public class ForkVmJobScheduler
         jobStages.forEach(stage -> {
             Map<Integer, Integer> deps = stageMap.getOrDefault(stage, Collections.emptyMap());
             stage.setDeps(deps);
+
+            stage.setShuffleServices(new HashSet<>(driverNetManager.handlerMap.keySet()));
             if (stage instanceof ShuffleMapStage) {
                 logger.info("starting... shuffleMapStage: {}, id {}", stage, stage.getStageId());
                 for (Partition partition : stage.getPartitions()) {
@@ -99,7 +103,6 @@ public class ForkVmJobScheduler
                 }
             }
             //todo: 等待stage执行结束 await()
-
             for (int i = 0; i < stage.getNumPartitions(); i++) {
                 TaskEvent taskEvent = null;
                 try {

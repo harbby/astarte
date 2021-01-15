@@ -3,9 +3,9 @@ package com.github.harbby.ashtarte.operator;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
-import com.github.harbby.ashtarte.api.ShuffleManager;
 import com.github.harbby.ashtarte.api.ShuffleWriter;
 import com.github.harbby.ashtarte.api.function.Comparator;
+import com.github.harbby.ashtarte.runtime.ShuffleManagerService;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -295,7 +295,7 @@ public class SortShuffleWriter<K, V>
             List<Tuple2<K, V>> buffer = new LinkedList<>();
             Integer shuffleId = taskContext.getDependStages().get(shuffleMapOperatorId);
             checkState(shuffleId != null);
-            Iterator<Tuple2<K, V>> reader = ShuffleManager.getReader(shuffleId, split.getId());
+            Iterator<Tuple2<K, V>> reader = ShuffleManagerService.getReader(shuffleId, split.getId());
             while (reader.hasNext()) {
                 buffer.add(reader.next());
             }
