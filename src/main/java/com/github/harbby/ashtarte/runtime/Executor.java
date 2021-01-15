@@ -18,6 +18,8 @@ import java.util.concurrent.Future;
 
 public class Executor
 {
+    private static final Logger logger = LoggerFactory.getLogger(Executor.class);
+    private final String executorUUID = UUID.randomUUID().toString();
     private final ExecutorService pool;
     private final ConcurrentMap<Long, TaskRunner> runningTasks = new ConcurrentHashMap<>();
     private final ExecutorBackend executorBackend;
@@ -56,15 +58,28 @@ public class Executor
     {
         Future<?> future = pool.submit(() -> {
             try {
-                Stage stage = task.getStage();
-                TaskContext taskContext = TaskContext.of(stage.getStageId(), stage.getDeps());
-                Object result = task.runTask(taskContext);
-                TaskEvent event = new TaskEvent(task.getClass(), result);
+                Thread.currentThread().setName("ashtarte-task-" + task.getTaskId());
+                logger.info("starting... task {}", task);
+                TaskEvent event;
+                try {
+                    Stage stage = task.getStage();
+                    Set<SocketAddress> shuffleServices = stage.getShuffleServices();
+                    ShuffleClientManager shuffleClient = new ShuffleClientManager();
+                    shuffleClient.start(shuffleServices);
+                    TaskContext taskContext = TaskContext.of(stage.getStageId(), stage.getDeps(), shuffleClient, executorUUID);
+                    Object result = task.runTask(taskContext);
+                    event = new TaskEvent(task.getClass(), result);
+                }
+                catch (Exception e) {
+                    event = new TaskEvent(task.getClass(), null);
+                }
                 executorBackend.updateState(event);
+                logger.info("task {} success", task);
+                Thread.currentThread().setName(Thread.currentThread().getName() + "_done");
             }
-            catch (Exception e) {
+            catch (Throwable e) {
                 //task failed
-                e.printStackTrace();
+                logger.error("task failed", e);
             }
         });
         runningTasks.put(task.getTaskId(), new TaskRunner(task, future));
