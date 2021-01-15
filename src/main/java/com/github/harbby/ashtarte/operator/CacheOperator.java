@@ -73,7 +73,7 @@ public class CacheOperator<E>
             return partitionCache.iterator();
         }
         else {
-            logger.debug("-----{} cached dep stage: {}缓存失效---", dataSet, taskContext.getDependStages());
+            logger.debug("-----{} cached dep stage: {} cache miss---", dataSet, taskContext.getDependStages());
             final List<E> data = new ArrayList<>();
             Iterator<E> iterator = dataSet.compute(split, taskContext);
             return new Iterator<E>()
@@ -84,7 +84,7 @@ public class CacheOperator<E>
                     boolean hasNext = iterator.hasNext();
                     if (!hasNext) {
                         jobCachePartitons[split.getId()] = data;  //原子操作，线程安全
-                        logger.debug("-----{} cached dep stage: {} cacde write done---", dataSet, taskContext.getDependStages());
+                        logger.debug("-----{} cached dep stage: {} write done---", dataSet, taskContext.getDependStages());
                     }
                     return hasNext;
                 }

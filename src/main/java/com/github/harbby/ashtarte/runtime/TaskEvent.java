@@ -2,10 +2,8 @@ package com.github.harbby.ashtarte.runtime;
 
 import com.github.harbby.ashtarte.api.Task;
 
-import java.io.Serializable;
-
 public class TaskEvent
-        implements Serializable
+        implements Event
 {
     private final Object result;
     private final Class<? extends Task> taskType;

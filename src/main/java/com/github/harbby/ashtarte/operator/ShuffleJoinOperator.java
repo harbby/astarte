@@ -3,7 +3,7 @@ package com.github.harbby.ashtarte.operator;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
-import com.github.harbby.ashtarte.api.ShuffleManager;
+import com.github.harbby.ashtarte.runtime.ShuffleManagerService;
 import com.github.harbby.ashtarte.deprecated.JoinExperiment;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.MutableList;
@@ -105,7 +105,7 @@ public class ShuffleJoinOperator<K>
         Iterator<Iterator<Tuple2<K, Object>>> iterators = IntStream.of(shuffleMapIds)
                 .mapToObj(operator -> {
                     int shuffleId = deps.get(operator);
-                    return ShuffleManager.<K, Object>getReader(shuffleId, split.getId());
+                    return ShuffleManagerService.<K, Object>getReader(shuffleId, split.getId());
                 }).iterator();
 
         return JoinExperiment.join(iterators, dataSetNum);

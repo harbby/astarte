@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -31,7 +32,7 @@ public class DriverNetManagerHandler
     {
     }
 
-    public static Map<InetSocketAddress, DriverNetManagerHandler> handlerMap = new HashMap<>();
+    public static Map<SocketAddress, DriverNetManagerHandler> handlerMap = new HashMap<>();
 
     public static void start()
     {
@@ -50,15 +51,14 @@ public class DriverNetManagerHandler
                     protected void initChannel(SocketChannel ch)
                             throws Exception
                     {
-                        logger.info("find executor {} register", ch.remoteAddress());
-                        DriverNetManagerHandler driverNetManagerHandler = new DriverNetManagerHandler();
-                        ch.pipeline().addLast(driverNetManagerHandler);
-                        handlerMap.put(ch.remoteAddress(), driverNetManagerHandler);
+                        logger.info("find executor {}", ch.remoteAddress());
+                        ch.pipeline().addLast(new DriverNetManagerHandler());
                     }
                 });
 
         try {
             ChannelFuture future = serverBootstrap.bind(port).sync();
+            logger.info("started... driver manager service port is {}", port);
             //future.channel().closeFuture().sync();
         }
         catch (InterruptedException e) {
@@ -86,15 +86,22 @@ public class DriverNetManagerHandler
         int len = in.readInt();
         byte[] bytes = new byte[len];
         in.readBytes(bytes);
-        TaskEvent taskEvent = Serializables.byteToObject(bytes);
-        queue.offer(taskEvent);
+        Event event = Serializables.byteToObject(bytes);
+        if (event instanceof ExecutorEvent.ExecutorInitSuccessEvent) {
+            SocketAddress shuffleService = ((ExecutorEvent.ExecutorInitSuccessEvent) event).getShuffleServiceAddress();
+            logger.info("executor {} register succeed", ctx.channel().remoteAddress());
+            handlerMap.put(shuffleService, this);
+        }
+        else if (event instanceof TaskEvent) {
+            queue.offer((TaskEvent) event);
+        }
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
             throws Exception
     {
-        cause.printStackTrace();
+        logger.warn("unknownIO", cause);
     }
 
     public void submitTask(Task<?> task)
