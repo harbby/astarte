@@ -2,7 +2,6 @@ package com.github.harbby.ashtarte.runtime;
 
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.base.Serializables;
-import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.StateOption;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import io.netty.bootstrap.Bootstrap;
@@ -69,7 +68,7 @@ public class ShuffleClientManager
                             ch.pipeline().addLast(new ShuffleClientHandler(taskThread));
                         }
                     });
-            futures.add(bootstrap.connect(address).sync());
+            futures.add(bootstrap.connect(address));
         }
         while (concurrentMap.size() < shuffleServices.size()) {
             TimeUnit.MILLISECONDS.sleep(10);
@@ -89,59 +88,31 @@ public class ShuffleClientManager
 
     public <K, V> Iterator<Tuple2<K, V>> readShuffleData(int shuffleId, int reduceId)
     {
-        ShuffleClientHandler handler = concurrentMap.values().iterator().next();
-        handler.begin(shuffleId, reduceId);
-        Iterator<Tuple2<K, V>> i1 = Iterators.map(handler, it -> {
-            try {
-                return Serializables.<Tuple2<K, V>>byteToObject(it);
-            }
-            catch (IOException | ClassNotFoundException e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-//        Iterator<Tuple2<K, V>> i1 = concurrentMap.values().stream().map(handler -> {
-//            handler.begin(shuffleId, reduceId);
-//            return Iterators.map(handler, it -> {
-//                try {
-//                    return Serializables.<Tuple2<K, V>>byteToObject(it);
-//                }
-//                catch (IOException | ClassNotFoundException e) {
-//                    throw new RuntimeException(e);
-//                }
-//            });
-//        }).iterator();
-
-        List<Tuple2<K, V>> list = MutableList.copy(i1);
-        logger.info("data line " + list.size());
-        if (list.isEmpty()) {
-            logger.error("-----------------------find error");
-            logger.error("{}", handler.downloadEnd);
-            logger.error("", handler.cause);
-            logger.error("{}", handler.option.getValue());
-            logger.error("{}", handler.buffer.size());
-        }
-        return list.iterator();
+        return Iterators.concat(concurrentMap.values().stream().map(handler -> {
+            handler.begin(shuffleId, reduceId);
+            return Iterators.map(handler, it -> {
+                try {
+                    return Serializables.<Tuple2<K, V>>byteToObject(it);
+                }
+                catch (IOException | ClassNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }).iterator());
     }
 
     @Override
     public void close()
             throws IOException
     {
-//        concurrentMap.forEach((k, v) -> v.close());
-//        futures.forEach(channelFuture -> {
-//            try {
-//                channelFuture.channel().closeFuture().sync();
-//            }
-//            catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        });
+        logger.info("close... shuffle client");
+        clientManagerTl.remove();
+        concurrentMap.forEach((k, v) -> v.close());
+        futures.forEach(channelFuture -> channelFuture.channel().close());
+        concurrentMap.clear();
+        futures.clear();
     }
 
-    /**
-     * smart code
-     */
     private class ShuffleClientHandler
             extends ChannelInboundHandlerAdapter
             implements Iterator<byte[]>, Closeable
@@ -213,25 +184,24 @@ public class ShuffleClientManager
             if (this.cause != null) {
                 throw new RuntimeException("reduce reader failed", this.cause);
             }
-            if (option.isDefined()) {
+            else if (option.isDefined()) {
                 return true;
             }
 
-            if (this.downloadEnd) {
-                return getEndStateValue();
-            }
-
-            try {
-                option.update(this.buffer.take());
-                return true;
-            }
-            catch (InterruptedException e) {
-                // netty data io read failed
+            while (true) {
                 if (this.cause != null) {
-                    throw new RuntimeException("reduce reader failed", this.cause);
+                    throw new RuntimeException("reducer download shuffle read failed", this.cause);
                 }
-                //主动kill task or download end
-                return getEndStateValue();
+                else if (this.downloadEnd) {
+                    return getEndStateValue();
+                }
+
+                try {
+                    option.update(this.buffer.take());
+                    return true;
+                }
+                catch (InterruptedException ignored) {
+                }
             }
         }
 

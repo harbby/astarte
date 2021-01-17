@@ -295,7 +295,7 @@ public class SortShuffleWriter<K, V>
             List<Tuple2<K, V>> buffer = new LinkedList<>();
             Integer shuffleId = taskContext.getDependStages().get(shuffleMapOperatorId);
             checkState(shuffleId != null);
-            Iterator<Tuple2<K, V>> reader = ShuffleManagerService.getReader(shuffleId, split.getId());
+            Iterator<Tuple2<K, V>> reader = taskContext.getShuffleClient().readShuffleData(shuffleId, split.getId());
             while (reader.hasNext()) {
                 buffer.add(reader.next());
             }

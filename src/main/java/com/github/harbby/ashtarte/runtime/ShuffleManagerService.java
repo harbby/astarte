@@ -1,8 +1,6 @@
 package com.github.harbby.ashtarte.runtime;
 
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.base.Serializables;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.io.IOUtils;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -19,7 +17,6 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -27,7 +24,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.stream.Stream;
 
@@ -83,20 +79,6 @@ public final class ShuffleManagerService
     {
         future.channel().closeFuture().sync();
     }
-
-    public static byte[] testByte = new byte[] {0, 0, 0, 114, -84, -19, 0, 5, 115, 114, 0, 48,
-            99, 111, 109, 46, 103, 105, 116, 104, 117, 98, 46, 104, 97, 114, 98, 98, 121, 46,
-            103, 97, 100, 116, 114, 121, 46, 99, 111, 108, 108, 101, 99, 116, 105, 111, 110, 46,
-            116, 117, 112, 108, 101, 46, 84, 117, 112, 108, 101, 50, -22, 124, 31, -22, -4, 89,
-            46, 52, 2, 0, 2, 76, 0, 2, 102, 49, 116, 0, 18, 76, 106, 97, 118, 97, 47, 108, 97,
-            110, 103, 47, 79, 98, 106, 101, 99, 116, 59, 76, 0, 2, 102, 50, 113, 0, 126, 0, 1,
-            120, 112, 116, 0, 1, 97, 116, 0, 2, 97, 97, 0, 0, 0, 115, -84, -19, 0, 5, 115, 114,
-            0, 48, 99, 111, 109, 46, 103, 105, 116, 104, 117, 98, 46, 104, 97, 114, 98, 98, 121,
-            46, 103, 97, 100, 116, 114, 121, 46, 99, 111, 108, 108, 101, 99, 116, 105, 111, 110,
-            46, 116, 117, 112, 108, 101, 46, 84, 117, 112, 108, 101, 50, -22, 124, 31, -22, -4,
-            89, 46, 52, 2, 0, 2, 76, 0, 2, 102, 49, 116, 0, 18, 76, 106, 97, 118, 97, 47, 108,
-            97, 110, 103, 47, 79, 98, 106, 101, 99, 116, 59, 76, 0, 2, 102, 50, 113,
-            0, 126, 0, 1, 120, 112, 116, 0, 1, 98, 116, 0, 3, 98, 98, 98, -1, -1, -1, -1};
 
     private class ShuffleServiceHandler
             extends ChannelInboundHandlerAdapter
@@ -157,38 +139,5 @@ public final class ShuffleManagerService
                 .filter(x -> x.getName().startsWith("shuffle_" + shuffleId + "_")
                         && x.getName().endsWith("_" + reduceId + ".data"))
                 .iterator();
-    }
-
-    /**
-     * 实验用
-     */
-    @Deprecated
-    public static <K, V> Iterator<Tuple2<K, V>> getReader(int shuffleId, int reduceId)
-    {
-        File dataDir = new File("/tmp/shuffle/");
-        //todo: 此处为 demo
-        Iterator<Iterator<Tuple2<K, V>>> iterator = Stream.of(dataDir.listFiles())
-                .filter(x -> x.getName().startsWith("shuffle_" + shuffleId + "_")
-                        && x.getName().endsWith("_" + reduceId + ".data"))
-                .map(file -> {
-                    ArrayList<Tuple2<K, V>> out = new ArrayList<>();
-                    try {
-                        try (DataInputStream dataInputStream = new DataInputStream(new FileInputStream(file))) {
-                            int length = dataInputStream.readInt();
-                            while (length != -1) {
-                                byte[] bytes = new byte[length];
-                                dataInputStream.read(bytes);
-                                out.add(Serializables.byteToObject(bytes));
-                                length = dataInputStream.readInt();
-                            }
-                        }
-                        return out.iterator();
-                    }
-                    catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                }).iterator();
-
-        return Iterators.concat(iterator);
     }
 }

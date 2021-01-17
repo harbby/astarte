@@ -47,19 +47,18 @@ public class Executor
     {
         Future<?> future = pool.submit(() -> {
             try {
-                Thread.currentThread().setName("ashtarte-task-" + task.getTaskId());
+                Thread.currentThread().setName("ashtarte-task-" + task.getStage().getStageId()+"_"+ task.getTaskId());
                 logger.info("starting... task {}", task);
                 TaskEvent event;
 
                 try {
                     Stage stage = task.getStage();
                     Set<SocketAddress> shuffleServices = stage.getShuffleServices();
-                    ShuffleClientManager shuffleClient = ShuffleClientManager.start(shuffleServices);  //异步的
+                    ShuffleClientManager shuffleClient = ShuffleClientManager.start(shuffleServices);
 
                     TaskContext taskContext = TaskContext.of(stage.getStageId(), stage.getDeps(), shuffleClient, executorUUID);
                     Object result = task.runTask(taskContext);
                     event = new TaskEvent(task.getClass(), result);
-                    shuffleClient.close();
                 }
                 catch (Exception e) {
                     event = new TaskEvent(task.getClass(), null);

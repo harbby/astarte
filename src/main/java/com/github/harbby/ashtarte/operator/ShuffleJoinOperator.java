@@ -3,8 +3,8 @@ package com.github.harbby.ashtarte.operator;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
-import com.github.harbby.ashtarte.runtime.ShuffleManagerService;
 import com.github.harbby.ashtarte.deprecated.JoinExperiment;
+import com.github.harbby.ashtarte.runtime.ShuffleClientManager;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -92,9 +92,6 @@ public class ShuffleJoinOperator<K>
         return dependencies;
     }
 
-    /**
-     * 最难算子...
-     */
     @Override
     public Iterator<Tuple2<K, Iterable<?>[]>> compute(Partition split, TaskContext taskContext)
     {
@@ -102,10 +99,11 @@ public class ShuffleJoinOperator<K>
         for (Integer shuffleId : deps.values()) {
             checkState(shuffleId != null, "shuffleId is null");
         }
+        ShuffleClientManager shuffleClient = taskContext.getShuffleClient();
         Iterator<Iterator<Tuple2<K, Object>>> iterators = IntStream.of(shuffleMapIds)
                 .mapToObj(operator -> {
                     int shuffleId = deps.get(operator);
-                    return ShuffleManagerService.<K, Object>getReader(shuffleId, split.getId());
+                    return shuffleClient.<K, Object>readShuffleData(shuffleId, split.getId());
                 }).iterator();
 
         return JoinExperiment.join(iterators, dataSetNum);

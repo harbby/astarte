@@ -1,5 +1,6 @@
 package com.github.harbby.ashtarte.runtime;
 
+import com.github.harbby.ashtarte.api.AshtarteConf;
 import com.github.harbby.ashtarte.api.Task;
 import com.github.harbby.gadtry.base.Serializables;
 import io.netty.bootstrap.ServerBootstrap;
@@ -17,11 +18,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.SocketAddress;
+import java.util.HashSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+
+import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 
 public class DriverNetManager
 
@@ -29,16 +35,21 @@ public class DriverNetManager
     private static final Logger logger = LoggerFactory.getLogger(DriverNetManager.class);
     private ChannelFuture future;
 
-    public ConcurrentMap<SocketAddress, DriverNetManagerHandler> handlerMap = new ConcurrentHashMap<>();
-    public BlockingQueue<TaskEvent> queue = new LinkedBlockingQueue<>();
+    private final ConcurrentMap<SocketAddress, DriverNetManagerHandler> executorHandlers = new ConcurrentHashMap<>();
+    private final BlockingQueue<TaskEvent> queue = new LinkedBlockingQueue<>();
+    private final int executorNum;
 
-    public DriverNetManager()
+    //todo: read conf
+    private final int port;
+
+    public DriverNetManager(AshtarteConf ashtarteConf, int executorNum)
     {
+        this.port = ashtarteConf.getInt("driver.manager.port", 7079);
+        this.executorNum = executorNum;
     }
 
     public void start()
     {
-        int port = 7079;
         NioEventLoopGroup boosGroup = new NioEventLoopGroup();
         NioEventLoopGroup workerGroup = new NioEventLoopGroup();
         ServerBootstrap serverBootstrap = new ServerBootstrap();
@@ -57,16 +68,19 @@ public class DriverNetManager
                         ch.pipeline().addLast(new DriverNetManagerHandler());
                     }
                 });
+        this.future = serverBootstrap.bind(port);
+        logger.info("started... driver manager service port is {}", port);
+        //future.channel().closeFuture().sync();
+    }
 
-        try {
-            this.future = serverBootstrap.bind(port).sync();
-            logger.info("started... driver manager service port is {}", port);
-            //future.channel().closeFuture().sync();
+    public void awaitAllExecutorRegistered()
+            throws InterruptedException
+    {
+        //wait 等待所有exector上线
+        while (executorHandlers.size() != executorNum) {
+            TimeUnit.MILLISECONDS.sleep(10);
         }
-        catch (InterruptedException e) {
-            //todo: ....
-            throw new RuntimeException(e);
-        }
+        logger.info("all executor({}) Initialized", executorNum);
     }
 
     public void stop()
@@ -74,10 +88,24 @@ public class DriverNetManager
         future.channel().close();
     }
 
-    public class DriverNetManagerHandler
+    public TaskEvent awaitTaskEvent()
+            throws InterruptedException
+    {
+        return queue.take();
+    }
+
+    public void submitTask(Task<?> task)
+    {
+        task.getStage().setShuffleServices(new HashSet<>(executorHandlers.keySet()));
+        //todo: 这里应按优化调度策略进行task调度
+        executorHandlers.values().stream().findAny().get().submitTask(task);
+    }
+
+    private class DriverNetManagerHandler
             extends LengthFieldBasedFrameDecoder
     {
-        private ChannelHandlerContext context;
+        private ChannelHandlerContext executorChannel;
+        private SocketAddress socketAddress;
 
         public DriverNetManagerHandler()
         {
@@ -88,7 +116,7 @@ public class DriverNetManager
         public void channelActive(ChannelHandlerContext ctx)
                 throws Exception
         {
-            this.context = ctx;
+            this.executorChannel = ctx;
         }
 
         @Override
@@ -107,7 +135,7 @@ public class DriverNetManager
             if (event instanceof ExecutorEvent.ExecutorInitSuccessEvent) {
                 SocketAddress shuffleService = ((ExecutorEvent.ExecutorInitSuccessEvent) event).getShuffleServiceAddress();
                 logger.info("executor {} register succeed", ctx.channel().remoteAddress());
-                handlerMap.put(shuffleService, this);
+                executorHandlers.put(shuffleService, this);
             }
             else if (event instanceof TaskEvent) {
                 logger.info("task running end {}", event);
@@ -128,17 +156,17 @@ public class DriverNetManager
 
         public void submitTask(Task<?> task)
         {
-            if (!context.isRemoved()) {
-                ByteBuf buffer = context.alloc().buffer();
-                byte[] bytes;
-                try {
-                    bytes = Serializables.serialize(task);
-                    buffer.writeInt(bytes.length).writeBytes(bytes);
-                    context.writeAndFlush(buffer);
-                }
-                catch (IOException e) {
-                    e.printStackTrace();
-                }
+            checkState(!executorChannel.isRemoved());
+            ByteBuf buffer = executorChannel.alloc().buffer();
+            byte[] bytes;
+            try {
+                bytes = Serializables.serialize(task);
+                buffer.writeInt(bytes.length).writeBytes(bytes);
+                executorChannel.writeAndFlush(buffer);
+            }
+            catch (IOException e) {
+                //todo: 意外的序列化错误 应在每个用户函数输入处check是否可序列化
+                throw new UncheckedIOException("found unexpected error from task serializing.", e);
             }
         }
     }
