@@ -4,6 +4,7 @@ import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.github.harbby.gadtry.io.IOUtils;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
@@ -121,16 +122,11 @@ public final class ShuffleManagerService
             }
 
             for (File file : iterator) {
-                ByteBuf byteBuf = ctx.alloc().directBuffer(32, 32);
+                ByteBuf byteBuf = ctx.alloc().buffer();
                 try (FileInputStream inputStream = new FileInputStream(file)) {
-                    ByteBuffer buff = byteBuf.nioBuffer();
-                    FileChannel channel = inputStream.getChannel();
-                    while (channel.read(buff) != -1) {
-                        byteBuf.writeBytes(buff);
-                        ctx.channel().write(byteBuf);
-                        buff.clear();
-                    }
-                    ctx.channel().flush();
+                    byte[] testByte1 = IOUtils.readAllBytes(inputStream);
+                    byteBuf.writeBytes(testByte1);
+                    ctx.channel().writeAndFlush(byteBuf);
                 }
             }
         }
