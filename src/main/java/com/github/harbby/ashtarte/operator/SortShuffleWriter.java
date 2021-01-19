@@ -5,13 +5,13 @@ import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.ShuffleWriter;
 import com.github.harbby.ashtarte.api.function.Comparator;
-import com.github.harbby.ashtarte.runtime.ShuffleManagerService;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.function.exception.Consumer;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -137,6 +137,7 @@ public class SortShuffleWriter<K, V>
     private static <K> List<SampleResult<K>> sketch(Operator<K> operator,
             int sampleSizePerPartition)
     {
+        //todo: 使用更小的数据结构
         List<SampleResult<K>> results = operator.mapPartitionWithId((index, it) -> {
             if (!it.hasNext()) {
                 throw new UnsupportedOperationException();
@@ -166,6 +167,7 @@ public class SortShuffleWriter<K, V>
     }
 
     static class SampleResult<E>
+            implements Serializable
     {
         private final long partitionCount;
         private final int partitionId;

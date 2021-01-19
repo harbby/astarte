@@ -54,12 +54,12 @@ public final class ShuffleManagerService
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             File workDir = ShuffleManagerService.getShuffleWorkDir(executorUUID);
-//            try {
-//                FileUtils.deleteDirectory(workDir);
-//            }
-//            catch (IOException e) {
-//                logger.error("clear shuffle data temp dir failed", e);
-//            }
+            try {
+                FileUtils.deleteDirectory(workDir);
+            }
+            catch (IOException e) {
+                logger.error("clear shuffle data temp dir failed", e);
+            }
         }));
     }
 
@@ -185,11 +185,10 @@ public final class ShuffleManagerService
                 return true;
             }
             try {
-                int length = dataInputStream.readInt();
-                if (length == -1) {
+                if (dataInputStream.available() == 0) {
                     return false;
                 }
-                bytes = new byte[length];
+                bytes = new byte[dataInputStream.readInt()];
                 dataInputStream.read(bytes);
                 return true;
             }

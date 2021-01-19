@@ -149,7 +149,10 @@ public class ClusterShuffleClient
             if (frame == null) {
                 return null;
             }
-
+            if (frame.readableBytes() == 4) {
+                //该分区没有数据
+                return null;
+            }
             byte[] bytes = new byte[frame.readInt()];
             frame.readBytes(bytes);
             logger.info("taskThread {}, {}", taskThread, bytes);

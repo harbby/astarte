@@ -167,7 +167,7 @@ public abstract class Operator<ROW>
         //todo: 通过job触发 代价比较重(会出发额外的stage多计算)，后续应该改为通信解决(斩断dag血缘)
         context.runJob(unboxing(this), iterator -> {
             CacheOperator.unCacheExec(id);
-            return Iterators.empty();
+            return true;
         });
         markedCache = false;
         return this;
