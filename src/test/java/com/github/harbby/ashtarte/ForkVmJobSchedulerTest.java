@@ -32,7 +32,7 @@ public class ForkVmJobSchedulerTest
                 Tuple2.of("hp", 8),
                 Tuple2.of("hp", 10),
                 Tuple2.of("hp2", 20)
-        ), 2).reduceByKey(Integer::sum);
+        ), 1).reduceByKey(Integer::sum);
         ageDs.collect().forEach(x -> System.out.println(x));
     }
 }

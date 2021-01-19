@@ -35,7 +35,7 @@ public class ClusterScheduler
     {
         this.context = context;
         // start driver manager port
-        int executorNum = 2;
+        int executorNum = 1;
 
         this.driverNetManager = new DriverNetManager(context.getConf(), executorNum);
         driverNetManager.start();

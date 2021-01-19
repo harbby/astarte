@@ -47,7 +47,7 @@ public class Executor
     {
         Future<?> future = pool.submit(() -> {
             try {
-                Thread.currentThread().setName("ashtarte-task-" + task.getStage().getStageId()+"_"+ task.getTaskId());
+                Thread.currentThread().setName("ashtarte-task-" + task.getStage().getStageId() + "_" + task.getTaskId());
                 logger.info("starting... task {}", task);
                 TaskEvent event;
 
@@ -61,6 +61,7 @@ public class Executor
                     event = new TaskEvent(task.getClass(), result);
                 }
                 catch (Exception e) {
+                    logger.error("task {} 执行失败", task, e);
                     event = new TaskEvent(task.getClass(), null);
                 }
                 executorBackend.updateState(event);

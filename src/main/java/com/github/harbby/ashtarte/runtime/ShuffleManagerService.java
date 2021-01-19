@@ -31,7 +31,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Collections;
 import java.util.Iterator;
@@ -55,12 +54,12 @@ public final class ShuffleManagerService
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             File workDir = ShuffleManagerService.getShuffleWorkDir(executorUUID);
-            try {
-                FileUtils.deleteDirectory(workDir);
-            }
-            catch (IOException e) {
-                logger.error("clear shuffle data temp dir failed", e);
-            }
+//            try {
+//                FileUtils.deleteDirectory(workDir);
+//            }
+//            catch (IOException e) {
+//                logger.error("clear shuffle data temp dir failed", e);
+//            }
         }));
     }
 
@@ -114,20 +113,24 @@ public final class ShuffleManagerService
             int reduceId = in.readInt();
             ReferenceCountUtil.release(msg);
 
-            List<File> iterator = getShuffleDataInput(shuffleWorkDir, shuffleId, reduceId);  //获取多个带发送文件
-            if (iterator.isEmpty()) {
+            List<File> files = getShuffleDataInput(shuffleWorkDir, shuffleId, reduceId);  //获取多个带发送文件
+            logger.info("收到请求处理 {} {}, 找到文件 {}", shuffleId, reduceId, files);
+            if (files.isEmpty()) {
                 //如果文件不存在
                 ByteBuf byteBuf = ctx.alloc().buffer(4, 4);
-                byteBuf.writeInt(-1);
+                byteBuf.writeInt(0);
                 ctx.writeAndFlush(byteBuf);
                 return;
             }
 
-            for (File file : iterator) { //依次发送多个大文件
+            for (File file : files) { //依次发送多个大文件
                 FileInputStream inputStream = new FileInputStream(file);
                 FileChannel channel = inputStream.getChannel();
                 ctx.writeAndFlush(new DefaultFileRegion(channel, 0, file.length()), ctx.newProgressivePromise())
-                        .addListener((ChannelFutureListener) future -> inputStream.close());
+                        .addListener((ChannelFutureListener) future -> {
+                            logger.info("send file {} done, size = {}", file, file.length());
+                            inputStream.close();
+                        });
             }
         }
 

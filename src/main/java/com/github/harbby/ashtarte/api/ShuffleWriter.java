@@ -104,7 +104,6 @@ public interface ShuffleWriter<K, V>
                 throws IOException
         {
             for (DataOutputStream dataOutputStream : outputStreamMap.values()) {
-                dataOutputStream.writeInt(-1);
                 dataOutputStream.close();
             }
         }

@@ -2,6 +2,7 @@ package com.github.harbby.ashtarte.runtime;
 
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.base.Serializables;
+import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.StateOption;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import io.netty.bootstrap.Bootstrap;
@@ -91,12 +92,12 @@ public class ClusterShuffleClient
     {
         return Iterators.concat(concurrentMap.values().stream().map(handler -> {
             handler.begin(shuffleId, reduceId);
-            return Iterators.map(handler, it -> {
+            return Iterators.map(handler, bytes -> {
                 try {
-                    return Serializables.<Tuple2<K, V>>byteToObject(it);
+                    return Serializables.<Tuple2<K, V>>byteToObject(bytes);
                 }
                 catch (IOException | ClassNotFoundException e) {
-                    throw new RuntimeException(e);
+                    throw Throwables.throwsThrowable(e);
                 }
             });
         }).iterator());
@@ -151,6 +152,7 @@ public class ClusterShuffleClient
 
             byte[] bytes = new byte[frame.readInt()];
             frame.readBytes(bytes);
+            logger.info("taskThread {}, {}", taskThread, bytes);
             ReferenceCountUtil.release(in1);
             buffer.put(bytes);
             return bytes;
@@ -179,10 +181,11 @@ public class ClusterShuffleClient
             downloadEnd = false;
             cause = null;
 
-            ByteBuf byteBuf = ctx.alloc().buffer();
+            ByteBuf byteBuf = ctx.alloc().buffer(8, 8);
             byteBuf.writeInt(shuffleId);
             byteBuf.writeInt(reduceId);
             ctx.writeAndFlush(byteBuf);
+            logger.info("请求load数据 {}， {}", shuffleId, reduceId);
         }
 
         @Override
