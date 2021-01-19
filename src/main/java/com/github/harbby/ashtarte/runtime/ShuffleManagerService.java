@@ -7,10 +7,12 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.DefaultFileRegion;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -29,7 +31,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Collections;
 import java.util.Iterator;
@@ -112,26 +113,20 @@ public final class ShuffleManagerService
             int reduceId = in.readInt();
             ReferenceCountUtil.release(msg);
 
-            List<File> iterator = getShuffleDataInput(shuffleWorkDir, shuffleId, reduceId);
+            List<File> iterator = getShuffleDataInput(shuffleWorkDir, shuffleId, reduceId);  //获取多个带发送文件
             if (iterator.isEmpty()) {
-                ByteBuf byteBuf = ctx.alloc().buffer(4,4);
+                //如果文件不存在
+                ByteBuf byteBuf = ctx.alloc().buffer(4, 4);
                 byteBuf.writeInt(-1);
                 ctx.writeAndFlush(byteBuf);
                 return;
             }
 
-            for (File file : iterator) {
-                ByteBuf byteBuf = ctx.alloc().directBuffer(32, 32);
-                try (FileInputStream inputStream = new FileInputStream(file)) {
-                    ByteBuffer buff = byteBuf.nioBuffer();
-                    FileChannel channel = inputStream.getChannel();
-                    while (channel.read(buff) != -1) {
-                        byteBuf.writeBytes(buff);
-                        ctx.channel().write(byteBuf);
-                        buff.clear();
-                    }
-                    ctx.channel().flush();
-                }
+            for (File file : iterator) { //依次发送多个大文件
+                FileInputStream inputStream = new FileInputStream(file);
+                FileChannel channel = inputStream.getChannel();
+                ctx.writeAndFlush(new DefaultFileRegion(channel, 0, file.length()), ctx.newProgressivePromise())
+                        .addListener((ChannelFutureListener) future -> inputStream.close());
             }
         }
 
