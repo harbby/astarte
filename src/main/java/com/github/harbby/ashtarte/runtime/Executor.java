@@ -54,7 +54,7 @@ public class Executor
                 try {
                     Stage stage = task.getStage();
                     Set<SocketAddress> shuffleServices = stage.getShuffleServices();
-                    ShuffleClientManager shuffleClient = ShuffleClientManager.start(shuffleServices);
+                    ShuffleClient shuffleClient = ShuffleClient.getClusterShuffleClient(shuffleServices);
 
                     TaskContext taskContext = TaskContext.of(stage.getStageId(), stage.getDeps(), shuffleClient, executorUUID);
                     Object result = task.runTask(taskContext);

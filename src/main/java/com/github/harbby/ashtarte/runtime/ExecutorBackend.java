@@ -58,7 +58,7 @@ public class ExecutorBackend
                 .addListener((ChannelFutureListener) future -> {
                     this.channel = future.channel();
                     writeEvent(channel, new ExecutorEvent.ExecutorInitSuccessEvent(shuffleServiceAddress));
-                });
+                }).sync();
     }
 
     private class ExecutorBackendHandler

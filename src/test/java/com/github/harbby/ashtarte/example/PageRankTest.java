@@ -4,9 +4,16 @@ import com.github.harbby.ashtarte.BatchContext;
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -27,15 +34,14 @@ public class PageRankTest
     @Test
     public void pageRank4itersTest()
     {
-        int iters = 150;  //迭代次数
+        int iters =150;  //迭代次数
         String sparkHome = System.getenv("SPARK_HOME");
 
         DataSet<String> lines = mppContext.textFile(sparkHome + "/data/mllib/pagerank_data.txt");
         KvDataSet<String, Iterable<String>> links = lines.kvDataSet(s -> {
             String[] parts = s.split("\\s+");
             return new Tuple2<>(parts[0], parts[1]);
-        }).distinct().groupByKey().cache();
-
+        }).distinct(2).groupByKey().cache();
         KvDataSet<String, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {
             DataSet<Tuple2<String, Double>> contribs = links.join(ranks).values().flatMapIterator(it -> {

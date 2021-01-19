@@ -1,7 +1,9 @@
 package com.github.harbby.ashtarte.runtime;
 
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.io.IOUtils;
+import com.github.harbby.gadtry.base.Serializables;
+import com.github.harbby.gadtry.base.Throwables;
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
@@ -17,15 +19,26 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static java.util.Objects.requireNonNull;
 
 public final class ShuffleManagerService
 
@@ -44,7 +57,7 @@ public final class ShuffleManagerService
                 FileUtils.deleteDirectory(workDir);
             }
             catch (IOException e) {
-                e.printStackTrace();
+                logger.error("clear shuffle data temp dir failed", e);
             }
         }));
     }
@@ -97,23 +110,29 @@ public final class ShuffleManagerService
             ByteBuf in = (ByteBuf) msg;
             int shuffleId = in.readInt();
             int reduceId = in.readInt();
-            Iterator<File> iterator = getShuffleDataInput(shuffleWorkDir, shuffleId, reduceId);
-            ByteBuf byteBuf = ctx.alloc().buffer();
-            if (!iterator.hasNext()) {
+            ReferenceCountUtil.release(msg);
+
+            List<File> iterator = getShuffleDataInput(shuffleWorkDir, shuffleId, reduceId);
+            if (iterator.isEmpty()) {
+                ByteBuf byteBuf = ctx.alloc().buffer(4,4);
                 byteBuf.writeInt(-1);
                 ctx.writeAndFlush(byteBuf);
+                return;
             }
-            else {
-                while (iterator.hasNext()) {
-                    //todo:use 4096 byte zero copy
-                    try (FileInputStream inputStream = new FileInputStream(iterator.next())) {
-                        byte[] testByte1 = IOUtils.readAllBytes(inputStream);
-                        byteBuf.writeBytes(testByte1);
-                        ctx.channel().writeAndFlush(byteBuf);
+
+            for (File file : iterator) {
+                ByteBuf byteBuf = ctx.alloc().directBuffer(32, 32);
+                try (FileInputStream inputStream = new FileInputStream(file)) {
+                    ByteBuffer buff = byteBuf.nioBuffer();
+                    FileChannel channel = inputStream.getChannel();
+                    while (channel.read(buff) != -1) {
+                        byteBuf.writeBytes(buff);
+                        ctx.channel().write(byteBuf);
+                        buff.clear();
                     }
+                    ctx.channel().flush();
                 }
             }
-            ReferenceCountUtil.release(msg);
         }
 
         @Override
@@ -129,7 +148,7 @@ public final class ShuffleManagerService
         return new File("/tmp/ashtarte-" + executorUUID);
     }
 
-    private static Iterator<File> getShuffleDataInput(File shuffleWorkDir, int shuffleId, int reduceId)
+    public <K, V> Iterator<Tuple2<K, V>> getShuffleDataIterator(int shuffleId, int reduceId)
     {
         File[] files = new File(shuffleWorkDir, "999").listFiles();
         if (files == null) {
@@ -138,6 +157,81 @@ public final class ShuffleManagerService
         return Stream.of(files)
                 .filter(x -> x.getName().startsWith("shuffle_" + shuffleId + "_")
                         && x.getName().endsWith("_" + reduceId + ".data"))
-                .iterator();
+                .flatMap(file -> {
+                    try {
+                        LengthDataFileIteratorReader<K, V> iteratorReader = new LengthDataFileIteratorReader<>(new FileInputStream(file));
+                        return Iterators.toStream(iteratorReader);
+                    }
+                    catch (FileNotFoundException e) {
+                        throw Throwables.throwsThrowable(e);
+                    }
+                }).iterator();
+    }
+
+    private static class LengthDataFileIteratorReader<K, V>
+            implements Iterator<Tuple2<K, V>>, Closeable
+    {
+        private final DataInputStream dataInputStream;
+        private byte[] bytes;
+
+        public LengthDataFileIteratorReader(FileInputStream fileInputStream)
+        {
+            this.dataInputStream = new DataInputStream(requireNonNull(fileInputStream, "fileInputStream is null"));
+        }
+
+        @Override
+        public boolean hasNext()
+        {
+            if (bytes != null) {
+                return true;
+            }
+            try {
+                int length = dataInputStream.readInt();
+                if (length == -1) {
+                    return false;
+                }
+                bytes = new byte[length];
+                dataInputStream.read(bytes);
+                return true;
+            }
+            catch (IOException e) {
+                throw Throwables.throwsThrowable(e);
+            }
+        }
+
+        @Override
+        public Tuple2<K, V> next()
+        {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            byte[] old = this.bytes;
+            this.bytes = null;
+            try {
+                return Serializables.byteToObject(old);
+            }
+            catch (IOException | ClassNotFoundException e) {
+                throw Throwables.throwsThrowable(e);
+            }
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            dataInputStream.close();
+        }
+    }
+
+    private static List<File> getShuffleDataInput(File shuffleWorkDir, int shuffleId, int reduceId)
+    {
+        File[] files = new File(shuffleWorkDir, "999").listFiles();
+        if (files == null) {
+            return Collections.emptyList();
+        }
+        return Stream.of(files)
+                .filter(x -> x.getName().startsWith("shuffle_" + shuffleId + "_")
+                        && x.getName().endsWith("_" + reduceId + ".data"))
+                .collect(Collectors.toList());
     }
 }

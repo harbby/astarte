@@ -39,15 +39,15 @@ import static com.github.harbby.gadtry.base.MoreObjects.checkState;
  * <p>
  * 非线程安全的
  */
-public class ShuffleClientManager
-        implements Closeable
+public class ClusterShuffleClient
+        implements ShuffleClient
 {
-    private static final Logger logger = LoggerFactory.getLogger(ShuffleClientManager.class);
-    private static final ThreadLocal<ShuffleClientManager> clientManagerTl = new ThreadLocal<>();
+    private static final Logger logger = LoggerFactory.getLogger(ClusterShuffleClient.class);
+    private static final ThreadLocal<ClusterShuffleClient> clientManagerTl = new ThreadLocal<>();
     private final Map<SocketAddress, ShuffleClientHandler> concurrentMap = new HashMap<>();
     private final List<ChannelFuture> futures = new ArrayList<>();
 
-    private ShuffleClientManager(Set<SocketAddress> shuffleServices)
+    private ClusterShuffleClient(Set<SocketAddress> shuffleServices)
             throws InterruptedException
     {
         Thread taskThread = Thread.currentThread();
@@ -68,24 +68,25 @@ public class ShuffleClientManager
                             ch.pipeline().addLast(new ShuffleClientHandler(taskThread));
                         }
                     });
-            futures.add(bootstrap.connect(address));
+            futures.add(bootstrap.connect(address).sync());
         }
         while (concurrentMap.size() < shuffleServices.size()) {
             TimeUnit.MILLISECONDS.sleep(10);
         }
     }
 
-    public static ShuffleClientManager start(Set<SocketAddress> shuffleServices)
+    static ClusterShuffleClient start(Set<SocketAddress> shuffleServices)
             throws InterruptedException
     {
-        ShuffleClientManager clientManager = clientManagerTl.get();
+        ClusterShuffleClient clientManager = clientManagerTl.get();
         if (clientManager == null) {
-            clientManager = new ShuffleClientManager(shuffleServices);
+            clientManager = new ClusterShuffleClient(shuffleServices);
             clientManagerTl.set(clientManager);
         }
         return clientManager;
     }
 
+    @Override
     public <K, V> Iterator<Tuple2<K, V>> readShuffleData(int shuffleId, int reduceId)
     {
         return Iterators.concat(concurrentMap.values().stream().map(handler -> {

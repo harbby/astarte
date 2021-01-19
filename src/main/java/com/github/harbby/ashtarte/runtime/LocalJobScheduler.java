@@ -1,16 +1,20 @@
-package com.github.harbby.ashtarte;
+package com.github.harbby.ashtarte.runtime;
 
+import com.github.harbby.ashtarte.BatchContext;
+import com.github.harbby.ashtarte.JobScheduler;
+import com.github.harbby.ashtarte.MapTaskState;
+import com.github.harbby.ashtarte.ResultStage;
+import com.github.harbby.ashtarte.ResultTask;
+import com.github.harbby.ashtarte.ShuffleMapStage;
+import com.github.harbby.ashtarte.ShuffleMapTask;
+import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.api.Task;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.utils.SerializableObj;
-import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -41,22 +45,19 @@ public class LocalJobScheduler
             List<Stage> jobStages,
             Mapper<Iterator<E>, R> action,
             Map<Stage, Map<Integer, Integer>> stageMap)
-            throws IOException
     {
         logger.info("starting... job: {}", jobId);
         //---------------------
-        FileUtils.deleteDirectory(new File("/tmp/shuffle"));
         final ExecutorService executors = Executors.newFixedThreadPool(context.getParallelism());
+        String localExecutorUUID = UUID.randomUUID().toString();
+        ShuffleManagerService shuffleManagerService = new ShuffleManagerService(localExecutorUUID);
         try {
-            String localExecutorUUID = UUID.randomUUID().toString();
             for (Stage stage : jobStages) {
                 int stageId = stage.getStageId();
                 SerializableObj<Stage> serializableStage = SerializableObj.of(stage);
                 Map<Integer, Integer> deps = stageMap.getOrDefault(stage, Collections.emptyMap());
-                if (true) {
-                    throw new UnsupportedEncodingException("local shuffle clientmanager");
-                }
-                TaskContext taskContext = TaskContext.of(stageId, deps, null, localExecutorUUID);
+                ShuffleClient shuffleClient = ShuffleClient.getLocalShuffleClient(shuffleManagerService);
+                TaskContext taskContext = TaskContext.of(stageId, deps, shuffleClient, localExecutorUUID);
 
                 if (stage instanceof ShuffleMapStage) {
                     logger.info("starting... shuffleMapStage: {}, id {}", stage, stage.getStageId());
@@ -83,15 +84,7 @@ public class LocalJobScheduler
             }
         }
         finally {
-            try {
-                FileUtils.deleteDirectory(new File("/tmp/shuffle"));
-            }
-            catch (IOException e) {
-                logger.error("clear job tmp dir {} faild", "/tmp/shuffle");
-            }
-            finally {
-                executors.shutdown();
-            }
+            executors.shutdown();
         }
         throw new UnsupportedOperationException("job " + jobId + " Not found ResultStage");
     }

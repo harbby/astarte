@@ -3,8 +3,7 @@ package com.github.harbby.ashtarte.operator;
 import com.github.harbby.ashtarte.Partitioner;
 import com.github.harbby.ashtarte.TaskContext;
 import com.github.harbby.ashtarte.api.Partition;
-import com.github.harbby.ashtarte.runtime.ShuffleClientManager;
-import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.ashtarte.runtime.ShuffleClient;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
@@ -77,7 +76,7 @@ public class ShuffledOperator<K, V>
     {
         Integer shuffleId = taskContext.getDependStages().get(shuffleMapOperatorId);
         checkState(shuffleId != null);
-        ShuffleClientManager shuffleClient = taskContext.getShuffleClient();
+        ShuffleClient shuffleClient = taskContext.getShuffleClient();
         return shuffleClient.readShuffleData(shuffleId, split.getId());
     }
 }

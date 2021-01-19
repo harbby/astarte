@@ -8,15 +8,15 @@ import com.github.harbby.ashtarte.operator.CollectionSource;
 import com.github.harbby.ashtarte.operator.KvOperator;
 import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.ashtarte.operator.TextFileSource;
+import com.github.harbby.gadtry.base.Lazys;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.Function;
+import java.util.function.Supplier;
 
 public interface BatchContext
 {
@@ -78,17 +78,16 @@ public interface BatchContext
 
     public static class Builder
     {
-        private final BatchContext context = new BatchContextImpl();
+        private static final Supplier<BatchContext> context = Lazys.goLazy(BatchContextImpl::new);
 
         public Builder setParallelism(int parallelism)
         {
-            context.setParallelism(parallelism);
             return this;
         }
 
         public BatchContext getOrCreate()
         {
-            return context;
+            return context.get();
         }
     }
 

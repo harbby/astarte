@@ -1,17 +1,16 @@
 package com.github.harbby.ashtarte;
 
 import com.github.harbby.ashtarte.api.AshtarteConf;
-import com.github.harbby.ashtarte.api.AshtarteException;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.ashtarte.operator.ShuffleMapOperator;
+import com.github.harbby.ashtarte.runtime.ClusterScheduler;
 import com.github.harbby.gadtry.graph.Graph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,7 +37,7 @@ public class BatchContextImpl
     private final AtomicInteger nextJobId = new AtomicInteger(1);
     private final AshtarteConf conf = new AshtarteConf();
 
-    private final JobScheduler jobScheduler = new ForkVmJobScheduler(this);
+    private final JobScheduler jobScheduler = new ClusterScheduler(this);  //LocalJobScheduler
 
     private int parallelism = 1;
 
@@ -78,12 +77,7 @@ public class BatchContextImpl
             logger.info("job graph tree:{}", String.join("\n", graph.printShow()));
         }
         //---------------------
-        try {
-            return jobScheduler.runJob(jobId, stages, action, stageMap);
-        }
-        catch (IOException e) {
-            throw new AshtarteException("job failed to run", e);
-        }
+        return jobScheduler.runJob(jobId, stages, action, stageMap);
     }
 
     /**

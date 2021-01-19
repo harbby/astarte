@@ -41,6 +41,7 @@ public class ForkVmExecutorManager
             VmFuture<Integer> vmFuture = runJvm(launcher, pool, vcores, executorNum);
             vms.add(vmFuture);
         }
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> vms.forEach(vm -> vm.cancel())));
     }
 
     private static VmFuture<Integer> runJvm(JVMLauncher<Integer> launcher,
