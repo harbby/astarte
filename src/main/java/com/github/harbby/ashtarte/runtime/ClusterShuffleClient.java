@@ -8,12 +8,12 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.util.ReferenceCountUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -115,7 +115,7 @@ public class ClusterShuffleClient
     }
 
     private class ShuffleClientHandler
-            extends ChannelInboundHandlerAdapter
+            extends LengthFieldBasedFrameDecoder
             implements Iterator<byte[]>, Closeable
     {
         private final Thread taskThread;
@@ -125,7 +125,11 @@ public class ClusterShuffleClient
         private volatile boolean downloadEnd = false;
         private volatile Throwable cause;
 
-        private ShuffleClientHandler(Thread taskThread) {this.taskThread = taskThread;}
+        private ShuffleClientHandler(Thread taskThread)
+        {
+            super(1048576, 0, 4);
+            this.taskThread = taskThread;
+        }
 
         @Override
         public void channelActive(ChannelHandlerContext ctx)
@@ -137,17 +141,19 @@ public class ClusterShuffleClient
         }
 
         @Override
-        public void channelRead(ChannelHandlerContext ctx, Object msg)
+        protected Object decode(ChannelHandlerContext ctx, ByteBuf in1)
                 throws Exception
         {
-            ByteBuf in = (ByteBuf) msg;
-            int len;
-            while (in.readableBytes() > 0 && (len = in.readInt()) != -1) {
-                byte[] bytes = new byte[len];
-                in.readBytes(bytes);
-                buffer.put(bytes);
+            ByteBuf frame = (ByteBuf) super.decode(ctx, in1);
+            if (frame == null) {
+                return null;
             }
-            ReferenceCountUtil.release(msg);
+
+            byte[] bytes = new byte[frame.readInt()];
+            frame.readBytes(bytes);
+            ReferenceCountUtil.release(in1);
+            buffer.put(bytes);
+            return bytes;
         }
 
         @Override
