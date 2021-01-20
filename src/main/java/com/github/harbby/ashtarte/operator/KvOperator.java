@@ -16,6 +16,8 @@ import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 
@@ -62,6 +64,12 @@ public class KvOperator<K, V>
     public void foreach(KvForeach<K, V> kvKvForeach)
     {
         dataSet.foreach(x -> kvKvForeach.foreach(x.f1(), x.f2()));
+    }
+
+    @Override
+    public Map<K, V> collectMap()
+    {
+        return collect().stream().collect(Collectors.toMap(k -> k.f1, v -> v.f2));
     }
 
     @Override

@@ -67,6 +67,7 @@ public class ShuffleMapOperator<K, V>
     {
         try (ShuffleWriter<K, V> shuffleWriter = ShuffleWriter.createShuffleWriter(
                 taskContext.executorUUID(),
+                taskContext.getJobId(),
                 taskContext.getStageId(), split.getId(), partitioner, sortShuffle)) {
             Iterator<? extends Tuple2<K, V>> iterator = operator.computeOrCache(split, taskContext);
             shuffleWriter.write(iterator);

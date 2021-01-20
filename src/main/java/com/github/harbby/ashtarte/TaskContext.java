@@ -7,6 +7,8 @@ import java.util.Map;
 
 public interface TaskContext
 {
+    int getJobId();
+
     int getStageId();
 
     Map<Integer, Integer> getDependStages();
@@ -16,6 +18,7 @@ public interface TaskContext
     public String executorUUID();
 
     public static TaskContext of(
+            int jobId,
             int stageId,
             Map<Integer, Integer> depStages,
             ShuffleClient shuffleClient,
@@ -24,6 +27,12 @@ public interface TaskContext
         Map<Integer, Integer> deps = ImmutableMap.copyOf(depStages);
         return new TaskContext()
         {
+            @Override
+            public int getJobId()
+            {
+                return jobId;
+            }
+
             @Override
             public int getStageId()
             {

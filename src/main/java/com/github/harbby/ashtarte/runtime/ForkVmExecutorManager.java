@@ -49,8 +49,8 @@ public class ForkVmExecutorManager
             int vcores, int executorNum)
     {
         return launcher.startAsync(pool, () -> {
-            System.out.println("starting... Executor, vcores[" + vcores + "] mem[" + executorNum + "MB]");
-            TaskManager.main(new String[0]);
+            System.out.println("starting... TaskExecutor, vcores[" + vcores + "] mem[" + executorNum + "MB]");
+            TaskExecutor.main(new String[0]);
             return 0;
         });
     }

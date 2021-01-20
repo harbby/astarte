@@ -35,11 +35,12 @@ public class SortShuffleWriter<K, V>
     //spillFile
     public SortShuffleWriter(
             String executorUUID,
+            int jobId,
             int shuffleId, int mapId,
             Comparator<K> ordering,
             Partitioner partitioner)
     {
-        super(executorUUID, shuffleId, mapId, partitioner);
+        super(executorUUID, jobId, shuffleId, mapId, partitioner);
         this.ordering = ordering;
         this.partitioner = partitioner;
     }

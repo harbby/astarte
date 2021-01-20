@@ -1,6 +1,7 @@
 package com.github.harbby.ashtarte.operator;
 
 import com.github.harbby.ashtarte.BatchContext;
+import com.github.harbby.ashtarte.api.AshtarteException;
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -9,7 +10,6 @@ import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CompletionException;
 
 public class OperatorTest
 {
@@ -41,10 +41,10 @@ public class OperatorTest
                 Tuple2.of("hp2", 20)
         ), 2).reduceByKey(Integer::sum);
 
-        Assert.assertEquals(ageDs.collect(), ageDs.collect());
+        Assert.assertEquals(ageDs.collectMap(), ageDs.collectMap());
     }
 
-    @Test(expected = CompletionException.class)
+    @Test(expected = AshtarteException.class)
     public void jobRunFailedTest()
     {
         KvDataSet<String, Integer> ageDs = mppContext.makeKvDataSet(Arrays.asList(

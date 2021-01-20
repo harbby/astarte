@@ -12,6 +12,7 @@ import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
+import java.util.Map;
 
 public interface KvDataSet<K, V>
         extends DataSet<Tuple2<K, V>>
@@ -25,6 +26,8 @@ public interface KvDataSet<K, V>
     }
 
     void foreach(KvForeach<K, V> mapper);
+
+    Map<K, V> collectMap();
 
     <OUT> DataSet<OUT> map(KvMapper<K, V, OUT> mapper);
 

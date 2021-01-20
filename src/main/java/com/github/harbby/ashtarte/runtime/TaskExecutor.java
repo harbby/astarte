@@ -1,10 +1,12 @@
 package com.github.harbby.ashtarte.runtime;
 
-public class TaskManager
+public class TaskExecutor
 {
     public static void main(String[] args)
             throws Exception
     {
-        Executor executor = new Executor();
+        int vcores = 2;
+        Executor executor = new Executor(2);
+        executor.join();
     }
 }

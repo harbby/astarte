@@ -7,9 +7,9 @@ import com.github.harbby.ashtarte.operator.Operator;
 public class ResultStage<E>
         extends Stage
 {
-    public ResultStage(final Operator<E> operator, int stageId)
+    public ResultStage(final Operator<E> operator, int jobId, int stageId)
     {
-        super(operator, stageId);
+        super(operator, jobId, stageId);
     }
 
     @Override

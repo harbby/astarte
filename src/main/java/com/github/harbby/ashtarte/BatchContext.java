@@ -1,6 +1,7 @@
 package com.github.harbby.ashtarte;
 
 import com.github.harbby.ashtarte.api.AshtarteConf;
+import com.github.harbby.ashtarte.api.Constant;
 import com.github.harbby.ashtarte.api.DataSet;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.function.Mapper;
@@ -10,13 +11,13 @@ import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.ashtarte.operator.TextFileSource;
 import com.github.harbby.gadtry.base.Lazys;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.github.harbby.gadtry.function.Function1;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.Supplier;
 
 public interface BatchContext
 {
@@ -78,16 +79,36 @@ public interface BatchContext
 
     public static class Builder
     {
-        private static final Supplier<BatchContext> context = Lazys.goLazy(BatchContextImpl::new);
+        private static final Function1<AshtarteConf, BatchContext> context = Lazys.goLazy(BatchContextImpl::new);
+
+        private final AshtarteConf conf = new AshtarteConf();
 
         public Builder setParallelism(int parallelism)
         {
             return this;
         }
 
+        public Builder conf(AshtarteConf conf)
+        {
+            this.conf.addConf(conf);
+            return this;
+        }
+
+        public Builder local()
+        {
+            conf.put(Constant.contextMode, "local");
+            return this;
+        }
+
+        public Builder localCluster()
+        {
+            conf.put(Constant.contextMode, "cluster");
+            return this;
+        }
+
         public BatchContext getOrCreate()
         {
-            return context.get();
+            return context.apply(conf);
         }
     }
 

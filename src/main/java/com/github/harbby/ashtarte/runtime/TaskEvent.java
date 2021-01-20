@@ -1,26 +1,55 @@
 package com.github.harbby.ashtarte.runtime;
 
-import com.github.harbby.ashtarte.api.Task;
-
-public class TaskEvent
-        implements Event
+public interface TaskEvent
+        extends Event
 {
-    private final Object result;
-    private final Class<? extends Task> taskType;
-
-    public TaskEvent(Class<? extends Task> taskType, Object result)
+    public static TaskEvent failed(int jobId, String error)
     {
-        this.result = result;
-        this.taskType = taskType;
+        return new TaskFailed(jobId, error);
     }
 
-    public Class<? extends Task> taskType()
+    public static TaskEvent success(Object result)
     {
-        return taskType;
+        return new TaskSuccess(result);
     }
 
-    public Object getTaskResult()
+    public static class TaskFailed
+            implements TaskEvent
     {
-        return result;
+        private final int jobId;
+        private final String error;
+
+        public TaskFailed(int jobId, String error)
+        {
+            this.jobId = jobId;
+            this.error = error;
+        }
+
+        public int getJobId()
+        {
+            return jobId;
+        }
+
+        public String getError()
+        {
+            return error;
+        }
+    }
+
+    public static class TaskSuccess
+            implements TaskEvent
+    {
+        private final Object result;
+
+        public TaskSuccess(Object result)
+        {
+            //check result serializable
+            this.result = result;
+        }
+
+        public Object getTaskResult()
+        {
+            return result;
+        }
     }
 }

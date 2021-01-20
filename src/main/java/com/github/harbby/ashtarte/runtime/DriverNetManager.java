@@ -36,7 +36,7 @@ public class DriverNetManager
     private ChannelFuture future;
 
     private final ConcurrentMap<SocketAddress, DriverNetManagerHandler> executorHandlers = new ConcurrentHashMap<>();
-    private final BlockingQueue<TaskEvent> queue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<TaskEvent> queue = new LinkedBlockingQueue<>(65536);
     private final int executorNum;
 
     //todo: read conf
@@ -92,6 +92,11 @@ public class DriverNetManager
             throws InterruptedException
     {
         return queue.take();
+    }
+
+    public void initState()
+    {
+        queue.clear();
     }
 
     public void submitTask(Task<?> task)

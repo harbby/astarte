@@ -7,6 +7,7 @@ import com.github.harbby.ashtarte.ResultStage;
 import com.github.harbby.ashtarte.ResultTask;
 import com.github.harbby.ashtarte.ShuffleMapStage;
 import com.github.harbby.ashtarte.ShuffleMapTask;
+import com.github.harbby.ashtarte.api.AshtarteException;
 import com.github.harbby.ashtarte.api.Partition;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.api.Task;
@@ -53,6 +54,7 @@ public class ClusterScheduler
         }
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public <E, R> List<R> runJob(int jobId,
             List<Stage> jobStages,
@@ -60,22 +62,32 @@ public class ClusterScheduler
             Map<Stage, Map<Integer, Integer>> stageMap)
     {
         List<R> rs = new ArrayList<>();
+        driverNetManager.initState();
         for (Stage stage : jobStages) {
             submitStage(stage, action, stageMap);
             //等待stage执行结束,所有task成功. 如果task失败，应重新调度一次
             //todo: 失败分为： executor挂掉, task单独失败但executor正常
-            for (int i = 0; i < stage.getNumPartitions(); i++) {
-                TaskEvent taskEvent = null;
+            //这里采用简单的方式，先不考虑executor挂掉
+            for (int taskDone = 0; taskDone < stage.getNumPartitions(); ) {
+                TaskEvent taskEvent;
                 try {
                     taskEvent = driverNetManager.awaitTaskEvent();
                 }
                 catch (InterruptedException e) {
-                    //todo: job kill
-                    throw new UnsupportedOperationException();
+                    throw new UnsupportedOperationException(); //todo: job kill
+                }
+                if (taskEvent instanceof TaskEvent.TaskFailed) {
+                    TaskEvent.TaskFailed taskFailed = (TaskEvent.TaskFailed) taskEvent;
+                    if (taskFailed.getJobId() != jobId) {
+                        continue;
+                    }
+                    throw new AshtarteException(((TaskEvent.TaskFailed) taskEvent).getError());
                 }
                 if (stage instanceof ResultStage) {
-                    rs.add((R) taskEvent.getTaskResult());
+                    checkState(taskEvent instanceof TaskEvent.TaskSuccess);
+                    rs.add((R) ((TaskEvent.TaskSuccess) taskEvent).getTaskResult());
                 }
+                taskDone++;
             }
             if (stage instanceof ResultStage) {
                 return rs;
@@ -84,7 +96,7 @@ public class ClusterScheduler
         throw new UnsupportedOperationException("job " + jobId + " Not found ResultStage");
     }
 
-    private  <E, R> void submitStage(Stage stage,
+    private <E, R> void submitStage(Stage stage,
             Mapper<Iterator<E>, R> action,
             Map<Stage, Map<Integer, Integer>> stageDeps)
     {

@@ -48,6 +48,8 @@ public final class ShuffleManagerService
     private final File shuffleWorkDir;
     private ChannelFuture future;
 
+    private volatile int currentJobId;
+
     public ShuffleManagerService(String executorUUID)
     {
         this.shuffleWorkDir = getShuffleWorkDir(executorUUID);
@@ -61,6 +63,11 @@ public final class ShuffleManagerService
                 logger.error("clear shuffle data temp dir failed", e);
             }
         }));
+    }
+
+    public void updateCurrentJobId(int jobId)
+    {
+        this.currentJobId = jobId;
     }
 
     public SocketAddress start()
@@ -112,7 +119,7 @@ public final class ShuffleManagerService
             int shuffleId = in.readInt();
             int reduceId = in.readInt();
             ReferenceCountUtil.release(msg);
-            List<File> files = getShuffleDataInput(shuffleWorkDir, shuffleId, reduceId);  //获取多个带发送文件
+            List<File> files = getShuffleDataInput(shuffleWorkDir, currentJobId, shuffleId, reduceId);  //获取多个带发送文件
 
             ByteBuf finish = ctx.alloc().buffer(4, 4);
             finish.writeInt(-1);
@@ -149,11 +156,8 @@ public final class ShuffleManagerService
 
     public <K, V> Iterator<Tuple2<K, V>> getShuffleDataIterator(int shuffleId, int reduceId)
     {
-        File[] files = new File(shuffleWorkDir, "999").listFiles();
-        if (files == null) {
-            return Iterators.empty();
-        }
-        return Stream.of(files)
+        List<File> files = getShuffleDataInput(shuffleWorkDir, currentJobId, shuffleId, reduceId);
+        return files.stream()
                 .filter(x -> x.getName().startsWith("shuffle_" + shuffleId + "_")
                         && x.getName().endsWith("_" + reduceId + ".data"))
                 .flatMap(file -> {
@@ -221,9 +225,9 @@ public final class ShuffleManagerService
         }
     }
 
-    private static List<File> getShuffleDataInput(File shuffleWorkDir, int shuffleId, int reduceId)
+    private static List<File> getShuffleDataInput(File shuffleWorkDir, int jobId, int shuffleId, int reduceId)
     {
-        File[] files = new File(shuffleWorkDir, "999").listFiles();
+        File[] files = new File(shuffleWorkDir, String.valueOf(jobId)).listFiles();
         if (files == null) {
             return Collections.emptyList();
         }

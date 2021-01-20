@@ -1,12 +1,14 @@
 package com.github.harbby.ashtarte;
 
 import com.github.harbby.ashtarte.api.AshtarteConf;
+import com.github.harbby.ashtarte.api.Constant;
 import com.github.harbby.ashtarte.api.KvDataSet;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.api.function.Mapper;
 import com.github.harbby.ashtarte.operator.Operator;
 import com.github.harbby.ashtarte.operator.ShuffleMapOperator;
 import com.github.harbby.ashtarte.runtime.ClusterScheduler;
+import com.github.harbby.ashtarte.runtime.LocalJobScheduler;
 import com.github.harbby.gadtry.graph.Graph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,11 +37,26 @@ public class BatchContextImpl
 {
     private static final Logger logger = LoggerFactory.getLogger(BatchContextImpl.class);
     private final AtomicInteger nextJobId = new AtomicInteger(1);
-    private final AshtarteConf conf = new AshtarteConf();
+    private final AshtarteConf conf;
 
-    private final JobScheduler jobScheduler = new ClusterScheduler(this);  //LocalJobScheduler
+    private final JobScheduler jobScheduler;  //LocalJobScheduler
 
     private int parallelism = 1;
+
+    public BatchContextImpl(AshtarteConf conf)
+    {
+        this.conf = conf;
+        switch (conf.getString(Constant.contextMode, "local")) {
+            case "local":
+                jobScheduler = new LocalJobScheduler(this);
+                break;
+            case "cluster":
+                jobScheduler = new ClusterScheduler(this);
+                break;
+            default:
+                throw new UnsupportedOperationException();
+        }
+    }
 
     @Override
     public AshtarteConf getConf()
@@ -67,7 +84,7 @@ public class BatchContextImpl
         int jobId = nextJobId.getAndIncrement();
         logger.info("begin analysis job {} deps to stageDAG", jobId);
 
-        Map<Stage, Map<Integer, Integer>> stageMap = findShuffleMapOperator(finalOperator);
+        Map<Stage, Map<Integer, Integer>> stageMap = findShuffleMapOperator(jobId, finalOperator);
 
         List<Stage> stages = new ArrayList<>(stageMap.keySet());
         stages.sort((x, y) -> Integer.compare(y.getStageId(), x.getStageId()));
@@ -83,14 +100,14 @@ public class BatchContextImpl
     /**
      * V5
      */
-    private Map<Stage, Map<Integer, Integer>> findShuffleMapOperator(Operator<?> finalDataSet)
+    private Map<Stage, Map<Integer, Integer>> findShuffleMapOperator(int jobId, Operator<?> finalDataSet)
     {
         Map<Operator<?>, Stage> mapping = new HashMap<>();
         //Map<thisStage, Map<shuffleMapId, shuffleMapStage>>
         Map<Stage, Map<Integer, Integer>> map = new LinkedHashMap<>();
         Queue<Operator<?>> stack = new LinkedList<>();
 
-        Stage resultStage = new ResultStage<>(finalDataSet, 0);
+        Stage resultStage = new ResultStage<>(finalDataSet, jobId, 0);
         stack.add(finalDataSet);
         mapping.put(resultStage.getFinalOperator(), resultStage);
         map.put(resultStage, new LinkedHashMap<>());
@@ -120,7 +137,7 @@ public class BatchContextImpl
                         continue;
                     }
 
-                    ShuffleMapStage newStage = new ShuffleMapStage((ShuffleMapOperator<?, ?>) operator, ++i);
+                    ShuffleMapStage newStage = new ShuffleMapStage((ShuffleMapOperator<?, ?>) operator, jobId, ++i);
                     mapping.put(operator, newStage);
                     map.put(newStage, new LinkedHashMap<>());
                     stageDeps.put(operator.getId(), i);
@@ -144,7 +161,7 @@ public class BatchContextImpl
 
                     //---------递归推测cached Operator的前置依赖
                     //下面的推断不是必须的，但是推断后可以让dag show的时候更加清晰,好看.
-                    Map<Stage, Map<Integer, Integer>> markedDeps = findShuffleMapOperator(child);
+                    Map<Stage, Map<Integer, Integer>> markedDeps = findShuffleMapOperator(jobId, child);
                     if (!markedDeps.isEmpty()) {
                         for (Stage stage : entry.getValue()) {
                             Map<Integer, Integer> mergedDeps = new LinkedHashMap<>();
@@ -176,8 +193,7 @@ public class BatchContextImpl
                 builder.addEdge(entry.getKey().getStageId() + "", id + "");
             }
         }
-        Graph<Stage, Void> graph = builder.create();
         //graph.printShow().forEach(x -> System.out.println(x));
-        return graph;
+        return builder.create();
     }
 }

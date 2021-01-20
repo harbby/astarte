@@ -28,15 +28,16 @@ public interface ShuffleWriter<K, V>
 
     public static <K, V> ShuffleWriter<K, V> createShuffleWriter(
             String executorUUID,
+            int jobId,
             int shuffleId,
             int mapId,
             Partitioner partitioner,
             Comparator<K> ordering)
     {
         if (ordering != null) {
-            return new SortShuffleWriter<>(executorUUID, shuffleId, mapId, ordering, partitioner);
+            return new SortShuffleWriter<>(executorUUID, jobId, shuffleId, mapId, ordering, partitioner);
         }
-        return new HashShuffleWriter<>(executorUUID, shuffleId, mapId, partitioner);
+        return new HashShuffleWriter<>(executorUUID, jobId, shuffleId, mapId, partitioner);
     }
 
     public static class HashShuffleWriter<KEY, VALUE>
@@ -45,17 +46,20 @@ public interface ShuffleWriter<K, V>
         private final String executorUUID;
         private final int shuffleId;
         private final int mapId;
+        private final int jobId;
         private final Partitioner partitioner;
         //todo: use array index, not hash
         private final Map<Integer, DataOutputStream> outputStreamMap = new HashMap<>();
 
         public HashShuffleWriter(
                 String executorUUID,
+                int jobId,
                 int shuffleId,
                 int mapId,
                 Partitioner partitioner)
         {
             this.executorUUID = executorUUID;
+            this.jobId = jobId;
             this.shuffleId = shuffleId;
             this.mapId = mapId;
             this.partitioner = partitioner;
@@ -96,7 +100,7 @@ public interface ShuffleWriter<K, V>
             // spark path /tmp/blockmgr-0b4744ba-bffa-420d-accb-fbc475da7a9d/27/shuffle_101_201_0.data
             String fileName = "shuffle_" + shuffleId + "_" + mapId + "_" + reduceId + ".data";
             File shuffleWorkDir = getShuffleWorkDir(executorUUID);
-            return new File(shuffleWorkDir, String.format("%s/%s", 999, fileName));
+            return new File(shuffleWorkDir, String.format("%s/%s", jobId, fileName));
         }
 
         @Override

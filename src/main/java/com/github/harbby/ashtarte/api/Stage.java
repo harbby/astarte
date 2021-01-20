@@ -17,13 +17,15 @@ public abstract class Stage
 {
     private final Operator<?> operator;
     private final int stageId;
+    private final int jobId;
 
     private Map<Integer, Integer> deps = new HashMap<>();
     private Set<SocketAddress> shuffleServices;
 
-    protected Stage(final Operator<?> operator, int stageId)
+    protected Stage(final Operator<?> operator, int jobId, int stageId)
     {
         this.operator = operator;
+        this.jobId = jobId;
         this.stageId = stageId;
     }
 
@@ -58,6 +60,11 @@ public abstract class Stage
     }
 
     public abstract void compute(Partition split, TaskContext taskContext);
+
+    public int getJobId()
+    {
+        return jobId;
+    }
 
     public int getStageId()
     {

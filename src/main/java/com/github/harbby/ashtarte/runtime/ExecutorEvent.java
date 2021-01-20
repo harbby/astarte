@@ -1,6 +1,5 @@
 package com.github.harbby.ashtarte.runtime;
 
-import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 
 public interface ExecutorEvent

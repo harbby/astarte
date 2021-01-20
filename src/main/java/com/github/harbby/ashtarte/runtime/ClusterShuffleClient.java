@@ -181,6 +181,8 @@ public class ClusterShuffleClient
         {
             downloadEnd = false;
             cause = null;
+            buffer.clear();
+            option.remove();
 
             ByteBuf byteBuf = ctx.alloc().buffer(8, 8);
             byteBuf.writeInt(shuffleId);

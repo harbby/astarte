@@ -7,9 +7,9 @@ import com.github.harbby.ashtarte.operator.ShuffleMapOperator;
 public class ShuffleMapStage
         extends Stage
 {
-    public ShuffleMapStage(ShuffleMapOperator<?, ?> operator, int stageId)
+    public ShuffleMapStage(ShuffleMapOperator<?, ?> operator, int jobId, int stageId)
     {
-        super(operator, stageId);
+        super(operator, jobId, stageId);
     }
 
     @Override

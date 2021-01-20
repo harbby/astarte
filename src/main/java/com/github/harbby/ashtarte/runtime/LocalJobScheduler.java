@@ -8,6 +8,7 @@ import com.github.harbby.ashtarte.ResultTask;
 import com.github.harbby.ashtarte.ShuffleMapStage;
 import com.github.harbby.ashtarte.ShuffleMapTask;
 import com.github.harbby.ashtarte.TaskContext;
+import com.github.harbby.ashtarte.api.AshtarteException;
 import com.github.harbby.ashtarte.api.Stage;
 import com.github.harbby.ashtarte.api.Task;
 import com.github.harbby.ashtarte.api.function.Mapper;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -51,13 +53,15 @@ public class LocalJobScheduler
         final ExecutorService executors = Executors.newFixedThreadPool(context.getParallelism());
         String localExecutorUUID = UUID.randomUUID().toString();
         ShuffleManagerService shuffleManagerService = new ShuffleManagerService(localExecutorUUID);
+        shuffleManagerService.updateCurrentJobId(jobId);
+
         try {
             for (Stage stage : jobStages) {
                 int stageId = stage.getStageId();
                 SerializableObj<Stage> serializableStage = SerializableObj.of(stage);
                 Map<Integer, Integer> deps = stageMap.getOrDefault(stage, Collections.emptyMap());
                 ShuffleClient shuffleClient = ShuffleClient.getLocalShuffleClient(shuffleManagerService);
-                TaskContext taskContext = TaskContext.of(stageId, deps, shuffleClient, localExecutorUUID);
+                TaskContext taskContext = TaskContext.of(jobId, stageId, deps, shuffleClient, localExecutorUUID);
 
                 if (stage instanceof ShuffleMapStage) {
                     logger.info("starting... shuffleMapStage: {}, id {}", stage, stage.getStageId());
@@ -82,6 +86,9 @@ public class LocalJobScheduler
                             .collect(Collectors.toList());
                 }
             }
+        }
+        catch (CompletionException e) {
+            throw new AshtarteException("local job failed", e.fillInStackTrace());
         }
         finally {
             executors.shutdown();
