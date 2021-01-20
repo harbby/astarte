@@ -123,6 +123,8 @@ public class ClusterShuffleClient
         private ChannelHandlerContext ctx;
         //todo: use number size buffer, 建议使用定长ByteBuffer
         private final BlockingQueue<byte[]> buffer = new LinkedBlockingQueue<>(1024);
+        private final StateOption<byte[]> option = StateOption.empty();
+
         private volatile boolean downloadEnd = false;
         private volatile Throwable cause;
 
@@ -145,28 +147,26 @@ public class ClusterShuffleClient
         protected Object decode(ChannelHandlerContext ctx, ByteBuf in1)
                 throws Exception
         {
+            if (in1.readableBytes() == 4) {
+                if (in1.readInt() == -1) {
+                    downloadEnd = true;
+                    taskThread.interrupt();
+                    return null;
+                }
+            }
             ByteBuf frame = (ByteBuf) super.decode(ctx, in1);
             if (frame == null) {
                 return null;
             }
-            if (frame.readableBytes() == 4) {
-                //该分区没有数据
-                return null;
-            }
+            //check must frame.readableBytes() > 4;
             byte[] bytes = new byte[frame.readInt()];
             frame.readBytes(bytes);
-            logger.info("taskThread {}, {}", taskThread, bytes);
+            if (logger.isDebugEnabled()) {
+                logger.debug("taskThread {}, io read {}", taskThread, bytes);
+            }
             ReferenceCountUtil.release(in1);
             buffer.put(bytes);
             return bytes;
-        }
-
-        @Override
-        public void channelReadComplete(ChannelHandlerContext ctx)
-                throws Exception
-        {
-            downloadEnd = true;
-            taskThread.interrupt();
         }
 
         @Override
@@ -177,8 +177,6 @@ public class ClusterShuffleClient
             taskThread.interrupt();
         }
 
-        private final StateOption<byte[]> option = StateOption.empty();
-
         private void begin(int shuffleId, int reduceId)
         {
             downloadEnd = false;
@@ -188,7 +186,6 @@ public class ClusterShuffleClient
             byteBuf.writeInt(shuffleId);
             byteBuf.writeInt(reduceId);
             ctx.writeAndFlush(byteBuf);
-            logger.info("请求load数据 {}， {}", shuffleId, reduceId);
         }
 
         @Override

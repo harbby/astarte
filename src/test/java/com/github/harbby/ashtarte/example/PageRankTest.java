@@ -34,7 +34,7 @@ public class PageRankTest
         KvDataSet<String, Iterable<String>> links = lines.kvDataSet(s -> {
             String[] parts = s.split("\\s+");
             return new Tuple2<>(parts[0], parts[1]);
-        }).distinct(1).groupByKey().cache();
+        }).distinct(2).groupByKey().cache();
         KvDataSet<String, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {
             DataSet<Tuple2<String, Double>> contribs = links.join(ranks).values().flatMapIterator(it -> {

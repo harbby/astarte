@@ -112,26 +112,26 @@ public final class ShuffleManagerService
             int shuffleId = in.readInt();
             int reduceId = in.readInt();
             ReferenceCountUtil.release(msg);
-
             List<File> files = getShuffleDataInput(shuffleWorkDir, shuffleId, reduceId);  //获取多个带发送文件
-            logger.info("收到请求处理 {} {}, 找到文件 {}", shuffleId, reduceId, files);
+
+            ByteBuf finish = ctx.alloc().buffer(4, 4);
+            finish.writeInt(-1);
             if (files.isEmpty()) {
-                //如果文件不存在
-                ByteBuf byteBuf = ctx.alloc().buffer(4, 4);
-                byteBuf.writeInt(0);
-                ctx.writeAndFlush(byteBuf);
+                //not found any file
+                ctx.writeAndFlush(finish);
                 return;
             }
 
-            for (File file : files) { //依次发送多个大文件
+            for (File file : files) {
                 FileInputStream inputStream = new FileInputStream(file);
                 FileChannel channel = inputStream.getChannel();
                 ctx.writeAndFlush(new DefaultFileRegion(channel, 0, file.length()), ctx.newProgressivePromise())
                         .addListener((ChannelFutureListener) future -> {
-                            logger.info("send file {} done, size = {}", file, file.length());
+                            logger.debug("send file {} done, size = {}", file, file.length());
                             inputStream.close();
                         });
             }
+            ctx.writeAndFlush(finish);
         }
 
         @Override

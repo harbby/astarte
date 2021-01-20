@@ -22,8 +22,6 @@ public class OrderByOperatorTest
                 Tuple2.of("hp", 10),
                 Tuple2.of("hp2", 20)
         ), 2).reduceByKey(Integer::sum);
-        ageDs
-                .sortByKey(String::compareTo)
-                .print();
+        ageDs.sortByKey(String::compareTo).print();
     }
 }
