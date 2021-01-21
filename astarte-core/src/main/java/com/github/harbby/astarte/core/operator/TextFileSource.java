@@ -12,6 +12,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Serializable;
+import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -32,6 +33,9 @@ public class TextFileSource
     @Override
     public Partition[] getPartitions()
     {
+        if (!dir.exists()) {
+            throw throwsThrowable(new NoSuchFileException(dir.getPath()));
+        }
         List<File> files = Files.listFiles(dir, false, file -> file.length() > 0);
         Partition[] partitions = new Partition[files.size()];
         for (int i = 0; i < files.size(); i++) {

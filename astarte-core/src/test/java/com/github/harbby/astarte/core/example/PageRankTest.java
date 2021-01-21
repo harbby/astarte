@@ -28,9 +28,8 @@ public class PageRankTest
     public void pageRank4itersTest()
     {
         int iters = 150;  //迭代次数
-        String sparkHome = System.getenv("SPARK_HOME");
 
-        DataSet<String> lines = mppContext.textFile(sparkHome + "/data/mllib/pagerank_data.txt");
+        DataSet<String> lines = mppContext.textFile("../data/batch/pagerank_data.txt");
         KvDataSet<String, Iterable<String>> links = lines.kvDataSet(s -> {
             String[] parts = s.split("\\s+");
             return new Tuple2<>(parts[0], parts[1]);
