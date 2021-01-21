@@ -1,4 +1,5 @@
-# Astarte [![Build Status](https://api.travis-ci.com/harbby/ashtarte.svg?branch=master)](https://travis-ci.com/harbby/astarte) [![codecov](https://codecov.io/gh/harbby/ashtarte/branch/master/graph/badge.svg?)](https://codecov.io/gh/harbby/ashtarte)
+# Astarte [![Build Status](https://api.travis-ci.com/harbby/ashtarte.svg?branch=master)](https://travis-ci.com/harbby/astarte) [![codecov](https://codecov.io/gh/harbby/ashtarte/branch/master/graph/badge.svg?)](https://codecov.io/gh/harbby/ashtarte) [![language](https://img.shields.io/badge/language-java_8_and_11-orange.svg)]()
+
 
 Welcome to Astarte !
 
