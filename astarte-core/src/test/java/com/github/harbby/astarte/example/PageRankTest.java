@@ -27,7 +27,7 @@ public class PageRankTest
     @Test
     public void pageRank4itersTest()
     {
-        int iters =150;  //迭代次数
+        int iters = 150;  //迭代次数
         String sparkHome = System.getenv("SPARK_HOME");
 
         DataSet<String> lines = mppContext.textFile(sparkHome + "/data/mllib/pagerank_data.txt");

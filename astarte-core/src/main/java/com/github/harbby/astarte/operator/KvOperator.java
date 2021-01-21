@@ -160,6 +160,20 @@ public class KvOperator<K, V>
     }
 
     @Override
+    public KvDataSet<K, V> partitionLimit(int limit)
+    {
+        Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.partitionLimit(limit);
+        return new KvOperator<>(dataSet);
+    }
+
+    @Override
+    public KvOperator<K, V> limit(int limit)
+    {
+        Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.limit(limit);
+        return new KvOperator<>(dataSet);
+    }
+
+    @Override
     public KvOperator<K, V> rePartition(int numPartition)
     {
         Operator<Tuple2<K, V>> dataSet = (Operator<Tuple2<K, V>>) super.rePartition(numPartition);

@@ -34,7 +34,7 @@ import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 /**
  * Local achieve
  */
-public class BatchContextImpl
+class BatchContextImpl
         implements BatchContext
 {
     private static final Logger logger = LoggerFactory.getLogger(BatchContextImpl.class);

@@ -41,18 +41,31 @@ public interface KvDataSet<K, V>
 
     DataSet<V> values();
 
+    @Override
+    KvDataSet<K, V> partitionLimit(int limit);
+
+    @Override
+    KvDataSet<K, V> limit(int limit);
+
+    @Override
     public KvDataSet<K, V> rePartition(int numPartition);
 
+    @Override
     KvDataSet<K, V> cache();
 
+    @Override
     KvDataSet<K, V> cache(CacheOperator.CacheMode cacheMode);
 
+    @Override
     KvDataSet<K, V> unCache();
 
+    @Override
     KvDataSet<K, V> distinct();
 
+    @Override
     KvDataSet<K, V> distinct(int numPartition);
 
+    @Override
     KvDataSet<K, V> distinct(Partitioner partitioner);
 
     KvDataSet<K, Iterable<V>> groupByKey();
@@ -83,12 +96,14 @@ public interface KvDataSet<K, V>
 
     public <W> KvDataSet<K, Tuple2<V, W>> leftJoin(DataSet<Tuple2<K, W>> kvDataSet);
 
+    @Override
     public KvDataSet<K, V> union(DataSet<Tuple2<K, V>> kvDataSet);
 
     public KvDataSet<K, V> union(KvDataSet<K, V> kvDataSet, int numPartition);
 
     public KvDataSet<K, V> union(KvDataSet<K, V> kvDataSet, Partitioner partitioner);
 
+    @Override
     public KvDataSet<K, V> unionAll(DataSet<Tuple2<K, V>> kvDataSet);
 
     public KvDataSet<K, V> sortByKey(Comparator<K> comparator);

@@ -174,6 +174,35 @@ public abstract class Operator<ROW>
     }
 
     @Override
+    public DataSet<ROW> partitionLimit(int limit)
+    {
+        return this.mapPartition(input -> Iterators.limit(input, limit));
+    }
+
+    @Override
+    public DataSet<ROW> limit(int limit)
+    {
+        //todo: 如果上一个算子是排序,则还可以进一步下推优化
+        int[] partitionSize = new int[numPartitions()];
+        int[] partitionLimit = new int[partitionSize.length];
+        this.mapPartitionWithId((id, iterator) ->
+                Iterators.of(new int[] {id, (int) Iterators.size(Iterators.limit(iterator, limit))}))
+                .collect().forEach(it -> partitionSize[it[0]] = it[1]);
+        int diff = limit;
+        for (int i = 0; i < numPartitions() && diff > 0; i++) {
+            if (diff >= partitionSize[i]) {
+                partitionLimit[i] = partitionSize[i];
+                diff = diff - partitionSize[i];
+            }
+            else {
+                partitionLimit[i] = diff;
+                break;
+            }
+        }
+        return this.mapPartitionWithId((id, iterator) -> Iterators.limit(iterator, partitionLimit[id]));
+    }
+
+    @Override
     public DataSet<ROW> distinct()
     {
         return this.distinct(numPartitions());

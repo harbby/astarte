@@ -56,6 +56,10 @@ public interface DataSet<ROW>
 
     DataSet<ROW> unCache();
 
+    DataSet<ROW> partitionLimit(int limit);
+
+    DataSet<ROW> limit(int limit);
+
     DataSet<ROW> distinct();
 
     DataSet<ROW> distinct(int numPartition);
