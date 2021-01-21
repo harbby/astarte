@@ -1,6 +1,5 @@
 package com.github.harbby.astarte.yarn;
 
-import com.github.harbby.astarte.runtime.ClusterScheduler;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;

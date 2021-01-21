@@ -1,4 +1,5 @@
 package com.github.harbby.astarte;
 
-public class MapTaskState {
+public class MapTaskState
+{
 }

@@ -11,7 +11,6 @@ import java.util.Iterator;
 public class ResultTask<E, R>
         implements Task<R>
 {
-
     private final Stage stage;
     private final Mapper<Iterator<E>, R> func;
     private final Partition partition;

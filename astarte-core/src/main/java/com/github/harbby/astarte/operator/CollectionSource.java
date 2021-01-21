@@ -3,7 +3,6 @@ package com.github.harbby.astarte.operator;
 import com.github.harbby.astarte.BatchContext;
 import com.github.harbby.astarte.TaskContext;
 import com.github.harbby.astarte.api.Partition;
-
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.google.common.collect.ImmutableList;
 
@@ -13,28 +12,33 @@ import java.util.Iterator;
 import java.util.List;
 
 public class CollectionSource<E>
-        extends Operator<E> {
+        extends Operator<E>
+{
     private final int parallelism;
     private final Collection<E> collection;
 
-    public CollectionSource(BatchContext context, Collection<E> collection, int parallelism) {
+    public CollectionSource(BatchContext context, Collection<E> collection, int parallelism)
+    {
         super(context);
         this.collection = collection;
         this.parallelism = parallelism;
     }
 
     @Override
-    public Partition[] getPartitions() {
+    public Partition[] getPartitions()
+    {
         return slice(collection, parallelism);
     }
 
     @Override
-    public Iterator<E> compute(Partition partition, TaskContext taskContext) {
+    public Iterator<E> compute(Partition partition, TaskContext taskContext)
+    {
         ParallelCollectionPartition<E> collectionPartition = (ParallelCollectionPartition<E>) partition;
         return collectionPartition.getCollection().iterator();
     }
 
-    private static <E> Partition[] slice(Collection<E> collection, int parallelism) {
+    private static <E> Partition[] slice(Collection<E> collection, int parallelism)
+    {
         long length = collection.size();
         List<Tuple2<Integer, Integer>> tuple2s = new ArrayList<>();
         for (int i = 0; i < parallelism; i++) {
@@ -53,15 +57,18 @@ public class CollectionSource<E>
     }
 
     private static class ParallelCollectionPartition<ROW>
-            extends Partition {
+            extends Partition
+    {
         private final Collection<ROW> collection;
 
-        public ParallelCollectionPartition(int index, Collection<ROW> collection) {
+        public ParallelCollectionPartition(int index, Collection<ROW> collection)
+        {
             super(index);
             this.collection = collection;
         }
 
-        public Collection<ROW> getCollection() {
+        public Collection<ROW> getCollection()
+        {
             return collection;
         }
     }

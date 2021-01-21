@@ -10,7 +10,7 @@ import java.util.List;
 
 public class ShuffleUtil
 {
-    public static  <K, V> List<Tuple2<K, V>> readDataFile(String path)
+    public static <K, V> List<Tuple2<K, V>> readDataFile(String path)
     {
         List<Tuple2<K, V>> out = new ArrayList<>();
         try {

@@ -2,8 +2,8 @@ package com.github.harbby.astarte.operator;
 
 import com.github.harbby.astarte.Partitioner;
 import com.github.harbby.astarte.TaskContext;
-import com.github.harbby.astarte.api.function.MapGroupFunc;
 import com.github.harbby.astarte.api.Partition;
+import com.github.harbby.astarte.api.function.MapGroupFunc;
 import com.github.harbby.astarte.api.function.Mapper;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
