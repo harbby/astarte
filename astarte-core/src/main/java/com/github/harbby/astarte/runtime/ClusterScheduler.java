@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -59,10 +60,15 @@ public class ClusterScheduler
             Mapper<Iterator<E>, R> action,
             Map<Stage, Map<Integer, Integer>> stageMap)
     {
-        List<R> rs = new ArrayList<>();
         driverNetManager.initState();
+
+        Object[] result = null;
         for (Stage stage : jobStages) {
             submitStage(stage, action, stageMap);
+            if (stage instanceof ResultStage) {
+                result = new Object[stage.getNumPartitions()];
+            }
+
             //等待stage执行结束,所有task成功. 如果task失败，应重新调度一次
             //todo: 失败分为： executor挂掉, task单独失败但executor正常
             //这里采用简单的方式，先不考虑executor挂掉
@@ -81,14 +87,14 @@ public class ClusterScheduler
                     }
                     throw new AstarteException(((TaskEvent.TaskFailed) taskEvent).getError());
                 }
-                if (stage instanceof ResultStage) {
-                    checkState(taskEvent instanceof TaskEvent.TaskSuccess);
-                    rs.add((R) ((TaskEvent.TaskSuccess) taskEvent).getTaskResult());
+                else if (taskEvent instanceof TaskEvent.TaskSuccess && stage instanceof ResultStage) {
+                    TaskEvent.TaskSuccess taskSuccess = (TaskEvent.TaskSuccess) taskEvent;
+                    result[taskSuccess.getTaskId()] = taskSuccess.getTaskResult();
                 }
                 taskDone++;
             }
             if (stage instanceof ResultStage) {
-                return rs;
+                return Arrays.asList((R[]) result);
             }
         }
         throw new UnsupportedOperationException("job " + jobId + " Not found ResultStage");

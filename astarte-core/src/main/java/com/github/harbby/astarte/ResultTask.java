@@ -33,7 +33,7 @@ public class ResultTask<E, R>
     }
 
     @Override
-    public long getTaskId()
+    public int getTaskId()
     {
         return partition.getId();
     }

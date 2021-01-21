@@ -26,7 +26,7 @@ public class ShuffleMapTask<E>
     }
 
     @Override
-    public long getTaskId()
+    public int getTaskId()
     {
         return partition.getId();
     }

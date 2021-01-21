@@ -8,9 +8,9 @@ public interface TaskEvent
         return new TaskFailed(jobId, error);
     }
 
-    public static TaskEvent success(Object result)
+    public static TaskEvent success(int taskId, Object result)
     {
-        return new TaskSuccess(result);
+        return new TaskSuccess(taskId, result);
     }
 
     public static class TaskFailed
@@ -39,12 +39,19 @@ public interface TaskEvent
     public static class TaskSuccess
             implements TaskEvent
     {
+        private final int taskId;
         private final Object result;
 
-        public TaskSuccess(Object result)
+        public TaskSuccess(int taskId, Object result)
         {
+            this.taskId = taskId;
             //check result serializable
             this.result = result;
+        }
+
+        public int getTaskId()
+        {
+            return taskId;
         }
 
         public Object getTaskResult()

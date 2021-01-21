@@ -7,7 +7,7 @@ import java.io.Serializable;
 public interface Task<R>
         extends Serializable
 {
-    public long getTaskId();
+    public int getTaskId();
 
     public R runTask(TaskContext taskContext);
 

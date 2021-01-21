@@ -21,7 +21,7 @@ public class Executor
     private static final Logger logger = LoggerFactory.getLogger(Executor.class);
     private final String executorUUID = UUID.randomUUID().toString();
     private final ExecutorService pool;
-    private final ConcurrentMap<Long, TaskRunner> runningTasks = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, TaskRunner> runningTasks = new ConcurrentHashMap<>();
     private final ExecutorBackend executorBackend;
     private final ShuffleManagerService shuffleService;
 
@@ -57,7 +57,7 @@ public class Executor
                     ShuffleClient shuffleClient = ShuffleClient.getClusterShuffleClient(shuffleServices);
                     TaskContext taskContext = TaskContext.of(stage.getJobId(), stage.getStageId(), stage.getDeps(), shuffleClient, executorUUID);
                     Object result = task.runTask(taskContext);
-                    event = TaskEvent.success(result);
+                    event = TaskEvent.success(task.getTaskId(), result);
                 }
                 catch (Exception e) {
                     logger.error("task {} 执行失败", task, e);
@@ -71,6 +71,9 @@ public class Executor
             catch (Exception e) {
                 //task failed
                 logger.error("task failed", e);
+            }
+            finally {
+                runningTasks.remove(task.getTaskId());
             }
         });
         runningTasks.put(task.getTaskId(), new TaskRunner(task, future));

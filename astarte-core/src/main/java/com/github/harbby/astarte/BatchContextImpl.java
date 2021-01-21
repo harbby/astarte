@@ -46,13 +46,14 @@ public class BatchContextImpl
     public BatchContextImpl(AstarteConf conf)
     {
         this.conf = conf;
-        Pattern pattern = Pattern.compile("(local)\\[(\\d+)\\]|(cluster)\\[(\\d+),(\\d+)\\]");
         String modeString = conf.getString(Constant.contextMode, "local[2]");
-        Matcher matcher = pattern.matcher(modeString);
+        Matcher matcher = Pattern.compile("(local)\\[(\\d+)\\]").matcher(modeString);
         if (!matcher.find()) {
-            throw new ArithmeticException("not parser running mode " + modeString);
+            matcher = Pattern.compile("(cluster)\\[(\\d+),(\\d+)\\]").matcher(modeString);
+            if (!matcher.find()) {
+                throw new ArithmeticException("parser running mode " + modeString + " failed");
+            }
         }
-
         switch (matcher.group(1)) {
             case "local":
                 jobScheduler = new LocalJobScheduler(conf, Integer.parseInt(matcher.group(2)));
