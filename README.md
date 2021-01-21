@@ -1,6 +1,7 @@
-# Ashtarte
+# Astarte [![Build Status](https://api.travis-ci.com/harbby/ashtarte.svg?branch=master)](https://travis-ci.com/harbby/astarte) [![codecov](https://codecov.io/gh/harbby/astarte/branch/master/graph/badge.svg)](https://codecov.io/gh/harbby/astarte)
 
-Welcome to Ashtarte !
+
+Welcome to Astarte !
 
 弹性分布式并行计算系统研究和探索
 
@@ -8,7 +9,7 @@ Welcome to Ashtarte !
 * WorldCount:
 ```
     BatchContext mppContext = BatchContext.builder()
-        .setParallelism(2)
+        .local(2)
         .getOrCreate();
 
     DataSet<String> ds = mppContext.textFile("/tmp/.../README.md");
@@ -24,7 +25,7 @@ Welcome to Ashtarte !
 * PageRank
 ```
     BatchContext mppContext = BatchContext.builder()
-            .setParallelism(2)
+            .local(2)
             .getOrCreate();
     int iters = 4;  //迭代次数
     String sparkHome = System.getenv("SPARK_HOME");
