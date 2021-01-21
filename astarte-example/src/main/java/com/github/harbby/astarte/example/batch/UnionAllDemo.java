@@ -8,6 +8,8 @@ import java.util.Arrays;
 
 public class UnionAllDemo
 {
+    private UnionAllDemo() {}
+
     public static void main(String[] args)
     {
         BatchContext mppContext = BatchContext.builder().local(1).getOrCreate();

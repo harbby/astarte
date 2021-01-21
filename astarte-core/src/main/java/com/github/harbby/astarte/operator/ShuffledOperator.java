@@ -80,4 +80,3 @@ public class ShuffledOperator<K, V>
         return shuffleClient.readShuffleData(shuffleId, split.getId());
     }
 }
-

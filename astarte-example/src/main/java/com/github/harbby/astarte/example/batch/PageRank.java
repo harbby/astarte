@@ -10,6 +10,8 @@ import java.util.List;
 
 public class PageRank
 {
+    private PageRank() {}
+
     public static void main(String[] args)
     {
         BatchContext mppContext = BatchContext.builder()

@@ -18,6 +18,8 @@ import java.util.concurrent.TimeUnit;
 
 public class AstarteYarnAppDriver
 {
+    private AstarteYarnAppDriver() {}
+
     private static final Logger logger = LoggerFactory.getLogger(AstarteYarnAppDriver.class);
 
     public static void main(String[] args)

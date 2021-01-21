@@ -8,13 +8,13 @@ import com.github.harbby.gadtry.base.Iterators;
 import java.util.Iterator;
 import java.util.stream.Stream;
 
-public class FlatMapOperator<IN, OUT>
-        extends Operator<OUT>
+public class FlatMapOperator<I, O>
+        extends Operator<O>
 {
-    private final Mapper<IN, OUT[]> flatMapper;
-    private final Operator<IN> dataSet;
+    private final Mapper<I, O[]> flatMapper;
+    private final Operator<I> dataSet;
 
-    protected FlatMapOperator(Operator<IN> dataSet, Mapper<IN, OUT[]> flatMapper)
+    protected FlatMapOperator(Operator<I> dataSet, Mapper<I, O[]> flatMapper)
     {
         super(dataSet);
         this.flatMapper = flatMapper;
@@ -22,7 +22,7 @@ public class FlatMapOperator<IN, OUT>
     }
 
     @Override
-    public Iterator<OUT> compute(Partition partition, TaskContext taskContext)
+    public Iterator<O> compute(Partition partition, TaskContext taskContext)
     {
         return Iterators.concat(Iterators.map(dataSet.computeOrCache(partition, taskContext),
                 row -> Stream.of(flatMapper.map(row)).iterator()));

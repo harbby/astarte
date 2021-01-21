@@ -6,8 +6,12 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Arrays;
 
-public class Join2 {
-    public static void main(String[] args) {
+public class Join2
+{
+    private Join2() {}
+
+    public static void main(String[] args)
+    {
         BatchContext mppContext = BatchContext.builder().local(1).getOrCreate();
 
         KvDataSet<String, Integer> ageDs = mppContext.makeKvDataSet(Arrays.asList(

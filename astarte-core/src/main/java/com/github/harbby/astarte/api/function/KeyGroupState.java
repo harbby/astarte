@@ -19,7 +19,10 @@ public interface KeyGroupState<K, S>
         private final K k;
         private S state;
 
-        public KeyGroupStateImpl(K k) {this.k = k;}
+        public KeyGroupStateImpl(K k)
+        {
+            this.k = k;
+        }
 
         @Override
         public K getKey()

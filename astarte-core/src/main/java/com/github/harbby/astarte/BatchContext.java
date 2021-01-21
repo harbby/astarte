@@ -81,13 +81,13 @@ public interface BatchContext
 
         public Builder local(int parallelism)
         {
-            conf.put(Constant.contextMode, String.format("local[%s]", parallelism));
+            conf.put(Constant.RUNNING_MODE, String.format("local[%s]", parallelism));
             return this;
         }
 
         public Builder cluster(int vcores, int executorNum)
         {
-            conf.put(Constant.contextMode, String.format("cluster[%s,%s]", vcores, executorNum));
+            conf.put(Constant.RUNNING_MODE, String.format("cluster[%s,%s]", vcores, executorNum));
             return this;
         }
 

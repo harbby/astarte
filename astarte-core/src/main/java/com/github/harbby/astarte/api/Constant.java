@@ -4,9 +4,9 @@ public class Constant
 {
     private Constant() {}
 
-    public static String driverPost = "driver.manager.port";
+    public static final String DRIVER_SCHEDULER_PORT = "driver.manager.port";
 
-    public static String contextMode = "running.mode"; // local or cluster
+    public static final String RUNNING_MODE = "running.mode"; // local or cluster
 
-    public static String EXECUTOR_MEMORY_CONF = "executor.memory.mb";
+    public static final String EXECUTOR_MEMORY_CONF = "executor.memory.mb";
 }

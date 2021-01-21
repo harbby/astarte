@@ -40,8 +40,8 @@ public interface ShuffleWriter<K, V>
         return new HashShuffleWriter<>(executorUUID, jobId, shuffleId, mapId, partitioner);
     }
 
-    public static class HashShuffleWriter<KEY, VALUE>
-            implements ShuffleWriter<KEY, VALUE>
+    public static class HashShuffleWriter<K, V>
+            implements ShuffleWriter<K, V>
     {
         private final String executorUUID;
         private final int shuffleId;
@@ -84,11 +84,11 @@ public interface ShuffleWriter<K, V>
         }
 
         @Override
-        public void write(Iterator<? extends Tuple2<KEY, VALUE>> iterator)
+        public void write(Iterator<? extends Tuple2<K, V>> iterator)
                 throws IOException
         {
             while (iterator.hasNext()) {
-                Tuple2<KEY, VALUE> kv = iterator.next();
+                Tuple2<K, V> kv = iterator.next();
                 int reduceId = partitioner.getPartition(kv.f1());
                 this.write(reduceId, kv);
             }

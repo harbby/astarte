@@ -16,12 +16,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-public interface DataSet<ROW>
+public interface DataSet<R>
         extends Serializable
 {
-    /**
-     * driver exec
-     */
     public abstract Partition[] getPartitions();
 
     public int numPartitions();
@@ -30,7 +27,7 @@ public interface DataSet<ROW>
 
     int getId();
 
-    List<ROW> collect();
+    List<R> collect();
 
     long count();
 
@@ -38,55 +35,55 @@ public interface DataSet<ROW>
 
     void print();
 
-    void foreach(Foreach<ROW> foreach);
+    void foreach(Foreach<R> foreach);
 
-    void foreachPartition(Foreach<Iterator<ROW>> partitionForeach);
+    void foreachPartition(Foreach<Iterator<R>> partitionForeach);
 
-    Optional<ROW> reduce(Reducer<ROW> reducer);
+    Optional<R> reduce(Reducer<R> reducer);
 
     public Partitioner getPartitioner();
 
-    <K, V> KvDataSet<K, V> kvDataSet(Mapper<ROW, Tuple2<K, V>> kvMapper);
+    <K, V> KvDataSet<K, V> kvDataSet(Mapper<R, Tuple2<K, V>> kvMapper);
 
-    <K> KeyValueGroupedOperator<K, ROW> groupByKey(Mapper<ROW, K> mapFunc);
+    <K> KeyValueGroupedOperator<K, R> groupByKey(Mapper<R, K> mapFunc);
 
-    DataSet<ROW> cache(CacheOperator.CacheMode cacheMode);
+    DataSet<R> cache(CacheOperator.CacheMode cacheMode);
 
-    DataSet<ROW> cache();
+    DataSet<R> cache();
 
-    DataSet<ROW> unCache();
+    DataSet<R> unCache();
 
-    DataSet<ROW> partitionLimit(int limit);
+    DataSet<R> partitionLimit(int limit);
 
-    DataSet<ROW> limit(int limit);
+    DataSet<R> limit(int limit);
 
-    DataSet<ROW> distinct();
+    DataSet<R> distinct();
 
-    DataSet<ROW> distinct(int numPartition);
+    DataSet<R> distinct(int numPartition);
 
-    public DataSet<ROW> distinct(Partitioner partitioner);
+    public DataSet<R> distinct(Partitioner partitioner);
 
-    public DataSet<ROW> rePartition(int numPartition);
+    public DataSet<R> rePartition(int numPartition);
 
-    <OUT> DataSet<OUT> map(Mapper<ROW, OUT> mapper);
+    <O> DataSet<O> map(Mapper<R, O> mapper);
 
-    <OUT> DataSet<OUT> flatMap(Mapper<ROW, OUT[]> flatMapper);
+    <O> DataSet<O> flatMap(Mapper<R, O[]> flatMapper);
 
-    <OUT> DataSet<OUT> flatMapIterator(Mapper<ROW, Iterator<OUT>> flatMapper);
+    <O> DataSet<O> flatMapIterator(Mapper<R, Iterator<O>> flatMapper);
 
-    <OUT> DataSet<OUT> mapPartition(Mapper<Iterator<ROW>, Iterator<OUT>> flatMapper);
+    <O> DataSet<O> mapPartition(Mapper<Iterator<R>, Iterator<O>> flatMapper);
 
-    <OUT> DataSet<OUT> mapPartitionWithId(KvMapper<Integer, Iterator<ROW>, Iterator<OUT>> flatMapper);
+    <O> DataSet<O> mapPartitionWithId(KvMapper<Integer, Iterator<R>, Iterator<O>> flatMapper);
 
-    DataSet<ROW> filter(Filter<ROW> filter);
+    DataSet<R> filter(Filter<R> filter);
 
-    public DataSet<ROW> union(DataSet<ROW> dataSet);
+    public DataSet<R> union(DataSet<R> dataSet);
 
-    public DataSet<ROW> union(DataSet<ROW> dataSet, int numPartition);
+    public DataSet<R> union(DataSet<R> dataSet, int numPartition);
 
-    public DataSet<ROW> union(DataSet<ROW> dataSet, Partitioner partitioner);
+    public DataSet<R> union(DataSet<R> dataSet, Partitioner partitioner);
 
-    public DataSet<ROW> unionAll(DataSet<ROW> dataSet);
+    public DataSet<R> unionAll(DataSet<R> dataSet);
 
-    public KvDataSet<ROW, Long> zipWithIndex();
+    public KvDataSet<R, Long> zipWithIndex();
 }

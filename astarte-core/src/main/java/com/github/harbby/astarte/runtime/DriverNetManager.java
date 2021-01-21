@@ -1,6 +1,7 @@
 package com.github.harbby.astarte.runtime;
 
 import com.github.harbby.astarte.api.AstarteConf;
+import com.github.harbby.astarte.api.Constant;
 import com.github.harbby.astarte.api.Task;
 import com.github.harbby.gadtry.base.Serializables;
 import io.netty.bootstrap.ServerBootstrap;
@@ -44,7 +45,7 @@ public class DriverNetManager
 
     public DriverNetManager(AstarteConf astarteConf, int executorNum)
     {
-        this.port = astarteConf.getInt("driver.manager.port", 7079);
+        this.port = astarteConf.getInt(Constant.DRIVER_SCHEDULER_PORT, 7079);
         this.executorNum = executorNum;
     }
 

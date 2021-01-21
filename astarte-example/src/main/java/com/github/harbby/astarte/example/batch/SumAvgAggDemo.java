@@ -7,6 +7,8 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 public class SumAvgAggDemo
 {
+    private SumAvgAggDemo() {}
+
     public static void main(String[] args)
     {
         BatchContext mppContext = BatchContext.builder().local(1).getOrCreate();

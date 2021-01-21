@@ -46,7 +46,7 @@ class BatchContextImpl
     public BatchContextImpl(AstarteConf conf)
     {
         this.conf = conf;
-        String modeString = conf.getString(Constant.contextMode, "local[2]");
+        String modeString = conf.getString(Constant.RUNNING_MODE, "local[2]");
         Matcher matcher = Pattern.compile("(local)\\[(\\d+)\\]").matcher(modeString);
         if (!matcher.find()) {
             matcher = Pattern.compile("(cluster)\\[(\\d+),(\\d+)\\]").matcher(modeString);

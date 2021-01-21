@@ -18,7 +18,7 @@ import java.util.stream.Stream;
 
 public class YarnDeployClient
 {
-    public static String YARN_APP_TYPE = "Astarte";
+    public static final String YARN_APP_TYPE = "Astarte";
 
     public void deploy()
             throws IOException, YarnException

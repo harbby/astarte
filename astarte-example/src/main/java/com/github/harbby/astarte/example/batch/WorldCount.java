@@ -7,6 +7,8 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 public class WorldCount
 {
+    private WorldCount() {}
+
     public static void main(String[] args)
     {
         BatchContext mppContext = BatchContext.builder().getOrCreate();

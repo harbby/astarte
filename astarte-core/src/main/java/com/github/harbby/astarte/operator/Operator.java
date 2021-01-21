@@ -34,8 +34,8 @@ import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static com.github.harbby.gadtry.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public abstract class Operator<ROW>
-        implements DataSet<ROW>
+public abstract class Operator<R>
+        implements DataSet<R>
 {
     protected static final Logger logger = LoggerFactory.getLogger(Operator.class);
 
@@ -127,11 +127,11 @@ public abstract class Operator<ROW>
         return markedCache;
     }
 
-    protected abstract Iterator<ROW> compute(Partition split, TaskContext taskContext);
+    protected abstract Iterator<R> compute(Partition split, TaskContext taskContext);
 
     private boolean markedCache = false;
 
-    public final Iterator<ROW> computeOrCache(Partition split, TaskContext taskContext)
+    public final Iterator<R> computeOrCache(Partition split, TaskContext taskContext)
     {
         if (markedCache) {
             return CacheOperator.compute(this, id, split, taskContext);
@@ -142,13 +142,13 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public DataSet<ROW> cache()
+    public DataSet<R> cache()
     {
         return this.cache(CacheOperator.CacheMode.MEM_ONLY);
     }
 
     @Override
-    public DataSet<ROW> cache(CacheOperator.CacheMode cacheMode)
+    public DataSet<R> cache(CacheOperator.CacheMode cacheMode)
     {
         checkState(cacheMode == CacheOperator.CacheMode.MEM_ONLY, "目前只支持mem模式");
         markedCache = true;
@@ -159,7 +159,7 @@ public abstract class Operator<ROW>
      * todo: 需重新实现
      */
     @Override
-    public DataSet<ROW> unCache()
+    public DataSet<R> unCache()
     {
         checkState(!(this instanceof KvOperator) && this.isMarkedCache(),
                 "this DataSet not cached");
@@ -174,13 +174,13 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public DataSet<ROW> partitionLimit(int limit)
+    public DataSet<R> partitionLimit(int limit)
     {
         return this.mapPartition(input -> Iterators.limit(input, limit));
     }
 
     @Override
-    public DataSet<ROW> limit(int limit)
+    public DataSet<R> limit(int limit)
     {
         //todo: 如果上一个算子是排序,则还可以进一步下推优化
         int[] partitionSize = new int[numPartitions()];
@@ -203,19 +203,19 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public DataSet<ROW> distinct()
+    public DataSet<R> distinct()
     {
         return this.distinct(numPartitions());
     }
 
     @Override
-    public DataSet<ROW> distinct(int numPartition)
+    public DataSet<R> distinct(int numPartition)
     {
         return distinct(new HashPartitioner(numPartition));
     }
 
     @Override
-    public DataSet<ROW> distinct(Partitioner partitioner)
+    public DataSet<R> distinct(Partitioner partitioner)
     {
         return this.kvDataSet(x -> new Tuple2<>(x, null))
                 .reduceByKey((x, y) -> x, partitioner)
@@ -224,88 +224,89 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public DataSet<ROW> rePartition(int numPartition)
+    public DataSet<R> rePartition(int numPartition)
     {
-        ShuffleMapOperator<ROW, ROW> shuffleMapOperator =
+        ShuffleMapOperator<R, R> shuffleMapOperator =
                 new ShuffleMapOperator<>(this.map(x -> new Tuple2<>(x, null)), numPartition);
-        ShuffledOperator<ROW, ROW> shuffleReducer = new ShuffledOperator<>(shuffleMapOperator, shuffleMapOperator.getPartitioner());
+        ShuffledOperator<R, R> shuffleReducer = new ShuffledOperator<>(shuffleMapOperator, shuffleMapOperator.getPartitioner());
         return shuffleReducer.map(Tuple2::f1);
     }
 
     @Override
-    public DataSet<ROW> union(DataSet<ROW> dataSet)
+    public DataSet<R> union(DataSet<R> dataSet)
     {
         return unionAll(dataSet).distinct();
     }
 
     @Override
-    public DataSet<ROW> union(DataSet<ROW> dataSet, int numPartition)
+    public DataSet<R> union(DataSet<R> dataSet, int numPartition)
     {
         return union(dataSet, new HashPartitioner(numPartition));
     }
 
     @Override
-    public DataSet<ROW> union(DataSet<ROW> dataSets, Partitioner partitioner)
+    public DataSet<R> union(DataSet<R> dataSets, Partitioner partitioner)
     {
         return unionAll(dataSets).distinct(partitioner);
     }
 
     @Override
-    public DataSet<ROW> unionAll(DataSet<ROW> dataSet)
+    public DataSet<R> unionAll(DataSet<R> dataSet)
     {
         requireNonNull(dataSet, "dataSet is null");
         checkState(dataSet instanceof Operator, dataSet + "not instanceof Operator");
-        return new UnionAllOperator<>(this, (Operator<ROW>) dataSet);
+        return new UnionAllOperator<>(this, (Operator<R>) dataSet);
     }
 
     @Override
-    public <K, V> KvOperator<K, V> kvDataSet(Mapper<ROW, Tuple2<K, V>> kvMapper)
+    public <K, V> KvOperator<K, V> kvDataSet(Mapper<R, Tuple2<K, V>> kvMapper)
     {
         Operator<Tuple2<K, V>> mapOperator = this.map(kvMapper);
         return new KvOperator<>(mapOperator);
     }
 
     @Override
-    public <K> KeyValueGroupedOperator<K, ROW> groupByKey(Mapper<ROW, K> mapFunc)
+    public <K> KeyValueGroupedOperator<K, R> groupByKey(Mapper<R, K> mapFunc)
     {
         requireNonNull(mapFunc, "mapFunc is null");
         return new KeyValueGroupedOperator<>(this, mapFunc);
     }
 
     @Override
-    public <OUT> Operator<OUT> map(Mapper<ROW, OUT> mapper)
+    public <O> Operator<O> map(Mapper<R, O> mapper)
     {
-        return new MapPartitionOperator<>(this,
-                it -> Iterators.map(it, mapper::map)
-                , false);
+        return new MapPartitionOperator<>(
+                this,
+                it -> Iterators.map(it, mapper::map),
+                false);
     }
 
     @Override
-    public <OUT> DataSet<OUT> flatMap(Mapper<ROW, OUT[]> flatMapper)
+    public <O> DataSet<O> flatMap(Mapper<R, O[]> flatMapper)
     {
         return new FlatMapOperator<>(this, flatMapper);
     }
 
     @Override
-    public <OUT> Operator<OUT> flatMapIterator(Mapper<ROW, Iterator<OUT>> flatMapper)
+    public <O> Operator<O> flatMapIterator(Mapper<R, Iterator<O>> flatMapper)
     {
         return new FlatMapIteratorOperator<>(this, flatMapper);
     }
 
     @Override
-    public <OUT> DataSet<OUT> mapPartition(Mapper<Iterator<ROW>, Iterator<OUT>> f)
+    public <O> DataSet<O> mapPartition(Mapper<Iterator<R>, Iterator<O>> f)
     {
         return new MapPartitionOperator<>(this, f, false);
     }
 
     @Override
-    public <OUT> DataSet<OUT> mapPartitionWithId(KvMapper<Integer, Iterator<ROW>, Iterator<OUT>> f)
+    public <O> DataSet<O> mapPartitionWithId(KvMapper<Integer, Iterator<R>, Iterator<O>> f)
     {
         return new MapPartitionOperator<>(this, f, false);
     }
 
     @Override
-    public DataSet<ROW> filter(Filter<ROW> filter)
+    public DataSet<R> filter(Filter<R> filter)
     {
         return new MapPartitionOperator<>(
                 this,
@@ -314,7 +315,7 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public KvDataSet<ROW, Long> zipWithIndex()
+    public KvDataSet<R, Long> zipWithIndex()
     {
         List<Tuple2<Integer, Long>> list = this.mapPartitionWithId((id, it) ->
                 Iterators.of(new Tuple2<>(id, Iterators.size(it))))
@@ -329,14 +330,14 @@ public abstract class Operator<ROW>
             info.put(it.f1(), index);
             index = index + it.f2();
         }
-        Operator<Tuple2<ROW, Long>> operator = (Operator<Tuple2<ROW, Long>>) this.mapPartitionWithId((id, it) ->
+        Operator<Tuple2<R, Long>> operator = (Operator<Tuple2<R, Long>>) this.mapPartitionWithId((id, it) ->
                 Iterators.zipIndex(it, info.get(id)));
         return new KvOperator<>(operator);
     }
 
     //---action operator
     @Override
-    public List<ROW> collect()
+    public List<R> collect()
     {
         //todo: 使用其他比ImmutableList复杂度更低的操作
         return context.runJob(unboxing(this), MutableList::copy)
@@ -355,14 +356,14 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public Optional<ROW> reduce(Reducer<ROW> reducer)
+    public Optional<R> reduce(Reducer<R> reducer)
     {
         return context.runJob(unboxing(this), iterator -> Iterators.reduce(iterator, reducer::reduce))
                 .stream().reduce(reducer::reduce);
     }
 
     @Override
-    public void foreach(Foreach<ROW> foreach)
+    public void foreach(Foreach<R> foreach)
     {
         context.runJob(unboxing(this), iterator -> {
             while (iterator.hasNext()) {
@@ -373,7 +374,7 @@ public abstract class Operator<ROW>
     }
 
     @Override
-    public void foreachPartition(Foreach<Iterator<ROW>> partitionForeach)
+    public void foreachPartition(Foreach<Iterator<R>> partitionForeach)
     {
         context.runJob(unboxing(this), iterator -> {
             partitionForeach.apply(iterator);
@@ -385,7 +386,7 @@ public abstract class Operator<ROW>
     public void print(int limit)
     {
         context.runJob(unboxing(this), iterator -> {
-            Iterator<ROW> limitIterator = Iterators.limit(iterator, limit);
+            Iterator<R> limitIterator = Iterators.limit(iterator, limit);
             while (limitIterator.hasNext()) {
                 System.out.println((limitIterator.next()));
             }

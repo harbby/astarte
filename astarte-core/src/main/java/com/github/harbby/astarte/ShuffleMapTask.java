@@ -7,7 +7,6 @@ import com.github.harbby.astarte.api.Task;
 public class ShuffleMapTask<E>
         implements Task<MapTaskState>
 {
-
     private final Stage stage;
     private final Partition partition;
 

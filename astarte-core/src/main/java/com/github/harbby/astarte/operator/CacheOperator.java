@@ -25,7 +25,7 @@ public class CacheOperator<E>
 
     private final Operator<E> dataSet;
     List<Operator<?>> list = new ArrayList<>();
-    private final static Map<Integer, Iterable<?>[]> cacheMemMap = new ConcurrentHashMap<>();
+    private static final Map<Integer, Iterable<?>[]> cacheMemMap = new ConcurrentHashMap<>();
 
     public CacheOperator(Operator<E> dataSet)
     {

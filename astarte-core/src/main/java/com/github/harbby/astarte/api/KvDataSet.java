@@ -29,13 +29,13 @@ public interface KvDataSet<K, V>
 
     Map<K, V> collectMap();
 
-    <OUT> DataSet<OUT> map(KvMapper<K, V, OUT> mapper);
+    <O> DataSet<O> map(KvMapper<K, V, O> mapper);
 
     DataSet<K> keys();
 
-    <OUT> KvDataSet<K, OUT> mapValues(Mapper<V, OUT> mapper);
+    <O> KvDataSet<K, O> mapValues(Mapper<V, O> mapper);
 
-    <OUT> KvDataSet<K, OUT> flatMapValues(Mapper<V, Iterator<OUT>> mapper);
+    <O> KvDataSet<K, O> flatMapValues(Mapper<V, Iterator<O>> mapper);
 
     <K1> KvDataSet<K1, V> mapKeys(Mapper<K, K1> mapper);
 

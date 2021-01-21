@@ -5,8 +5,12 @@ import com.github.harbby.astarte.api.DataSet;
 import com.github.harbby.astarte.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-public class JoinDemo {
-    public static void main(String[] args) {
+public class JoinDemo
+{
+    private JoinDemo() {}
+
+    public static void main(String[] args)
+    {
         BatchContext mppContext = BatchContext.builder().local(1).getOrCreate();
         String sparkHome = System.getenv("SPARK_HOME");
 

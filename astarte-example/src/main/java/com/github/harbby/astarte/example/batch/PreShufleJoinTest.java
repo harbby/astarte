@@ -8,6 +8,8 @@ import java.util.Arrays;
 
 public class PreShufleJoinTest
 {
+    private PreShufleJoinTest() {}
+
     public static void main(String[] args)
     {
         BatchContext mppContext = BatchContext.builder().local(1).getOrCreate();
@@ -24,7 +26,7 @@ public class PreShufleJoinTest
                 Tuple2.of("hp1", "chengdu")
         ), 2)
                 .partitionBy(1);
-                //.distinct();
+        //.distinct();
 
         //ageDs.print();
         KvDataSet<String, Tuple2<Integer, String>> out = ageDs.leftJoin(cityDs);

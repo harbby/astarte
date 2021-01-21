@@ -18,15 +18,15 @@ import static java.util.Objects.requireNonNull;
 /**
  * this full agg,not pipeline
  */
-public class FullAggOperator<K, V, OUT>
-        extends Operator<Tuple2<K, OUT>>
+public class FullAggOperator<K, V, O>
+        extends Operator<Tuple2<K, O>>
 {
     private final Operator<Tuple2<K, V>> dataSet;
-    private final MapGroupFunc<K, V, OUT> mapGroupFunc;
+    private final MapGroupFunc<K, V, O> mapGroupFunc;
 
     protected FullAggOperator(
             Operator<Tuple2<K, V>> dataSet,
-            Mapper<Iterable<V>, OUT> agg)
+            Mapper<Iterable<V>, O> agg)
     {
         super(dataSet);
         this.dataSet = requireNonNull(unboxing(dataSet), "dataSet is null");
@@ -35,7 +35,7 @@ public class FullAggOperator<K, V, OUT>
 
     protected FullAggOperator(
             Operator<Tuple2<K, V>> dataSet,
-            MapGroupFunc<K, V, OUT> mapGroupFunc)
+            MapGroupFunc<K, V, O> mapGroupFunc)
     {
         super(dataSet);
         this.dataSet = requireNonNull(unboxing(dataSet), "dataSet is null");
@@ -49,7 +49,7 @@ public class FullAggOperator<K, V, OUT>
     }
 
     @Override
-    public Iterator<Tuple2<K, OUT>> compute(Partition split, TaskContext taskContext)
+    public Iterator<Tuple2<K, O>> compute(Partition split, TaskContext taskContext)
     {
         Iterator<Tuple2<K, V>> input = dataSet.computeOrCache(split, taskContext);
         //todo: 非增量计算,需实现溢写功能

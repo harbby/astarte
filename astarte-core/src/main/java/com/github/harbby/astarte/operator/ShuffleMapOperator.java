@@ -78,5 +78,3 @@ public class ShuffleMapOperator<K, V>
         return Iterators.empty();
     }
 }
-
-

@@ -10,7 +10,10 @@ public interface ExecutorEvent
     {
         private final SocketAddress shuffleServiceAddress;
 
-        public ExecutorInitSuccessEvent(SocketAddress shuffleServiceAddress) {this.shuffleServiceAddress = shuffleServiceAddress;}
+        public ExecutorInitSuccessEvent(SocketAddress shuffleServiceAddress)
+        {
+            this.shuffleServiceAddress = shuffleServiceAddress;
+        }
 
         public SocketAddress getShuffleServiceAddress()
         {

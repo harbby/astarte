@@ -55,7 +55,7 @@ public class KvOperator<K, V>
     }
 
     @Override
-    public <OUT> DataSet<OUT> map(KvMapper<K, V, OUT> mapper)
+    public <O> DataSet<O> map(KvMapper<K, V, O> mapper)
     {
         return dataSet.map(x -> mapper.map(x.f1(), x.f2()));
     }
@@ -90,9 +90,9 @@ public class KvOperator<K, V>
     }
 
     @Override
-    public <OUT> KvDataSet<K, OUT> mapValues(Mapper<V, OUT> mapper)
+    public <O> KvDataSet<K, O> mapValues(Mapper<V, O> mapper)
     {
-        Operator<Tuple2<K, OUT>> out = new MapPartitionOperator<>(
+        Operator<Tuple2<K, O>> out = new MapPartitionOperator<>(
                 this.dataSet,
                 it -> Iterators.map(it, kv -> new Tuple2<>(kv.f1(), mapper.map(kv.f2()))),
                 true);
@@ -100,13 +100,13 @@ public class KvOperator<K, V>
     }
 
     @Override
-    public <OUT> KvDataSet<K, OUT> flatMapValues(Mapper<V, Iterator<OUT>> mapper)
+    public <O> KvDataSet<K, O> flatMapValues(Mapper<V, Iterator<O>> mapper)
     {
-        Mapper<Iterator<Tuple2<K, V>>, Iterator<Tuple2<K, OUT>>> flatMapper =
+        Mapper<Iterator<Tuple2<K, V>>, Iterator<Tuple2<K, O>>> flatMapper =
                 input -> Iterators.flatMap(input,
                         kv -> Iterators.map(mapper.map(kv.f2()), o -> new Tuple2<>(kv.f1(), o)));
 
-        Operator<Tuple2<K, OUT>> dataSet = new MapPartitionOperator<>(
+        Operator<Tuple2<K, O>> dataSet = new MapPartitionOperator<>(
                 this.dataSet,
                 flatMapper,
                 true);

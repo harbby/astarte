@@ -2,6 +2,8 @@ package com.github.harbby.astarte.runtime;
 
 public class TaskExecutor
 {
+    private TaskExecutor() {}
+
     public static void main(String[] args)
             throws Exception
     {

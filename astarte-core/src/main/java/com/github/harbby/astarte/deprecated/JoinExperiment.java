@@ -18,6 +18,8 @@ import static java.util.Objects.requireNonNull;
 @Deprecated
 public class JoinExperiment
 {
+    private JoinExperiment() {}
+
     public enum JoinMode
     {
         LEFT_JOIN,

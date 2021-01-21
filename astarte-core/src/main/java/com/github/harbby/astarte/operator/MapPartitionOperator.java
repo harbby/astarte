@@ -10,16 +10,16 @@ import java.util.Iterator;
 
 import static java.util.Objects.requireNonNull;
 
-public class MapPartitionOperator<IN, OUT>
-        extends Operator<OUT>
+public class MapPartitionOperator<I, O>
+        extends Operator<O>
 {
-    private final Mapper<Iterator<IN>, Iterator<OUT>> flatMapper;
-    private final KvMapper<Integer, Iterator<IN>, Iterator<OUT>> flatMapperWithId;
-    private final Operator<IN> dataSet;
+    private final Mapper<Iterator<I>, Iterator<O>> flatMapper;
+    private final KvMapper<Integer, Iterator<I>, Iterator<O>> flatMapperWithId;
+    private final Operator<I> dataSet;
     private final boolean holdPartitioner;
 
-    protected MapPartitionOperator(Operator<IN> dataSet,
-            Mapper<Iterator<IN>, Iterator<OUT>> f,
+    protected MapPartitionOperator(Operator<I> dataSet,
+            Mapper<Iterator<I>, Iterator<O>> f,
             boolean holdPartitioner)
     {
         super(dataSet);
@@ -30,8 +30,8 @@ public class MapPartitionOperator<IN, OUT>
         this.holdPartitioner = holdPartitioner;
     }
 
-    protected MapPartitionOperator(Operator<IN> dataSet,
-            KvMapper<Integer, Iterator<IN>, Iterator<OUT>> f,
+    protected MapPartitionOperator(Operator<I> dataSet,
+            KvMapper<Integer, Iterator<I>, Iterator<O>> f,
             boolean holdPartitioner)
     {
         super(dataSet);
@@ -51,9 +51,9 @@ public class MapPartitionOperator<IN, OUT>
     }
 
     @Override
-    public Iterator<OUT> compute(Partition split, TaskContext taskContext)
+    public Iterator<O> compute(Partition split, TaskContext taskContext)
     {
-        Iterator<OUT> iterator;
+        Iterator<O> iterator;
         if (flatMapper != null) {
             iterator = flatMapper.map(dataSet.computeOrCache(split, taskContext));
         }

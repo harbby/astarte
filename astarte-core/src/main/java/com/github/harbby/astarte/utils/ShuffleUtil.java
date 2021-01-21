@@ -10,6 +10,8 @@ import java.util.List;
 
 public class ShuffleUtil
 {
+    private ShuffleUtil() {}
+
     public static <K, V> List<Tuple2<K, V>> readDataFile(String path)
     {
         List<Tuple2<K, V>> out = new ArrayList<>();

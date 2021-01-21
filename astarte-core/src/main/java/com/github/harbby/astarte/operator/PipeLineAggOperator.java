@@ -12,13 +12,13 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-public class PipeLineAggOperator<K, V, OUT>
-        extends Operator<Tuple2<K, OUT>>
+public class PipeLineAggOperator<K, V, O>
+        extends Operator<Tuple2<K, O>>
 {
     private final Operator<Tuple2<K, V>> operator;
-    private final Mapper<KeyGroupState<K, OUT>, Collector<V>> groupCollector;
+    private final Mapper<KeyGroupState<K, O>, Collector<V>> groupCollector;
 
-    protected PipeLineAggOperator(Operator<Tuple2<K, V>> operator, Mapper<KeyGroupState<K, OUT>, Collector<V>> groupCollector)
+    protected PipeLineAggOperator(Operator<Tuple2<K, V>> operator, Mapper<KeyGroupState<K, O>, Collector<V>> groupCollector)
     {
         super(operator);
         this.operator = unboxing(operator);
@@ -33,17 +33,17 @@ public class PipeLineAggOperator<K, V, OUT>
     }
 
     @Override
-    public Iterator<Tuple2<K, OUT>> compute(Partition split, TaskContext taskContext)
+    public Iterator<Tuple2<K, O>> compute(Partition split, TaskContext taskContext)
     {
         Iterator<Tuple2<K, V>> input = operator.computeOrCache(split, taskContext);
         // 这里是增量计算的 复杂度= O(1) + log(m)
-        Map<K, Tuple2<Collector<V>, KeyGroupState<K, OUT>>> aggState = new HashMap<>();  //这里是纯内存计算的, spark在1.x之后实现了内存溢出功能
+        Map<K, Tuple2<Collector<V>, KeyGroupState<K, O>>> aggState = new HashMap<>();  //这里是纯内存计算的, spark在1.x之后实现了内存溢出功能
         int count = 0;
         while (input.hasNext()) {
             Tuple2<K, V> tp = input.next();
-            Tuple2<Collector<V>, KeyGroupState<K, OUT>> keyGroup = aggState.get(tp.f1);
+            Tuple2<Collector<V>, KeyGroupState<K, O>> keyGroup = aggState.get(tp.f1);
             if (keyGroup == null) {
-                KeyGroupState<K, OUT> keyGroupState = KeyGroupState.createKeyGroupState(tp.f1);
+                KeyGroupState<K, O> keyGroupState = KeyGroupState.createKeyGroupState(tp.f1);
                 keyGroup = new Tuple2<>(groupCollector.map(keyGroupState), keyGroupState);
                 aggState.put(tp.f1, keyGroup);
             }

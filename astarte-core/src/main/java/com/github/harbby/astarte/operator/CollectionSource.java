@@ -56,18 +56,18 @@ public class CollectionSource<E>
         return partitions;
     }
 
-    private static class ParallelCollectionPartition<ROW>
+    private static class ParallelCollectionPartition<R>
             extends Partition
     {
-        private final Collection<ROW> collection;
+        private final Collection<R> collection;
 
-        public ParallelCollectionPartition(int index, Collection<ROW> collection)
+        public ParallelCollectionPartition(int index, Collection<R> collection)
         {
             super(index);
             this.collection = collection;
         }
 
-        public Collection<ROW> getCollection()
+        public Collection<R> getCollection()
         {
             return collection;
         }
