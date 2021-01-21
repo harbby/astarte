@@ -1,5 +1,4 @@
-# Astarte [![Build Status](https://api.travis-ci.com/harbby/ashtarte.svg?branch=master)](https://travis-ci.com/harbby/astarte) [![codecov](https://codecov.io/gh/harbby/astarte/branch/master/graph/badge.svg)](https://codecov.io/gh/harbby/astarte)
-
+# Astarte [![Build Status](https://api.travis-ci.com/harbby/ashtarte.svg?branch=master)](https://travis-ci.com/harbby/astarte) [![codecov](https://codecov.io/gh/harbby/ashtarte/branch/master/graph/badge.svg?)](https://codecov.io/gh/harbby/ashtarte)
 
 Welcome to Astarte !
 
