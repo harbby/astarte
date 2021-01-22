@@ -3,6 +3,9 @@ language: java
 #- openjdk8
 
 install:
+  - wget https://apache.website-solution.net/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz
+  - tar xzvf apache-maven-3.6.3-bin.tar.gz
+  - export PATH=`pwd`/apache-maven-3.6.3/bin:$PATH
   - mvn -v
 
 matrix:
@@ -18,7 +21,7 @@ services:
   - docker
 
 script:
-  - mvn clean package test -Dlogback.configurationFile=`pwd`/build/ci-logback.xml -Pjdk="$jdk"
+  - mvn clean package test -Dlogback.configurationFile=`pwd`/build/ci-logback.xml --no-transfer-progress -Pjdk="$jdk"
 
 before_deploy:
   - echo build astarte
