@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.github.harbby.astarte.core.utils;
 
 import com.github.harbby.gadtry.base.Serializables;
