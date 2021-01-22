@@ -10,7 +10,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ForkVmExecutorManager
-        implements ExecutorManager
+        extends ExecutorManager
 {
     private final int vcores;
     private final int memMb;
@@ -20,6 +20,7 @@ public class ForkVmExecutorManager
 
     public ForkVmExecutorManager(int vcores, int memMb, int executorNum)
     {
+        super(vcores, memMb, executorNum);
         this.vcores = vcores;
         this.memMb = memMb;
         this.executorNum = executorNum;

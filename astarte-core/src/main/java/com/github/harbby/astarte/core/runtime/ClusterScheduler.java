@@ -41,7 +41,7 @@ public class ClusterScheduler
         int executorMemMb = astarteConf.getInt(Constant.EXECUTOR_MEMORY_CONF, 2048);
 
         //启动所有Executor
-        this.executorManager = new ForkVmExecutorManager(vcores, executorMemMb, executorNum);
+        this.executorManager = ExecutorManager.createExecutorManager(vcores, executorMemMb, executorNum);
         executorManager.start();
 
         //wait 等待所有exector上线

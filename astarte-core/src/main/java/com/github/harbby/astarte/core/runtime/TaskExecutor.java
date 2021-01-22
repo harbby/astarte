@@ -8,7 +8,7 @@ public class TaskExecutor
             throws Exception
     {
         int vcores = 2;
-        Executor executor = new Executor(2);
+        Executor executor = new Executor(vcores);
         executor.join();
     }
 }

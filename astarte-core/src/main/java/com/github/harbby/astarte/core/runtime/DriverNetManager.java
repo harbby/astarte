@@ -140,7 +140,7 @@ public class DriverNetManager
             Event event = Serializables.byteToObject(bytes);
             if (event instanceof ExecutorEvent.ExecutorInitSuccessEvent) {
                 SocketAddress shuffleService = ((ExecutorEvent.ExecutorInitSuccessEvent) event).getShuffleServiceAddress();
-                logger.info("executor {} register succeed", ctx.channel().remoteAddress());
+                logger.info("executor {} register succeed, shuffle service bind {}", ctx.channel().remoteAddress(), shuffleService);
                 executorHandlers.put(shuffleService, this);
             }
             else if (event instanceof TaskEvent) {

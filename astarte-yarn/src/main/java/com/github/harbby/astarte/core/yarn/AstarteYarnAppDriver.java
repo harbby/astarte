@@ -1,5 +1,8 @@
 package com.github.harbby.astarte.core.yarn;
 
+import com.github.harbby.astarte.core.example.batch.WorldCount;
+import com.github.harbby.astarte.core.runtime.ExecutorManager;
+import com.github.harbby.gadtry.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
@@ -12,15 +15,16 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.nio.file.NoSuchFileException;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 public class AstarteYarnAppDriver
 {
-    private AstarteYarnAppDriver() {}
-
     private static final Logger logger = LoggerFactory.getLogger(AstarteYarnAppDriver.class);
+
+    private AstarteYarnAppDriver() {}
 
     public static void main(String[] args)
             throws Exception
@@ -48,14 +52,34 @@ public class AstarteYarnAppDriver
 
             resourceManagerClient.registerApplicationMaster("master", 7239, null); //注册driver的web页面
             //invoke user main class
+            Class<?> mainClass = WorldCount.class;
+            String[] userArgs = new String[0];
 
-            for (int i = 0; i < 10; i++) {
-                resourceManagerClient.allocate(0);
-                System.out.println("TimeUnit.SECONDS.sleep(10) this time " + new Date());
-                TimeUnit.SECONDS.sleep(10);
+            Future<?> future = Executors.newSingleThreadExecutor().submit(() -> {
+                while (true) {
+                    resourceManagerClient.allocate(0);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("yarn resource manager allocate(0)");
+                    }
+                    TimeUnit.SECONDS.sleep(10);
+                }
+            });
+            ExecutorManager.setFactory((int vcores, int memMb, int executorNum) ->
+                    new YarnExecutorManager(resourceManagerClient, vcores, memMb, executorNum));
+            try {
+                //set contextCluster
+                mainClass.getMethod("main", String[].class)
+                        .invoke(null, (Object) userArgs);
+                resourceManagerClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED, null, null);
             }
-
-            resourceManagerClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED, null, null);
+            catch (Exception e) {
+                String errorMsg = Throwables.getStackTraceAsString(e);
+                resourceManagerClient.unregisterApplicationMaster(FinalApplicationStatus.FAILED, errorMsg, null);
+                throw e;
+            }
+            finally {
+                future.cancel(true);
+            }
         }
     }
 
