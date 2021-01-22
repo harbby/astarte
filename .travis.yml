@@ -18,7 +18,7 @@ services:
   - docker
 
 script:
-  - mvn clean package test -Pjdk="$jdk"
+  - mvn clean package test -Dlogback.configurationFile=`pwd`/build/ci-logback.xml -Pjdk="$jdk"
 
 before_deploy:
   - echo build astarte
