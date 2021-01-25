@@ -13,38 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.harbby.astarte.core.example.batch;
+package com.github.harbby.astarte.example.batch;
 
 import com.github.harbby.astarte.core.BatchContext;
+import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.util.Arrays;
-
-public class Join2
+public class SumAvgAggDemo
 {
-    private Join2() {}
+    private SumAvgAggDemo() {}
 
     public static void main(String[] args)
     {
         BatchContext mppContext = BatchContext.builder().local(1).getOrCreate();
+        String sparkHome = System.getenv("SPARK_HOME");
+        DataSet<String> ds = mppContext.textFile(sparkHome + "/README.md");
+        DataSet<String> worlds = ds.flatMap(input -> input.toLowerCase().split(" "))
+                .filter(x -> !"".equals(x.trim()));
 
-        KvDataSet<String, Integer> ageDs = mppContext.makeKvDataSet(Arrays.asList(
-                Tuple2.of("hp", 8),
-                Tuple2.of("hp", 10),
-                Tuple2.of("hp1", 19),
-                Tuple2.of("hp2", 20)
-        )).reduceByKey(Integer::sum);
+        KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> new Tuple2<>(x, 1L));
+        KvDataSet<String, Long> worldCounts = kvDataSet.partitionBy(2).reduceByKey(Long::sum);
 
-        KvDataSet<String, String> cityDs = mppContext.makeKvDataSet(Arrays.asList(
-                Tuple2.of("hp", "xi'an"),
-                Tuple2.of("hp1", "chengdu")
-        ), 2);
+        DataSet<Tuple2<String, Double>> worldCounts2 = worldCounts
+                .rePartition(4)
+                .mapKeys(k -> k.substring(0, 1))
+                .avgValues(Double::valueOf, 3);
 
-        ageDs.print();
-        KvDataSet<String, Tuple2<Integer, String>> out = ageDs.leftJoin(cityDs);
-
-        // a,(143, 41)
-        out.foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
+        worldCounts2.foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
     }
 }

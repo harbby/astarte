@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.harbby.astarte.core.yarn;
+package com.github.harbby.astarte.yarn.batch;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
@@ -23,6 +23,8 @@ import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.Records;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,12 +35,13 @@ import java.util.stream.Stream;
 
 public class YarnDeployClient
 {
+    private static final Logger logger = LoggerFactory.getLogger(YarnDeployClient.class);
     public static final String YARN_APP_TYPE = "Astarte";
 
     public void deploy()
             throws IOException, YarnException
     {
-        String hadoopConfDir = System.getProperty("HADOOP_CONF_DIR");
+        String hadoopConfDir = System.getenv("HADOOP_CONF_DIR");
         Configuration configuration = loadHadoopConfig(hadoopConfDir);
 
         try (YarnClient yarnClient = initYarnClient(configuration)) {
@@ -47,6 +50,7 @@ public class YarnDeployClient
             ContainerLaunchContext amContainer = startAMContainer();
             // Setup CLASSPATH and environment variables for ApplicationMaster
             final Map<String, String> appMasterEnv = new HashMap<>();
+            appMasterEnv.putAll(System.getenv());
             amContainer.setEnvironment(appMasterEnv);
 
             ApplicationSubmissionContext appContext = yarnApplication.getApplicationSubmissionContext();
@@ -66,7 +70,14 @@ public class YarnDeployClient
     private static ContainerLaunchContext startAMContainer()
     {
         ContainerLaunchContext amContainer = Records.newRecord(ContainerLaunchContext.class);
-        final String amCommand = "/data/lib/jdk8/bin/java -cp ./:* " + AstarteYarnAppDriver.class.getName();
+        String javaLibPath = System.getProperty("java.library.path");
+
+        final String amCommand = "/ideal/lib/jdk8/bin/java -cp ./:" +
+                System.getProperty("java.class.path") +
+                " -Djava.library.path=" + javaLibPath +
+                " -Dlogback.configurationFile=/ideal/workspce/github/astarte/conf/logback.xml " +
+                AstarteYarnAppDriver.class.getName();
+        logger.info("amCommand {}", amCommand);
         amContainer.setCommands(Collections.singletonList(amCommand));
         return amContainer;
     }

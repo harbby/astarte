@@ -13,8 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.harbby.astarte.core.yarn;
+package com.github.harbby.astarte.submit;
 
-public class YarnExecutorManager
+public class SubmitMain
 {
+    private SubmitMain() {}
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        SubmitArgsOptionParser argsParser = new SubmitArgsOptionParser(args);
+    }
 }
