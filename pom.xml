@@ -186,14 +186,16 @@
                     </includes>
                     <excludes>
                         <exclude>**/*.properties</exclude>
-                        <exclude>*.sh</exclude>
-                        <exclude>*.yml</exclude>
-                        <exclude>.editorconfig</exclude>
+                        <exclude>**/*.sh</exclude>
+                        <exclude>**/*.yml</exclude>
                         <exclude>.gitignore</exclude>
                         <exclude>**/*.md</exclude>
                         <exclude>**/*.xml</exclude>
                     </excludes>
                     <strictCheck>true</strictCheck>
+                    <mapping>
+                        <java>SLASHSTAR_STYLE</java>
+                    </mapping>
                 </configuration>
             </plugin>
         </plugins>
