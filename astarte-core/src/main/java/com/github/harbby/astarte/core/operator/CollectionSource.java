@@ -20,6 +20,7 @@ import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.collection.ImmutableList;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
