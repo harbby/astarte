@@ -18,8 +18,8 @@ package com.github.harbby.astarte.core.operator;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.collection.ImmutableList;
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.ArrayList;
 import java.util.Collection;
