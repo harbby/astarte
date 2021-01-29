@@ -25,17 +25,17 @@ public class CheckUtil<E extends Serializable>
 {
     private CheckUtil() {}
 
-    public static <T extends Serializable> T checkSerialize(T serializable)
+    public static <T extends Serializable> T clear(T serializable)
     {
         if (serializable == null) {
             return serializable;
         }
         try {
-            Serializables.serialize(serializable);
-            return serializable;
+            byte[] bytes = Serializables.serialize(serializable);
+            return Serializables.byteToObject(bytes, serializable.getClass().getClassLoader());
         }
-        catch (IOException e) {
-            throw Throwables.throwsThrowable(new IOException(serializable + " check serializable failed", e));
+        catch (IOException | ClassNotFoundException e) {
+            throw Throwables.throwsThrowable(e);
         }
     }
 }

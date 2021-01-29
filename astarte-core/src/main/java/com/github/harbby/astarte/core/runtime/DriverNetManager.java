@@ -159,7 +159,7 @@ public class DriverNetManager
                 executorHandlers.put(shuffleService, this);
             }
             else if (event instanceof TaskEvent) {
-                logger.info("task running end {}", event);
+                logger.info("task {} is finished", event);
                 queue.offer((TaskEvent) event);
             }
             else {

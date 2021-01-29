@@ -27,6 +27,7 @@ import com.github.harbby.astarte.core.api.function.Foreach;
 import com.github.harbby.astarte.core.api.function.KvMapper;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
+import com.github.harbby.astarte.core.utils.CheckUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.MutableList;
@@ -276,7 +277,9 @@ public abstract class Operator<R>
     @Override
     public <K, V> KvOperator<K, V> kvDataSet(Mapper<R, Tuple2<K, V>> kvMapper)
     {
-        Operator<Tuple2<K, V>> mapOperator = this.map(kvMapper);
+        requireNonNull(kvMapper, "kvMapper is null");
+        Mapper<R, Tuple2<K, V>> clearedFunc = CheckUtil.clear(kvMapper);
+        Operator<Tuple2<K, V>> mapOperator = this.map(clearedFunc);
         return new KvOperator<>(mapOperator);
     }
 
@@ -284,48 +287,61 @@ public abstract class Operator<R>
     public <K> KeyValueGroupedOperator<K, R> groupByKey(Mapper<R, K> mapFunc)
     {
         requireNonNull(mapFunc, "mapFunc is null");
-        return new KeyValueGroupedOperator<>(this, mapFunc);
+        Mapper<R, K> clearedFunc = CheckUtil.clear(mapFunc);
+        return new KeyValueGroupedOperator<>(this, clearedFunc);
     }
 
     @Override
     public <O> Operator<O> map(Mapper<R, O> mapper)
     {
+        requireNonNull(mapper, "mapper is null");
+        Mapper<R, O> clearedFunc = CheckUtil.clear(mapper);
         return new MapPartitionOperator<>(
                 this,
-                it -> Iterators.map(it, mapper::map),
+                it -> Iterators.map(it, clearedFunc::map),
                 false);
     }
 
     @Override
     public <O> DataSet<O> flatMap(Mapper<R, O[]> flatMapper)
     {
-        return new FlatMapOperator<>(this, flatMapper);
+        requireNonNull(flatMapper, "flatMapper is null");
+        Mapper<R, O[]> clearedFunc = CheckUtil.clear(flatMapper);
+        return new FlatMapOperator<>(this, clearedFunc);
     }
 
     @Override
     public <O> Operator<O> flatMapIterator(Mapper<R, Iterator<O>> flatMapper)
     {
-        return new FlatMapIteratorOperator<>(this, flatMapper);
+        requireNonNull(flatMapper, "flatMapper is null");
+        Mapper<R, Iterator<O>> clearedFunc = CheckUtil.clear(flatMapper);
+        return new FlatMapIteratorOperator<>(this, clearedFunc);
     }
 
     @Override
-    public <O> DataSet<O> mapPartition(Mapper<Iterator<R>, Iterator<O>> f)
+    public <O> DataSet<O> mapPartition(Mapper<Iterator<R>, Iterator<O>> mapper)
     {
-        return new MapPartitionOperator<>(this, f, false);
+        requireNonNull(mapper, "mapper is null");
+        Mapper<Iterator<R>, Iterator<O>> clearedFunc = CheckUtil.clear(mapper);
+        return new MapPartitionOperator<>(this, clearedFunc, false);
     }
 
     @Override
-    public <O> DataSet<O> mapPartitionWithId(KvMapper<Integer, Iterator<R>, Iterator<O>> f)
+    public <O> DataSet<O> mapPartitionWithId(KvMapper<Integer, Iterator<R>, Iterator<O>> mapper)
     {
-        return new MapPartitionOperator<>(this, f, false);
+        requireNonNull(mapper, "mapper is null");
+        KvMapper<Integer, Iterator<R>, Iterator<O>> clearedFunc = CheckUtil.clear(mapper);
+        return new MapPartitionOperator<>(this, clearedFunc, false);
     }
 
     @Override
     public DataSet<R> filter(Filter<R> filter)
     {
+        requireNonNull(filter, "filter is null");
+        Filter<R> clearedFunc = CheckUtil.clear(filter);
         return new MapPartitionOperator<>(
                 this,
-                it -> Iterators.filter(it, filter::filter),
+                it -> Iterators.filter(it, clearedFunc::filter),
                 false);
     }
 
@@ -373,16 +389,20 @@ public abstract class Operator<R>
     @Override
     public Optional<R> reduce(Reducer<R> reducer)
     {
-        return context.runJob(unboxing(this), iterator -> Iterators.reduce(iterator, reducer::reduce))
-                .stream().reduce(reducer::reduce);
+        requireNonNull(reducer, "reducer is null");
+        Reducer<R> clearedFunc = CheckUtil.clear(reducer);
+        return context.runJob(unboxing(this), iterator -> Iterators.reduce(iterator, clearedFunc::reduce))
+                .stream().reduce(clearedFunc::reduce);
     }
 
     @Override
     public void foreach(Foreach<R> foreach)
     {
+        requireNonNull(foreach, "foreach is null");
+        Foreach<R> clearedFunc = CheckUtil.clear(foreach);
         context.runJob(unboxing(this), iterator -> {
             while (iterator.hasNext()) {
-                foreach.apply(iterator.next());
+                clearedFunc.apply(iterator.next());
             }
             return null;
         });
@@ -391,8 +411,11 @@ public abstract class Operator<R>
     @Override
     public void foreachPartition(Foreach<Iterator<R>> partitionForeach)
     {
+        requireNonNull(partitionForeach, "partitionForeach is null");
+        Foreach<Iterator<R>> clearedFunc = CheckUtil.clear(partitionForeach);
+
         context.runJob(unboxing(this), iterator -> {
-            partitionForeach.apply(iterator);
+            clearedFunc.apply(iterator);
             return Iterators.empty();
         });
     }

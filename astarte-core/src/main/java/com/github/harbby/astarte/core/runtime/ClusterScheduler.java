@@ -53,7 +53,7 @@ public class ClusterScheduler
         this.driverNetManager = new DriverNetManager(astarteConf, executorNum);
         driverNetManager.start();
 
-        int executorMemMb = astarteConf.getInt(Constant.EXECUTOR_MEMORY_CONF, 2048);
+        int executorMemMb = astarteConf.getInt(Constant.EXECUTOR_MEMORY_CONF, 1024);
 
         //启动所有Executor
         this.executorManager = ExecutorManager.createExecutorManager(vcores, executorMemMb, executorNum);

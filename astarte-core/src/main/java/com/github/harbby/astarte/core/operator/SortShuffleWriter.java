@@ -29,11 +29,9 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
@@ -214,7 +212,7 @@ public class SortShuffleWriter<K, V>
 
     public static class SorterBuffer<K, V>
     {
-        private final Map<Integer, List<Tuple2<K, V>>> writerBuffer = new HashMap<>();
+        private final List<Tuple2<K, V>>[] writerBuffer;
         private final Comparator<K> ordering;
         private final Partitioner partitioner;
 
@@ -222,6 +220,7 @@ public class SortShuffleWriter<K, V>
         {
             this.ordering = ordering;
             this.partitioner = partitioner;
+            writerBuffer = (List<Tuple2<K, V>>[]) new List<?>[partitioner.numPartitions()];
         }
 
         public void insertAll(Iterator<? extends Tuple2<K, V>> iterator)
@@ -229,7 +228,11 @@ public class SortShuffleWriter<K, V>
             while (iterator.hasNext()) {
                 Tuple2<K, V> kv = iterator.next();
                 int reduceId = this.partitioner.getPartition(kv.f1());
-                List<Tuple2<K, V>> buffer = writerBuffer.computeIfAbsent(reduceId, n -> new LinkedList<>());
+                List<Tuple2<K, V>> buffer = writerBuffer[reduceId];
+                if (buffer == null) {
+                    buffer = new LinkedList<>();
+                    writerBuffer[reduceId] = buffer;
+                }
                 buffer.add(kv);
             }
         }
@@ -237,10 +240,11 @@ public class SortShuffleWriter<K, V>
         public void saveTo(Consumer<Iterator<? extends Tuple2<K, V>>, IOException> shuffleWriter)
                 throws IOException
         {
-            for (Map.Entry<Integer, List<Tuple2<K, V>>> entry : writerBuffer.entrySet()) {
-                List<Tuple2<K, V>> buffer = entry.getValue();
-                buffer.sort((x, y) -> ordering.compare(x.f1(), y.f1()));
-                shuffleWriter.apply(buffer.iterator());
+            for (List<Tuple2<K, V>> buffer : writerBuffer) {
+                if (buffer != null) {
+                    buffer.sort((x, y) -> ordering.compare(x.f1(), y.f1()));
+                    shuffleWriter.apply(buffer.iterator());
+                }
             }
         }
     }

@@ -20,6 +20,8 @@ import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.operator.SortShuffleWriter;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.DataOutputStream;
@@ -27,17 +29,13 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 
 import static com.github.harbby.astarte.core.runtime.ShuffleManagerService.getShuffleWorkDir;
 
 public interface ShuffleWriter<K, V>
         extends Closeable
 {
-    public File getDataFile(int shuffleId, int mapId, int reduceId);
-
     public void write(Iterator<? extends Tuple2<K, V>> iterator)
             throws IOException;
 
@@ -58,13 +56,15 @@ public interface ShuffleWriter<K, V>
     public static class HashShuffleWriter<K, V>
             implements ShuffleWriter<K, V>
     {
+        private static final Logger logger = LoggerFactory.getLogger(HashShuffleWriter.class);
+
         private final String executorUUID;
         private final int shuffleId;
         private final int mapId;
         private final int jobId;
         private final Partitioner partitioner;
         //todo: use array index, not hash
-        private final Map<Integer, DataOutputStream> outputStreamMap = new HashMap<>();
+        private final DataOutputStream[] outputStreams;
 
         public HashShuffleWriter(
                 String executorUUID,
@@ -78,19 +78,20 @@ public interface ShuffleWriter<K, V>
             this.shuffleId = shuffleId;
             this.mapId = mapId;
             this.partitioner = partitioner;
+            this.outputStreams = new DataOutputStream[partitioner.numPartitions()];
         }
 
         protected void write(int reduceId, Serializable value)
                 throws IOException
         {
-            DataOutputStream dataOutputStream = outputStreamMap.get(reduceId);
+            DataOutputStream dataOutputStream = outputStreams[reduceId];
             if (dataOutputStream == null) {
                 File file = this.getDataFile(shuffleId, mapId, reduceId);
                 if (!file.getParentFile().exists()) {
                     file.getParentFile().mkdirs();
                 }
                 dataOutputStream = new DataOutputStream(new FileOutputStream(this.getDataFile(shuffleId, mapId, reduceId), false));
-                outputStreamMap.put(reduceId, dataOutputStream);
+                outputStreams[reduceId] = dataOutputStream;
             }
 
             byte[] bytes = Serializables.serialize(value);
@@ -109,8 +110,7 @@ public interface ShuffleWriter<K, V>
             }
         }
 
-        @Override
-        public File getDataFile(int shuffleId, int mapId, int reduceId)
+        private File getDataFile(int shuffleId, int mapId, int reduceId)
         {
             // spark path /tmp/blockmgr-0b4744ba-bffa-420d-accb-fbc475da7a9d/27/shuffle_101_201_0.data
             String fileName = "shuffle_" + shuffleId + "_" + mapId + "_" + reduceId + ".data";
@@ -122,8 +122,15 @@ public interface ShuffleWriter<K, V>
         public void close()
                 throws IOException
         {
-            for (DataOutputStream dataOutputStream : outputStreamMap.values()) {
-                dataOutputStream.close();
+            for (DataOutputStream dataOutputStream : outputStreams) {
+                try {
+                    if (dataOutputStream != null) {
+                        dataOutputStream.close();
+                    }
+                }
+                catch (Exception e) {
+                    logger.error("close shuffle write file outputStream failed", e);
+                }
             }
         }
     }

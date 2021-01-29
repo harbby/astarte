@@ -18,8 +18,8 @@ package com.github.harbby.astarte.core.operator;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
+import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
-import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -62,7 +62,7 @@ public class CollectionSource<E>
             tuple2s.add(Tuple2.of(start, end));
         }
 
-        List<E> list = ImmutableList.copyOf(collection);
+        List<E> list = ImmutableList.copy(collection);
         ParallelCollectionPartition[] partitions = new ParallelCollectionPartition[tuple2s.size()];
         for (int i = 0; i < partitions.length; i++) {
             Tuple2<Integer, Integer> a1 = tuple2s.get(i);

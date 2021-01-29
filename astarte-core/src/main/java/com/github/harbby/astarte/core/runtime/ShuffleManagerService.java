@@ -173,8 +173,6 @@ public final class ShuffleManagerService
     {
         List<File> files = getShuffleDataInput(shuffleWorkDir, currentJobId, shuffleId, reduceId);
         return files.stream()
-                .filter(x -> x.getName().startsWith("shuffle_" + shuffleId + "_")
-                        && x.getName().endsWith("_" + reduceId + ".data"))
                 .flatMap(file -> {
                     try {
                         LengthDataFileIteratorReader<K, V> iteratorReader = new LengthDataFileIteratorReader<>(new FileInputStream(file));

@@ -12,8 +12,6 @@
     <artifactId>astarte-dist</artifactId>
 
     <properties>
-        <maven.compiler.source>15</maven.compiler.source>
-        <maven.compiler.target>15</maven.compiler.target>
     </properties>
 
     <dependencies>
@@ -21,15 +19,22 @@
             <groupId>com.github.harbby.astarte</groupId>
             <artifactId>astarte-core</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.github.harbby.astarte</groupId>
+            <artifactId>astarte-submit</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
+                <artifactId>maven-assembly-plugin</artifactId>
                 <configuration>
-                    <outputDirectory>jars</outputDirectory>
+                    <outputDirectory>${project.basedir}/target/</outputDirectory>
+                    <finalName>${parent.artifactId}-${project.version}</finalName>
                 </configuration>
             </plugin>
         </plugins>

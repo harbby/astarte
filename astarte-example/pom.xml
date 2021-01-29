@@ -23,4 +23,16 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <outputDirectory>${project.parent.build.directory}</outputDirectory>
+                    <finalName>examples</finalName>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

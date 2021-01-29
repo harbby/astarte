@@ -25,9 +25,7 @@ import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.AstarteConf;
 import com.github.harbby.astarte.core.api.AstarteException;
 import com.github.harbby.astarte.core.api.Stage;
-import com.github.harbby.astarte.core.api.Task;
 import com.github.harbby.astarte.core.api.function.Mapper;
-import com.github.harbby.astarte.core.utils.SerializableObj;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,7 +74,6 @@ public class LocalJobScheduler
         try {
             for (Stage stage : jobStages) {
                 int stageId = stage.getStageId();
-                SerializableObj<Stage> serializableStage = SerializableObj.of(stage);
                 Map<Integer, Integer> deps = stageMap.getOrDefault(stage, Collections.emptyMap());
                 ShuffleClient shuffleClient = ShuffleClient.getLocalShuffleClient(shuffleManagerService);
                 TaskContext taskContext = TaskContext.of(jobId, stageId, deps, shuffleClient, localExecutorUUID);
@@ -84,10 +81,7 @@ public class LocalJobScheduler
                 if (stage instanceof ShuffleMapStage) {
                     logger.info("starting... shuffleMapStage: {}, id {}", stage, stage.getStageId());
                     Stream.of(stage.getPartitions())
-                            .map(partition -> {
-                                Task<MapTaskState> task = new ShuffleMapTask<>(serializableStage.getValue(), partition);
-                                return task;
-                            })
+                            .map(partition -> new ShuffleMapTask<MapTaskState>(stage, partition))
                             .map(task -> CompletableFuture.runAsync(() -> task.runTask(taskContext), executors))
                             .collect(Collectors.toList())
                             .forEach(CompletableFuture::join);
@@ -97,7 +91,7 @@ public class LocalJobScheduler
                     checkState(stage instanceof ResultStage, "Unknown stage " + stage);
                     logger.info("starting... ResultStage: {}, id {}", stage, stage.getStageId());
                     return Stream.of(stage.getPartitions())
-                            .map(partition -> new ResultTask<>(serializableStage.getValue(), action, partition))
+                            .map(partition -> new ResultTask<>(stage, action, partition))
                             .map(task -> CompletableFuture.supplyAsync(() -> task.runTask(taskContext), executors))
                             .collect(Collectors.toList()).stream()
                             .map(CompletableFuture::join)

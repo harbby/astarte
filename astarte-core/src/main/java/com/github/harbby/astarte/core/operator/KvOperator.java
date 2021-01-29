@@ -27,6 +27,7 @@ import com.github.harbby.astarte.core.api.function.KvMapper;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.deprecated.JoinExperiment;
+import com.github.harbby.astarte.core.utils.CheckUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
@@ -72,13 +73,15 @@ public class KvOperator<K, V>
     @Override
     public <O> DataSet<O> map(KvMapper<K, V, O> mapper)
     {
-        return dataSet.map(x -> mapper.map(x.f1(), x.f2()));
+        KvMapper<K, V, O> clearedFunc = CheckUtil.clear(mapper);
+        return dataSet.map(x -> clearedFunc.map(x.f1(), x.f2()));
     }
 
     @Override
     public void foreach(KvForeach<K, V> kvKvForeach)
     {
-        dataSet.foreach(x -> kvKvForeach.foreach(x.f1(), x.f2()));
+        KvForeach<K, V> clearedFunc = CheckUtil.clear(kvKvForeach);
+        dataSet.foreach(x -> clearedFunc.foreach(x.f1(), x.f2()));
     }
 
     @Override
@@ -98,8 +101,9 @@ public class KvOperator<K, V>
     @Override
     public <K1> KvDataSet<K1, V> mapKeys(Mapper<K, K1> mapper)
     {
+        Mapper<K, K1> clearedFunc = CheckUtil.clear(mapper);
         Operator<Tuple2<K1, V>> out = new MapPartitionOperator<>(dataSet,
-                it -> Iterators.map(it, x -> new Tuple2<>(mapper.map(x.f1()), x.f2())),
+                it -> Iterators.map(it, x -> new Tuple2<>(clearedFunc.map(x.f1()), x.f2())),
                 false); //如果想需要保留分区器，则请使用mapValues
         return new KvOperator<>(out);
     }
@@ -107,9 +111,10 @@ public class KvOperator<K, V>
     @Override
     public <O> KvDataSet<K, O> mapValues(Mapper<V, O> mapper)
     {
+        Mapper<V, O> clearedFunc = CheckUtil.clear(mapper);
         Operator<Tuple2<K, O>> out = new MapPartitionOperator<>(
                 this.dataSet,
-                it -> Iterators.map(it, kv -> new Tuple2<>(kv.f1(), mapper.map(kv.f2()))),
+                it -> Iterators.map(it, kv -> new Tuple2<>(kv.f1(), clearedFunc.map(kv.f2()))),
                 true);
         return new KvOperator<>(out);
     }
@@ -117,9 +122,10 @@ public class KvOperator<K, V>
     @Override
     public <O> KvDataSet<K, O> flatMapValues(Mapper<V, Iterator<O>> mapper)
     {
+        Mapper<V, Iterator<O>> clearedFunc = CheckUtil.clear(mapper);
         Mapper<Iterator<Tuple2<K, V>>, Iterator<Tuple2<K, O>>> flatMapper =
                 input -> Iterators.flatMap(input,
-                        kv -> Iterators.map(mapper.map(kv.f2()), o -> new Tuple2<>(kv.f1(), o)));
+                        kv -> Iterators.map(clearedFunc.map(kv.f2()), o -> new Tuple2<>(kv.f1(), o)));
 
         Operator<Tuple2<K, O>> dataSet = new MapPartitionOperator<>(
                 this.dataSet,
@@ -240,15 +246,16 @@ public class KvOperator<K, V>
     @Override
     public KvDataSet<K, V> reduceByKey(Reducer<V> reducer, Partitioner partitioner)
     {
+        Reducer<V> clearedFunc = CheckUtil.clear(reducer);
         if (partitioner.equals(dataSet.getPartitioner())) {
             // 因为上一个stage已经按照相同的分区器, 将数据分好，因此这里我们无需shuffle
-            return new KvOperator<>(new AggOperator<>(dataSet, reducer));
+            return new KvOperator<>(new AggOperator<>(dataSet, clearedFunc));
         }
         else {
             Operator<Tuple2<K, V>> combineOperator;
             // combine
             if (combine) {
-                combineOperator = new AggOperator<>(dataSet, reducer);
+                combineOperator = new AggOperator<>(dataSet, clearedFunc);
             }
             else {
                 combineOperator = dataSet;
@@ -257,7 +264,7 @@ public class KvOperator<K, V>
             // 进行shuffle
             ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(combineOperator, partitioner);
             ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
-            return new KvOperator<>(new AggOperator<>(shuffledOperator, reducer));
+            return new KvOperator<>(new AggOperator<>(shuffledOperator, clearedFunc));
         }
     }
 
@@ -276,8 +283,8 @@ public class KvOperator<K, V>
     @Override
     public KvDataSet<K, Double> avgValues(Mapper<V, Double> valueCast, Partitioner partitioner)
     {
-        //todo: 需要使用对象池或可变topic来减少ygc
-        return this.mapValues(x -> new Tuple2<>(valueCast.map(x), 1L))
+        Mapper<V, Double> clearedFunc = CheckUtil.clear(valueCast);
+        return this.mapValues(x -> new Tuple2<>(clearedFunc.map(x), 1L))
                 .reduceByKey((x, y) -> new Tuple2<>(x.f1() + y.f1(), x.f2() + y.f2()), partitioner)
                 .mapValues(x -> x.f1() / x.f2());
     }
@@ -380,16 +387,17 @@ public class KvOperator<K, V>
     @Override
     public KvDataSet<K, V> sortByKey(Comparator<K> comparator, int numPartitions)
     {
-        Partitioner partitioner = SortShuffleWriter.createPartitioner(numPartitions, (Operator<K>) this.keys(), comparator);
+        Comparator<K> clearedFunc = CheckUtil.clear(comparator);
+        Partitioner partitioner = SortShuffleWriter.createPartitioner(numPartitions, (Operator<K>) this.keys(), clearedFunc);
         ShuffleMapOperator<K, V> sortShuffleMapOp = new ShuffleMapOperator<>(
                 dataSet,
                 partitioner,
-                comparator);
+                clearedFunc);
 
         SortShuffleWriter.ShuffledMergeSortOperator<K, V> shuffledOperator = new SortShuffleWriter
                 .ShuffledMergeSortOperator<>(
                 sortShuffleMapOp,
-                comparator,
+                clearedFunc,
                 sortShuffleMapOp.getPartitioner());
         return new KvOperator<>(shuffledOperator);
     }
