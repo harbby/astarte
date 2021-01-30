@@ -29,7 +29,6 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.function.Function1;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -38,7 +37,7 @@ public interface BatchContext
 {
     public AstarteConf getConf();
 
-    public default <K, V> KvDataSet<K, V> makeKvDataSet(Collection<Tuple2<K, V>> collection, int parallelism)
+    public default <K, V> KvDataSet<K, V> makeKvDataSet(List<Tuple2<K, V>> collection, int parallelism)
     {
         return new KvOperator<>(new CollectionSource<>(this, collection, parallelism));
     }
@@ -53,17 +52,17 @@ public interface BatchContext
         return new CollectionSource<>(this, Collections.emptyList(), parallelism);
     }
 
-    public default <K, V> KvDataSet<K, V> makeKvDataSet(Collection<Tuple2<K, V>> collection)
+    public default <K, V> KvDataSet<K, V> makeKvDataSet(List<Tuple2<K, V>> collection)
     {
         return new KvOperator<>(new CollectionSource<>(this, collection, 1));
     }
 
-    public default <E> DataSet<E> makeDataSet(Collection<E> collection)
+    public default <E> DataSet<E> makeDataSet(List<E> collection)
     {
         return new CollectionSource<>(this, collection, 1);
     }
 
-    public default <E> DataSet<E> makeDataSet(Collection<E> collection, int parallelism)
+    public default <E> DataSet<E> makeDataSet(List<E> collection, int parallelism)
     {
         return new CollectionSource<>(this, collection, parallelism);
     }

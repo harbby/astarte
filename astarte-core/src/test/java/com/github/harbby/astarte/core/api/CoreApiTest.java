@@ -34,11 +34,11 @@ public class CoreApiTest
     }
 
     @Test
-    public void fromCollectionTestPartitionSizeReturn4()
+    public void fromCollectionTestPartitionSizeReturn3()
     {
         DataSet<String> dataSet = mppContext.makeDataSet(Arrays.asList("1", "2", "3"), 4);
         Partition[] partitions = dataSet.getPartitions();
-        Assert.assertEquals(partitions.length, 4);
+        Assert.assertEquals(partitions.length, 3);
     }
 
     @Test
