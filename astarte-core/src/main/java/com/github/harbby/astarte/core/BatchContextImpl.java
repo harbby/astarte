@@ -16,14 +16,11 @@
 package com.github.harbby.astarte.core;
 
 import com.github.harbby.astarte.core.api.AstarteConf;
-import com.github.harbby.astarte.core.api.Constant;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.astarte.core.api.Stage;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.operator.Operator;
 import com.github.harbby.astarte.core.operator.ShuffleMapOperator;
-import com.github.harbby.astarte.core.runtime.ClusterScheduler;
-import com.github.harbby.astarte.core.runtime.LocalJobScheduler;
 import com.github.harbby.gadtry.graph.Graph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,8 +37,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkArgument;
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
@@ -61,24 +56,7 @@ class BatchContextImpl
     public BatchContextImpl(AstarteConf conf)
     {
         this.conf = conf;
-        String modeString = conf.getString(Constant.RUNNING_MODE, "local[2]");
-        Matcher matcher = Pattern.compile("(local)\\[(\\d+)\\]").matcher(modeString);
-        if (!matcher.find()) {
-            matcher = Pattern.compile("(cluster)\\[(\\d+),(\\d+)\\]").matcher(modeString);
-            if (!matcher.find()) {
-                throw new ArithmeticException("parser running mode " + modeString + " failed");
-            }
-        }
-        switch (matcher.group(1)) {
-            case "local":
-                jobScheduler = new LocalJobScheduler(conf, Integer.parseInt(matcher.group(2)));
-                break;
-            case "cluster":
-                jobScheduler = new ClusterScheduler(conf, Integer.parseInt(matcher.group(2)), Integer.parseInt(matcher.group(3)));
-                break;
-            default:
-                throw new UnsupportedOperationException();
-        }
+        this.jobScheduler = JobScheduler.createJobScheduler(conf);
     }
 
     @Override

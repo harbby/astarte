@@ -35,6 +35,7 @@ import org.apache.hadoop.yarn.api.records.URL;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.Records;
 import org.slf4j.Logger;
@@ -73,7 +74,9 @@ public class YarnDeployClient
     private static final Logger logger = LoggerFactory.getLogger(YarnDeployClient.class);
     public static final String YARN_APP_TYPE = "Astarte";
     private static final String YARN_CLUSTER_MODE = "yarn-cluster";
-    public static final String ASTARTE_LIB_DIR = "__astarte_libs__";
+    public static final String ASTARTE_LIB_ARCHIVE = "__astarte_libs__";
+    public static final String ASTARTE_LIB_NAME = "__jars__";
+    public static final String ASTARTE_LIB_CLASSPATH = ASTARTE_LIB_NAME + "/*:" + ASTARTE_LIB_NAME + "/hadoop/*";
 
     @Override
     public String registerModeName()
@@ -86,7 +89,7 @@ public class YarnDeployClient
             throws Exception
     {
         String[] args = jobConf.getUserArgs();
-        Configuration configuration = loadHadoopConfig(System.getenv("HADOOP_CONF_DIR"));
+        Configuration configuration = loadHadoopConfig();
 
         try (YarnClient yarnClient = initYarnClient(configuration)) {
             FileSystem fs = FileSystem.get(configuration);
@@ -97,7 +100,13 @@ public class YarnDeployClient
             Path workingDir = new Path(fs.getWorkingDirectory(), ".astarte/" + appContext.getApplicationId());
             //upload user other jars
             FileUploader fileUploader = new FileUploader(fs, workingDir);
-            fileUploader.uploadArchive("__jars__", prepareArchive("jars"), LocalResourceVisibility.PRIVATE);
+            File jarsArchive = prepareArchive("jars");
+            try {
+                fileUploader.uploadArchive(ASTARTE_LIB_NAME, jarsArchive.toURI(), LocalResourceVisibility.PRIVATE);
+            }
+            finally {
+                logger.info("clear archive files {} {}", jarsArchive, jarsArchive.delete());
+            }
             fileUploader.upload(prepareConfFile());
             fileUploader.upload(Collections.singletonList(jobConf.getMainClassJar().toURI()));
             fileUploader.upload(jobConf.getJars());
@@ -205,7 +214,7 @@ public class YarnDeployClient
                 .collect(Collectors.toList());
     }
 
-    private static URI prepareArchive(String dir)
+    private static File prepareArchive(String dir)
             throws IOException
     {
         String astarteHome = requireNonNull(System.getenv("ASTARTE_HOME"));
@@ -213,7 +222,7 @@ public class YarnDeployClient
         if (!rootDir.exists()) {
             throw new NoSuchFileException("$ASTARTE_HOME/" + dir);
         }
-        File jarsArchive = File.createTempFile(ASTARTE_LIB_DIR, ".zip", new File("/tmp"));
+        File jarsArchive = File.createTempFile(ASTARTE_LIB_ARCHIVE, ".zip", new File("/tmp"));
         try (ZipOutputStream jarsStream = new ZipOutputStream(new FileOutputStream(jarsArchive))) {
             jarsStream.setLevel(0);
             for (File file : Files.listFiles(rootDir, true)) {
@@ -223,11 +232,7 @@ public class YarnDeployClient
                 jarsStream.closeEntry();
             }
         }
-        finally {
-            Runtime.getRuntime().addShutdownHook(new Thread(() ->
-                    logger.info("clear archive files {} {}", jarsArchive, jarsArchive.delete())));
-        }
-        return jarsArchive.toURI();
+        return jarsArchive;
     }
 
     private void clearCacheDir(FileSystem fs, Path workingDir)
@@ -258,6 +263,7 @@ public class YarnDeployClient
                             applicationReport.getDiagnostics() + ", use yarn logs -applicationId " + applicationId);
                 case KILLED:
                 case FINISHED:
+                    return;
                 default:
                     if (System.currentTimeMillis() - startTime > 60_000) {
                         logger.info("Deployment took more than 60 seconds. Please check if the requested resources are available in the YARN cluster");
@@ -272,8 +278,8 @@ public class YarnDeployClient
     {
         Map<String, String> appMasterEnv = new HashMap<>();
         appMasterEnv.put(APP_MAIN_CLASS, jobConf.getMainClass().getName());
-        appMasterEnv.put(APP_CLASSPATH, "__jars__/*:__jars__/hadoop/*:" +
-                String.join(File.pathSeparator, uploadResource.keySet()));
+        appMasterEnv.put(APP_CLASSPATH, ASTARTE_LIB_CLASSPATH + ":" +
+                uploadResource.keySet().stream().filter(x -> !ASTARTE_LIB_NAME.equals(x)).collect(Collectors.joining(File.pathSeparator)));
 
         appMasterEnv.put(EXECUTOR_VCORES, String.valueOf(jobConf.getExecutorVcores()));
         appMasterEnv.put(EXECUTOR_NUMBERS, String.valueOf(jobConf.getExecutorNumber()));
@@ -282,8 +288,7 @@ public class YarnDeployClient
         StringBuilder cacheFiles = new StringBuilder();
         for (Map.Entry<String, LocalResource> entry : uploadResource.entrySet()) {
             LocalResource localResource = entry.getValue();
-            cacheFiles.append(File.pathSeparator).append(entry.getKey())
-                    .append(",").append(localResource.getResource().toPath().getName())
+            cacheFiles.append(File.pathSeparator).append(localResource.getResource().toPath().getName())
                     .append(",").append(localResource.getSize())
                     .append(",").append(localResource.getTimestamp())
                     .append(",").append(localResource.getType().name())
@@ -326,18 +331,19 @@ public class YarnDeployClient
         return yarnClient;
     }
 
-    private static Configuration loadHadoopConfig(String hadoopConfDir)
+    private static Configuration loadHadoopConfig()
     {
-        Configuration hadoopConf = new Configuration();
+        YarnConfiguration hadoopConf = new YarnConfiguration();
+        String hadoopConfDir = System.getenv("HADOOP_CONF_DIR");
+        if (hadoopConfDir == null) {
+            return hadoopConf;
+        }
         //---create hadoop conf
         hadoopConf.set("fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem");
         Stream.of("yarn-site.xml", "core-site.xml", "hdfs-site.xml").forEach(file -> {
             File site = new File(hadoopConfDir, file);
             if (site.exists() && site.isFile()) {
                 hadoopConf.addResource(new org.apache.hadoop.fs.Path(site.toURI()));
-            }
-            else {
-                throw new RuntimeException(site + " not exists");
             }
         });
         return hadoopConf;

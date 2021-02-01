@@ -27,7 +27,7 @@ public class UnionAllDemo
 
     public static void main(String[] args)
     {
-        BatchContext mppContext = BatchContext.builder().local(1).getOrCreate();
+        BatchContext mppContext = BatchContext.builder().getOrCreate();
 
         KvDataSet<String, Integer> ds1 = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", 8),

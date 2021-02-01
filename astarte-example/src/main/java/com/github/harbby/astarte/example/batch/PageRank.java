@@ -29,9 +29,7 @@ public class PageRank
 
     public static void main(String[] args)
     {
-        BatchContext mppContext = BatchContext.builder()
-                .local(2)
-                .getOrCreate();
+        BatchContext mppContext = BatchContext.builder().getOrCreate();
         int iters = 4;  //迭代次数
         String sparkHome = System.getenv("SPARK_HOME");
 

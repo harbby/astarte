@@ -44,6 +44,8 @@ import java.util.Map;
 import static com.github.harbby.astarte.yarn.batch.YarnConstant.APP_CACHE_DIR;
 import static com.github.harbby.astarte.yarn.batch.YarnConstant.APP_CACHE_FILES;
 import static com.github.harbby.astarte.yarn.batch.YarnConstant.APP_CLASSPATH;
+import static com.github.harbby.astarte.yarn.batch.YarnDeployClient.ASTARTE_LIB_ARCHIVE;
+import static com.github.harbby.astarte.yarn.batch.YarnDeployClient.ASTARTE_LIB_NAME;
 import static java.util.Objects.requireNonNull;
 
 public class YarnExecutorManager
@@ -138,15 +140,16 @@ public class YarnExecutorManager
         Map<String, LocalResource> resources = new HashMap<>();
         for (String file : cacheFiles.split(File.pathSeparator)) {
             String[] split = file.split(",");
-            Path cacheFile = new Path(cacheDir, split[1]);
+            Path cacheFile = new Path(cacheDir, split[0]);
 
             LocalResource localResource = Records.newRecord(LocalResource.class);
             localResource.setResource(URL.fromPath(cacheFile));
-            localResource.setSize(Long.parseLong(split[2]));
-            localResource.setTimestamp(Long.parseLong(split[3]));
-            localResource.setType(LocalResourceType.valueOf(split[4]));
-            localResource.setVisibility(LocalResourceVisibility.valueOf(split[5]));
-            resources.put(split[0], localResource);
+            localResource.setSize(Long.parseLong(split[1]));
+            localResource.setTimestamp(Long.parseLong(split[2]));
+            localResource.setType(LocalResourceType.valueOf(split[3]));
+            localResource.setVisibility(LocalResourceVisibility.valueOf(split[4]));
+            String name = cacheFile.getName().startsWith(ASTARTE_LIB_ARCHIVE) ? ASTARTE_LIB_NAME : cacheFile.getName();
+            resources.put(name, localResource);
         }
         return resources;
     }

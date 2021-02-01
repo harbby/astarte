@@ -65,7 +65,7 @@ esac
 
 export ASTARTE_HOME=$APP_HOME
 # set Submit App Classpath
-CLASSPATH=$APP_HOME/lib/*:$APP_HOME/jars/*:$APP_HOME/jars/hadoop/*
+CLASSPATH=$APP_HOME/conf:$APP_HOME/lib/*:$APP_HOME/jars/*:$APP_HOME/jars/hadoop/*
 
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then

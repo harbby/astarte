@@ -44,7 +44,7 @@ import java.util.stream.Stream;
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 
 public class LocalJobScheduler
-        implements JobScheduler
+        extends JobScheduler
 {
     private static final Logger logger = LoggerFactory.getLogger(LocalJobScheduler.class);
     private final AstarteConf astarteConf;

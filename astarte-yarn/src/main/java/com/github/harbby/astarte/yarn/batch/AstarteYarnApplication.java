@@ -15,7 +15,8 @@
  */
 package com.github.harbby.astarte.yarn.batch;
 
-import com.github.harbby.astarte.core.BatchContext;
+import com.github.harbby.astarte.core.JobScheduler;
+import com.github.harbby.astarte.core.runtime.ClusterScheduler;
 import com.github.harbby.astarte.core.runtime.ExecutorManager;
 import com.github.harbby.gadtry.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
@@ -78,20 +79,17 @@ public class AstarteYarnApplication
             Future<?> future = Executors.newSingleThreadExecutor().submit(() -> {
                 while (true) {
                     rmClient.allocate(0);
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("yarn resource manager allocate(0)");
-                    }
+                    logger.debug("yarn resource manager allocate(0)");
                     TimeUnit.SECONDS.sleep(10);
                 }
             });
             ExecutorManager.setFactory((vcores, memMb, executorNum) -> new YarnExecutorManager(rmClient, vcores, memMb, executorNum));
             try {
                 logger.info("init... BatchContext");
-                //todo: BatchContext.builder().getOrCreate();
-                BatchContext.builder()
-                        .cluster(Integer.parseInt(System.getenv(EXECUTOR_VCORES)),
-                                Integer.parseInt(System.getenv(EXECUTOR_NUMBERS)))
-                        .getOrCreate();
+                JobScheduler.setFactory((conf) -> new ClusterScheduler(conf,
+                        Integer.parseInt(System.getenv(EXECUTOR_VCORES)),
+                        Integer.parseInt(System.getenv(EXECUTOR_NUMBERS))
+                ));
                 logger.info("invoke... user mainClass {}", mainClass);
                 mainClass.getMethod("main", String[].class)
                         .invoke(null, (Object) args);

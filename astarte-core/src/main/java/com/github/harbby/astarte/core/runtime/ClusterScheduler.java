@@ -41,7 +41,7 @@ import java.util.Map;
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 
 public class ClusterScheduler
-        implements JobScheduler
+        extends JobScheduler
 {
     private static final Logger logger = LoggerFactory.getLogger(ClusterScheduler.class);
     private final ExecutorManager executorManager;
@@ -66,6 +66,13 @@ public class ClusterScheduler
         catch (InterruptedException e) {
             throw new UnsupportedOperationException(e);
         }
+    }
+
+    @Override
+    public void stop()
+    {
+        driverNetManager.stop();
+        executorManager.stop();
     }
 
     @SuppressWarnings("unchecked")

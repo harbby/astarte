@@ -59,7 +59,7 @@ public class SubmitMainTest
     {
         String command = "--mode yarn-cluster  " +
                 " --name aestSubmitMainYarnCluster" +
-                " --files ../astarte-dist/target/astarte-0.1.0-SNAPSHOT-bin/conf" +
+                " --files ../astarte-dist/src/conf" +
                 " --class com.github.harbby.astarte.example.batch.UnionAllDemo" +
                 " ../astarte-example/target/astarte-example-0.1.0-SNAPSHOT.jar" +
                 " args1";

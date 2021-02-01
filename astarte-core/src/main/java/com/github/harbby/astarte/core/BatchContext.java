@@ -16,7 +16,6 @@
 package com.github.harbby.astarte.core;
 
 import com.github.harbby.astarte.core.api.AstarteConf;
-import com.github.harbby.astarte.core.api.Constant;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.astarte.core.api.function.Mapper;
@@ -24,6 +23,8 @@ import com.github.harbby.astarte.core.operator.CollectionSource;
 import com.github.harbby.astarte.core.operator.KvOperator;
 import com.github.harbby.astarte.core.operator.Operator;
 import com.github.harbby.astarte.core.operator.TextFileSource;
+import com.github.harbby.astarte.core.runtime.ClusterScheduler;
+import com.github.harbby.astarte.core.runtime.LocalJobScheduler;
 import com.github.harbby.gadtry.base.Lazys;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.function.Function1;
@@ -90,18 +91,18 @@ public interface BatchContext
     public static class Builder
     {
         private static final Function1<AstarteConf, BatchContext> context = Lazys.goLazy(BatchContextImpl::new);
-
         private final AstarteConf conf = new AstarteConf();
+        private JobScheduler.Factory factory;
 
         public Builder local(int parallelism)
         {
-            conf.put(Constant.RUNNING_MODE, String.format("local[%s]", parallelism));
+            this.factory = f -> new LocalJobScheduler(f, parallelism);
             return this;
         }
 
         public Builder cluster(int vcores, int executorNum)
         {
-            conf.put(Constant.RUNNING_MODE, String.format("cluster[%s,%s]", vcores, executorNum));
+            this.factory = f -> new ClusterScheduler(f, vcores, executorNum);
             return this;
         }
 
@@ -113,6 +114,9 @@ public interface BatchContext
 
         public BatchContext getOrCreate()
         {
+            if (factory != null) {
+                JobScheduler.setFactory(factory);
+            }
             return context.apply(conf);
         }
     }

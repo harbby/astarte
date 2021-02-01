@@ -26,7 +26,7 @@ public class JoinDemo
 
     public static void main(String[] args)
     {
-        BatchContext mppContext = BatchContext.builder().local(1).getOrCreate();
+        BatchContext mppContext = BatchContext.builder().getOrCreate();
         String sparkHome = System.getenv("SPARK_HOME");
 
         DataSet<String> ds = mppContext.textFile(sparkHome + "/README.md");

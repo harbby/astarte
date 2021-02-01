@@ -26,7 +26,7 @@ public class PartitionByDemo
 
     public static void main(String[] args)
     {
-        BatchContext mppContext = BatchContext.builder().local(1).getOrCreate();
+        BatchContext mppContext = BatchContext.builder().getOrCreate();
         String sparkHome = System.getenv("SPARK_HOME");
         DataSet<String> ds = mppContext.textFile(sparkHome + "/README.md");
         DataSet<String> worlds = ds.flatMap(input -> input.toLowerCase().split(" "))
