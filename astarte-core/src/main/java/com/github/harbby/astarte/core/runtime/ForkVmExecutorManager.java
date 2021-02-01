@@ -15,6 +15,7 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
+import com.github.harbby.astarte.core.Utils;
 import com.github.harbby.gadtry.jvm.JVMLauncher;
 import com.github.harbby.gadtry.jvm.JVMLaunchers;
 import com.github.harbby.gadtry.jvm.VmFuture;
@@ -50,6 +51,7 @@ public class ForkVmExecutorManager
         for (int i = 0; i < executorNum; i++) {
             JVMLauncher<Integer> launcher = JVMLaunchers.<Integer>newJvm()
                     .setName("ashtarte.Executor")
+                    .addUserjars(Utils.getSystemClassLoaderJars())
                     .setConsole(System.out::print)
                     //.addVmOps("-Dio.netty.leakDetectionLevel=advanced")
                     .setXmx(memMb + "m")

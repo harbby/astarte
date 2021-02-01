@@ -15,6 +15,7 @@
  */
 package com.github.harbby.astarte.submit;
 
+import com.github.harbby.astarte.core.Utils;
 import com.github.harbby.gadtry.base.Files;
 import com.github.harbby.gadtry.base.Strings;
 import org.apache.commons.cli.CommandLine;
@@ -26,8 +27,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -77,9 +76,10 @@ public class JobArgsOptionParser
         List<String> fullArgs = commandLine.getArgList().stream()
                 .filter(Strings::isNotBlank).collect(Collectors.toList());
         this.mainJar = new File(fullArgs.get(0));
-        URLClassLoader classLoader = new URLClassLoader(new URL[] {mainJar.toURI().toURL()});
+        Utils.loadExtJarToSystemClassLoader(Collections.singletonList(mainJar.toURI().toURL()));
+
         String mainClassString = requireNonNull(commandLine.getOptionValue("class"), "Missing required option: --class");
-        this.mainClass = Class.forName(mainClassString, false, classLoader);
+        this.mainClass = Class.forName(mainClassString);
         logger.info("mainClass: {}", mainClass);
 
         checkState(mainJar.isFile() && mainJar.exists(), "not such file " + mainJar);

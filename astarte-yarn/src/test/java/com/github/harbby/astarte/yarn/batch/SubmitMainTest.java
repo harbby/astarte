@@ -41,6 +41,17 @@ public class SubmitMainTest
         SubmitMain.main(command.split(" "));
     }
 
+    @Test
+    public void testSubmitMainLocalClusterMode()
+            throws Throwable
+    {
+        String command = "--mode local[2,2]  " +
+                " --class com.github.harbby.astarte.example.batch.UnionAllDemo" +
+                " ../astarte-example/target/astarte-example-0.1.0-SNAPSHOT.jar" +
+                " args1";
+        SubmitMain.main(command.split(" "));
+    }
+
     @Ignore
     @Test
     public void testSubmitMainYarnCluster()

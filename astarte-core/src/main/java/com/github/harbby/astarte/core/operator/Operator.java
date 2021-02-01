@@ -19,6 +19,7 @@ import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.HashPartitioner;
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
+import com.github.harbby.astarte.core.Utils;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.astarte.core.api.Partition;
@@ -27,7 +28,6 @@ import com.github.harbby.astarte.core.api.function.Foreach;
 import com.github.harbby.astarte.core.api.function.KvMapper;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
-import com.github.harbby.astarte.core.utils.CheckUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.MutableList;
@@ -278,7 +278,7 @@ public abstract class Operator<R>
     public <K, V> KvOperator<K, V> kvDataSet(Mapper<R, Tuple2<K, V>> kvMapper)
     {
         requireNonNull(kvMapper, "kvMapper is null");
-        Mapper<R, Tuple2<K, V>> clearedFunc = CheckUtil.clear(kvMapper);
+        Mapper<R, Tuple2<K, V>> clearedFunc = Utils.clear(kvMapper);
         Operator<Tuple2<K, V>> mapOperator = this.map(clearedFunc);
         return new KvOperator<>(mapOperator);
     }
@@ -287,7 +287,7 @@ public abstract class Operator<R>
     public <K> KeyValueGroupedOperator<K, R> groupByKey(Mapper<R, K> mapFunc)
     {
         requireNonNull(mapFunc, "mapFunc is null");
-        Mapper<R, K> clearedFunc = CheckUtil.clear(mapFunc);
+        Mapper<R, K> clearedFunc = Utils.clear(mapFunc);
         return new KeyValueGroupedOperator<>(this, clearedFunc);
     }
 
@@ -295,7 +295,7 @@ public abstract class Operator<R>
     public <O> Operator<O> map(Mapper<R, O> mapper)
     {
         requireNonNull(mapper, "mapper is null");
-        Mapper<R, O> clearedFunc = CheckUtil.clear(mapper);
+        Mapper<R, O> clearedFunc = Utils.clear(mapper);
         return new MapPartitionOperator<>(
                 this,
                 it -> Iterators.map(it, clearedFunc::map),
@@ -306,7 +306,7 @@ public abstract class Operator<R>
     public <O> DataSet<O> flatMap(Mapper<R, O[]> flatMapper)
     {
         requireNonNull(flatMapper, "flatMapper is null");
-        Mapper<R, O[]> clearedFunc = CheckUtil.clear(flatMapper);
+        Mapper<R, O[]> clearedFunc = Utils.clear(flatMapper);
         return new FlatMapOperator<>(this, clearedFunc);
     }
 
@@ -314,7 +314,7 @@ public abstract class Operator<R>
     public <O> Operator<O> flatMapIterator(Mapper<R, Iterator<O>> flatMapper)
     {
         requireNonNull(flatMapper, "flatMapper is null");
-        Mapper<R, Iterator<O>> clearedFunc = CheckUtil.clear(flatMapper);
+        Mapper<R, Iterator<O>> clearedFunc = Utils.clear(flatMapper);
         return new FlatMapIteratorOperator<>(this, clearedFunc);
     }
 
@@ -322,7 +322,7 @@ public abstract class Operator<R>
     public <O> DataSet<O> mapPartition(Mapper<Iterator<R>, Iterator<O>> mapper)
     {
         requireNonNull(mapper, "mapper is null");
-        Mapper<Iterator<R>, Iterator<O>> clearedFunc = CheckUtil.clear(mapper);
+        Mapper<Iterator<R>, Iterator<O>> clearedFunc = Utils.clear(mapper);
         return new MapPartitionOperator<>(this, clearedFunc, false);
     }
 
@@ -330,7 +330,7 @@ public abstract class Operator<R>
     public <O> DataSet<O> mapPartitionWithId(KvMapper<Integer, Iterator<R>, Iterator<O>> mapper)
     {
         requireNonNull(mapper, "mapper is null");
-        KvMapper<Integer, Iterator<R>, Iterator<O>> clearedFunc = CheckUtil.clear(mapper);
+        KvMapper<Integer, Iterator<R>, Iterator<O>> clearedFunc = Utils.clear(mapper);
         return new MapPartitionOperator<>(this, clearedFunc, false);
     }
 
@@ -338,7 +338,7 @@ public abstract class Operator<R>
     public DataSet<R> filter(Filter<R> filter)
     {
         requireNonNull(filter, "filter is null");
-        Filter<R> clearedFunc = CheckUtil.clear(filter);
+        Filter<R> clearedFunc = Utils.clear(filter);
         return new MapPartitionOperator<>(
                 this,
                 it -> Iterators.filter(it, clearedFunc::filter),
@@ -390,7 +390,7 @@ public abstract class Operator<R>
     public Optional<R> reduce(Reducer<R> reducer)
     {
         requireNonNull(reducer, "reducer is null");
-        Reducer<R> clearedFunc = CheckUtil.clear(reducer);
+        Reducer<R> clearedFunc = Utils.clear(reducer);
         return context.runJob(unboxing(this), iterator -> Iterators.reduce(iterator, clearedFunc::reduce))
                 .stream().reduce(clearedFunc::reduce);
     }
@@ -399,7 +399,7 @@ public abstract class Operator<R>
     public void foreach(Foreach<R> foreach)
     {
         requireNonNull(foreach, "foreach is null");
-        Foreach<R> clearedFunc = CheckUtil.clear(foreach);
+        Foreach<R> clearedFunc = Utils.clear(foreach);
         context.runJob(unboxing(this), iterator -> {
             while (iterator.hasNext()) {
                 clearedFunc.apply(iterator.next());
@@ -412,7 +412,7 @@ public abstract class Operator<R>
     public void foreachPartition(Foreach<Iterator<R>> partitionForeach)
     {
         requireNonNull(partitionForeach, "partitionForeach is null");
-        Foreach<Iterator<R>> clearedFunc = CheckUtil.clear(partitionForeach);
+        Foreach<Iterator<R>> clearedFunc = Utils.clear(partitionForeach);
 
         context.runJob(unboxing(this), iterator -> {
             clearedFunc.apply(iterator);

@@ -80,7 +80,7 @@ public class DriverNetManager
                     protected void initChannel(SocketChannel ch)
                             throws Exception
                     {
-                        logger.info("find executor {}", ch.remoteAddress());
+                        logger.info("found executor {}", ch.remoteAddress());
                         ch.pipeline().addLast(new DriverNetManagerHandler());
                     }
                 });

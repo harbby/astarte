@@ -123,7 +123,7 @@ public final class ShuffleManagerService
         public void channelActive(ChannelHandlerContext ctx)
                 throws Exception
         {
-            logger.info("shuffleService find client {}", ctx.channel().remoteAddress());
+            logger.info("found shuffle client {}", ctx.channel().remoteAddress());
         }
 
         @Override
