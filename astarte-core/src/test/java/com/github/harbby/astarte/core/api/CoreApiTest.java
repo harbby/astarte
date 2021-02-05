@@ -44,7 +44,7 @@ public class CoreApiTest
     @Test
     public void fromArrayCollectTestReturn123()
     {
-        DataSet<Integer> dataSet = mppContext.makeDataSet(1, 2, 3);
+        DataSet<Integer> dataSet = mppContext.makeDataSet(new Integer[] {1, 2, 3});
         List<Integer> collect = dataSet.collect();
         Assert.assertEquals(Arrays.asList(1, 2, 3), collect);
     }

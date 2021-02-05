@@ -17,18 +17,25 @@ package com.github.harbby.astarte.core.api;
 
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.api.function.Comparator;
+import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.operator.SortShuffleWriter;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import net.jpountz.lz4.LZ4BlockOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sun.nio.ch.DirectBuffer;
 
 import java.io.Closeable;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.Serializable;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.ClosedByInterruptException;
+import java.nio.channels.FileChannel;
 import java.util.Iterator;
 
 import static com.github.harbby.astarte.core.runtime.ShuffleManagerService.getShuffleWorkDir;
@@ -45,12 +52,13 @@ public interface ShuffleWriter<K, V>
             int shuffleId,
             int mapId,
             Partitioner partitioner,
+            Encoder<Tuple2<K, V>> encoder,
             Comparator<K> ordering)
     {
         if (ordering != null) {
-            return new SortShuffleWriter<>(executorUUID, jobId, shuffleId, mapId, ordering, partitioner);
+            return new SortShuffleWriter<>(executorUUID, jobId, shuffleId, mapId, ordering, partitioner, encoder);
         }
-        return new HashShuffleWriter<>(executorUUID, jobId, shuffleId, mapId, partitioner);
+        return new HashShuffleWriter<>(executorUUID, jobId, shuffleId, mapId, partitioner, encoder);
     }
 
     public static class HashShuffleWriter<K, V>
@@ -65,13 +73,15 @@ public interface ShuffleWriter<K, V>
         private final Partitioner partitioner;
         //todo: use array index, not hash
         private final DataOutputStream[] outputStreams;
+        private final Encoder<Tuple2<K, V>> encoder;
 
         public HashShuffleWriter(
                 String executorUUID,
                 int jobId,
                 int shuffleId,
                 int mapId,
-                Partitioner partitioner)
+                Partitioner partitioner,
+                Encoder<Tuple2<K, V>> encoder)
         {
             this.executorUUID = executorUUID;
             this.jobId = jobId;
@@ -79,10 +89,36 @@ public interface ShuffleWriter<K, V>
             this.mapId = mapId;
             this.partitioner = partitioner;
             this.outputStreams = new DataOutputStream[partitioner.numPartitions()];
+            this.encoder = encoder;
         }
 
-        protected void write(int reduceId, Serializable value)
+        @Override
+        public void write(Iterator<? extends Tuple2<K, V>> iterator)
                 throws IOException
+        {
+            if (encoder != null) {
+                while (iterator.hasNext()) {
+                    Tuple2<K, V> kv = iterator.next();
+                    int reduceId = partitioner.getPartition(kv.f1());
+                    DataOutputStream dataOutputStream = getOutputChannel(reduceId);
+                    encoder.encoder(kv, dataOutputStream);
+//                    if (dataOutputStream.size() > 81920) {
+//                        dataOutputStream.flush();
+//                    }
+                }
+            }
+            while (iterator.hasNext()) {
+                Tuple2<K, V> kv = iterator.next();
+                int reduceId = partitioner.getPartition(kv.f1());
+                DataOutputStream dataOutputStream = getOutputChannel(reduceId);
+                byte[] bytes = Serializables.serialize(kv);
+                dataOutputStream.writeInt(bytes.length);
+                dataOutputStream.write(bytes);
+            }
+        }
+
+        private DataOutputStream getOutputChannel(int reduceId)
+                throws FileNotFoundException
         {
             DataOutputStream dataOutputStream = outputStreams[reduceId];
             if (dataOutputStream == null) {
@@ -90,23 +126,92 @@ public interface ShuffleWriter<K, V>
                 if (!file.getParentFile().exists()) {
                     file.getParentFile().mkdirs();
                 }
-                dataOutputStream = new DataOutputStream(new FileOutputStream(this.getDataFile(shuffleId, mapId, reduceId), false));
+                FileOutputStream fileOutputStream = new FileOutputStream(this.getDataFile(shuffleId, mapId, reduceId), false);
+                //dataOutputStream = new MyDataOutputStream(new MyOutputStream(fileOutputStream.getChannel()));
+                dataOutputStream = new DataOutputStream(new LZ4BlockOutputStream(fileOutputStream));
                 outputStreams[reduceId] = dataOutputStream;
             }
-
-            byte[] bytes = Serializables.serialize(value);
-            dataOutputStream.writeInt(bytes.length);
-            dataOutputStream.write(bytes);
+            return dataOutputStream;
         }
 
-        @Override
-        public void write(Iterator<? extends Tuple2<K, V>> iterator)
-                throws IOException
+        private static final class MyDataOutputStream
+                extends DataOutputStream
         {
-            while (iterator.hasNext()) {
-                Tuple2<K, V> kv = iterator.next();
-                int reduceId = partitioner.getPartition(kv.f1());
-                this.write(reduceId, kv);
+            private final MyOutputStream outBuffer;
+
+            public MyDataOutputStream(MyOutputStream out)
+            {
+                super(new LZ4BlockOutputStream(out));
+                this.outBuffer = out;
+            }
+
+            public int getPosition()
+            {
+                return outBuffer.buffer.position();
+            }
+        }
+
+        private static final class MyOutputStream
+                extends OutputStream
+        {
+            private final ByteBuffer buffer;
+            private final FileChannel channel;
+
+            private MyOutputStream(FileChannel channel, int buffSize)
+            {
+                this.buffer = ByteBuffer.allocateDirect(buffSize);
+                this.channel = channel;
+            }
+
+            private MyOutputStream(FileChannel channel)
+            {
+                this(channel, 1024 * 1024);
+            }
+
+            @Override
+            public void write(int b)
+            {
+                buffer.put((byte) b);
+            }
+
+            @Override
+            public void write(byte[] b)
+            {
+                buffer.put(b);
+            }
+
+            @Override
+            public void write(byte[] b, int off, int len)
+            {
+                buffer.put(b, off, len);
+            }
+
+            @Override
+            public void flush()
+                    throws IOException
+            {
+                buffer.flip();
+                try {
+                    channel.write(buffer);
+                }
+                catch (ClosedByInterruptException e) {
+                    throw new UnsupportedOperationException();
+                }
+                buffer.clear();
+            }
+
+            @Override
+            public void close()
+                    throws IOException
+            {
+                try (FileChannel ignored = this.channel) {
+                    this.flush();
+                }
+                finally {
+                    if (buffer.isDirect()) {
+                        ((DirectBuffer) buffer).cleaner().clean();
+                    }
+                }
             }
         }
 

@@ -20,6 +20,7 @@ import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.ShuffleWriter;
 import com.github.harbby.astarte.core.api.function.Comparator;
+import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -44,6 +45,7 @@ public class SortShuffleWriter<K, V>
 {
     private final Partitioner partitioner;
     private final Comparator<K> ordering;
+    private final Encoder<Tuple2<K, V>> encoder;
 
     //spillFile
     public SortShuffleWriter(
@@ -51,11 +53,13 @@ public class SortShuffleWriter<K, V>
             int jobId,
             int shuffleId, int mapId,
             Comparator<K> ordering,
-            Partitioner partitioner)
+            Partitioner partitioner,
+            Encoder<Tuple2<K, V>> encoder)
     {
-        super(executorUUID, jobId, shuffleId, mapId, partitioner);
+        super(executorUUID, jobId, shuffleId, mapId, partitioner, encoder);
         this.ordering = ordering;
         this.partitioner = partitioner;
+        this.encoder = encoder;
     }
 
     @Override
@@ -293,6 +297,7 @@ public class SortShuffleWriter<K, V>
         private final int shuffleMapOperatorId;
         private final Comparator<K> ordering;
         private final transient Operator<?> dependOperator;
+        private final Encoder<Tuple2<K, V>> encoder;
 
         public ShuffledMergeSortOperator(ShuffleMapOperator<K, V> operator,
                 Comparator<K> ordering,
@@ -303,6 +308,7 @@ public class SortShuffleWriter<K, V>
             this.partitioner = partitioner;
             this.ordering = ordering;
             this.dependOperator = operator;
+            this.encoder = operator.getShuffleMapRowEncoder();
         }
 
         @Override
@@ -317,7 +323,7 @@ public class SortShuffleWriter<K, V>
             List<Tuple2<K, V>> buffer = new LinkedList<>();
             Integer shuffleId = taskContext.getDependStages().get(shuffleMapOperatorId);
             checkState(shuffleId != null);
-            Iterator<Tuple2<K, V>> reader = taskContext.getShuffleClient().readShuffleData(shuffleId, split.getId());
+            Iterator<Tuple2<K, V>> reader = taskContext.getShuffleClient().readShuffleData(encoder, shuffleId, split.getId());
             while (reader.hasNext()) {
                 buffer.add(reader.next());
             }

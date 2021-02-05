@@ -22,6 +22,8 @@ import com.github.harbby.astarte.core.api.AstarteException;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.ShuffleWriter;
 import com.github.harbby.astarte.core.api.function.Comparator;
+import com.github.harbby.astarte.core.coders.Encoder;
+import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
@@ -37,19 +39,20 @@ import static java.util.Objects.requireNonNull;
 public class ShuffleMapOperator<K, V>
         extends Operator<Void>
 {
-    private final Operator<? extends Tuple2<K, V>> operator;
+    private final Operator<Tuple2<K, V>> operator;
     private final Partitioner partitioner;
     private final Comparator<K> sortShuffle;
+    private final Encoder<Tuple2<K, V>> encoder;
 
     public ShuffleMapOperator(
-            Operator<? extends Tuple2<K, V>> operator,
+            Operator<Tuple2<K, V>> operator,
             Partitioner partitioner)
     {
         this(operator, partitioner, null);
     }
 
     public ShuffleMapOperator(
-            Operator<? extends Tuple2<K, V>> operator,
+            Operator<Tuple2<K, V>> operator,
             Partitioner partitioner,
             Comparator<K> sortShuffle)
     {
@@ -58,12 +61,29 @@ public class ShuffleMapOperator<K, V>
         this.partitioner = requireNonNull(partitioner, "partitioner is null");
         this.operator = unboxing(operator);
         this.sortShuffle = sortShuffle;
+        Encoder<Tuple2<K, V>> rowEncoder = operator.getRowEncoder();
+        if (rowEncoder == null) {
+            logger.warn("Do not use java encoder");
+            rowEncoder = Encoders.javaEncoder();
+        }
+        this.encoder = rowEncoder;
     }
 
-    public ShuffleMapOperator(Operator<? extends Tuple2<K, V>> operator, int numReducePartitions)
+    public ShuffleMapOperator(Operator<Tuple2<K, V>> operator, int numReducePartitions)
     {
         //use default HashPartitioner
         this(operator, new HashPartitioner(numReducePartitions));
+    }
+
+    @Override
+    protected Encoder<Void> getRowEncoder()
+    {
+        throw new UnsupportedOperationException("use getShuffleMapRowEncoder()");
+    }
+
+    protected Encoder<Tuple2<K, V>> getShuffleMapRowEncoder()
+    {
+        return encoder;
     }
 
     @Override
@@ -83,7 +103,11 @@ public class ShuffleMapOperator<K, V>
         try (ShuffleWriter<K, V> shuffleWriter = ShuffleWriter.createShuffleWriter(
                 taskContext.executorUUID(),
                 taskContext.getJobId(),
-                taskContext.getStageId(), split.getId(), partitioner, sortShuffle)) {
+                taskContext.getStageId(),
+                split.getId(),
+                partitioner,
+                encoder,
+                sortShuffle)) {
             Iterator<? extends Tuple2<K, V>> iterator = operator.computeOrCache(split, taskContext);
             shuffleWriter.write(iterator);
         }

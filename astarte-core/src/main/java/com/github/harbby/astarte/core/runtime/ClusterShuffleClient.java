@@ -15,27 +15,32 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
+import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.base.Throwables;
+import com.github.harbby.gadtry.collection.MutableSet;
 import com.github.harbby.gadtry.collection.StateOption;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import io.netty.handler.codec.compression.Lz4FrameDecoder;
 import io.netty.util.ReferenceCountUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,6 +54,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * n * n client
@@ -81,7 +87,12 @@ public class ClusterShuffleClient
                         protected void initChannel(SocketChannel ch)
                                 throws Exception
                         {
-                            ch.pipeline().addLast(new ShuffleClientHandler(taskThread));
+                            ShuffleClientHandler shuffleClientHandler = new ShuffleClientHandler(taskThread);
+                            Lz4FrameDecoder lz4FrameDecoder = new Lz4FrameDecoder();
+                            ch.pipeline()
+                                    .addLast(new FinishEventHandler(shuffleClientHandler, lz4FrameDecoder))
+                                    .addLast(lz4FrameDecoder)
+                                    .addLast(shuffleClientHandler);
                         }
                     });
             futures.add(bootstrap.connect(address).sync());
@@ -103,18 +114,11 @@ public class ClusterShuffleClient
     }
 
     @Override
-    public <K, V> Iterator<Tuple2<K, V>> readShuffleData(int shuffleId, int reduceId)
+    public <K, V> Iterator<Tuple2<K, V>> readShuffleData(Encoder<Tuple2<K, V>> encoder, int shuffleId, int reduceId)
     {
         return Iterators.concat(concurrentMap.values().stream().map(handler -> {
-            handler.begin(shuffleId, reduceId);
-            return Iterators.map(handler, bytes -> {
-                try {
-                    return Serializables.<Tuple2<K, V>>byteToObject(bytes);
-                }
-                catch (IOException | ClassNotFoundException e) {
-                    throw Throwables.throwsThrowable(e);
-                }
-            });
+            handler.begin(encoder, shuffleId, reduceId);
+            return Iterators.map(handler, obj -> (Tuple2<K, V>) obj);
         }).iterator());
     }
 
@@ -130,22 +134,167 @@ public class ClusterShuffleClient
         futures.clear();
     }
 
+    private static final class ShuffleDataDecoder
+            extends InputStream
+    {
+        private ByteBuf byteBuf;
+
+        public void setByteBuf(ByteBuf byteBuf)
+        {
+            this.byteBuf = byteBuf;
+        }
+
+        @Override
+        public int read()
+        {
+            return byteBuf.readByte() & 0xFF;
+        }
+    }
+
+    /**
+     * todo: copy to gadtry MoreObject.copyOverwriteObjectState()
+     * copy(浅) source object field data to target Object
+     *
+     * @param modelClass copy model
+     * @param source     source object
+     * @param target     target object
+     */
+    private static void copyOverwriteObjectState(Class<?> modelClass, Object source, Object target)
+    {
+        requireNonNull(modelClass, "modelClass is null");
+        requireNonNull(source, "source is null");
+        requireNonNull(target, "target is null");
+        checkState(!modelClass.isInterface(), "don't copy interface field");
+
+        Set<Field> fields = MutableSet.<Field>builder().addAll(modelClass.getDeclaredFields())
+                .addAll(modelClass.getFields())
+                .build();
+
+        for (Field field : fields) {
+            if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                continue;
+            }
+            if (!field.isAccessible()) {
+                field.setAccessible(true);
+            }
+            try {
+                Object value = field.get(source);
+                field.set(target, value);
+            }
+            catch (IllegalAccessException e) {
+                throw Throwables.throwsThrowable(e);
+            }
+        }
+    }
+
+    private class FinishEventHandler
+            extends ChannelInboundHandlerAdapter
+    {
+        private final ShuffleClientHandler shuffleClientHandler;
+        private final Lz4FrameDecoder lz4FrameDecoder;
+        private long[] fileLengths;
+        private long currentSize;
+        private int currentIndex;
+
+        private FinishEventHandler(ShuffleClientHandler shuffleClientHandler, Lz4FrameDecoder lz4FrameDecoder)
+        {
+            this.shuffleClientHandler = shuffleClientHandler;
+            this.lz4FrameDecoder = lz4FrameDecoder;
+        }
+
+        private void initLz4DecoderCheckFinish()
+        {
+            boolean finish = lz4FrameDecoder.isClosed();
+            Lz4FrameDecoder initState = new Lz4FrameDecoder();
+            copyOverwriteObjectState(Lz4FrameDecoder.class, initState, lz4FrameDecoder);
+            checkState(finish, "lz4Decoder state failed, not FINISHED");
+        }
+
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg)
+                throws Exception
+        {
+            ByteBuf in1 = (ByteBuf) msg;
+            //read header
+            if (fileLengths == null) {
+                int fileNumber = in1.readInt();
+                if (fileNumber == 0) {
+                    shuffleClientHandler.finish();
+                    ReferenceCountUtil.release(in1);
+                    return;
+                }
+                //read header
+                fileLengths = new long[fileNumber];
+                for (int i = 0; i < fileNumber; i++) {
+                    fileLengths[i] = in1.readLong();
+                }
+                currentSize = fileLengths[0];
+                currentIndex = 0;
+                logger.debug("downloading files{}", this.fileLengths);
+            }
+            int readableBytes = in1.readableBytes();
+            if (currentSize > readableBytes) {
+                currentSize -= readableBytes;
+                ctx.fireChannelRead(in1);
+            }
+            else if (currentIndex == fileLengths.length - 1) {
+                checkState(currentSize == readableBytes, "file size error");
+                logger.debug("download files{} succeed", this.fileLengths);
+                ctx.fireChannelRead(in1);
+                ctx.fireChannelReadComplete();
+                shuffleClientHandler.finish();
+                this.fileLengths = null;
+                initLz4DecoderCheckFinish();
+            }
+            else {
+                int writerIndex = in1.writerIndex();
+                ReferenceCountUtil.retain(in1);  //引用计数器加1
+                ctx.fireChannelRead(in1.writerIndex(in1.readerIndex() + (int) currentSize)); //引用计数会减1
+                initLz4DecoderCheckFinish();
+                //----------------------------------------
+                if (readableBytes > currentSize) {
+                    checkState(in1.refCnt() > 0);
+                    ctx.fireChannelRead(in1.writerIndex(writerIndex));
+                }
+                else {
+                    ReferenceCountUtil.release(in1); //引用计数减1
+                }
+                currentSize = fileLengths[++currentIndex] - readableBytes + currentSize;
+                logger.debug("download file[{}/{}] size: {} succeed, next size {}", currentIndex - 1, fileLengths.length,
+                        fileLengths[currentIndex - 1], currentSize);
+                if (currentSize == 0) {
+                    ctx.fireChannelReadComplete();
+                    shuffleClientHandler.finish();
+                    this.fileLengths = null;
+                    initLz4DecoderCheckFinish();
+                }
+            }
+        }
+
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
+                throws Exception
+        {
+            shuffleClientHandler.exceptionCaught(ctx, cause);
+        }
+    }
+
     private class ShuffleClientHandler
-            extends LengthFieldBasedFrameDecoder
-            implements Iterator<byte[]>, Closeable
+            extends ChannelInboundHandlerAdapter
+            implements Iterator<Object>, Closeable
     {
         private final Thread taskThread;
         private ChannelHandlerContext ctx;
         //todo: use number size buffer, 建议使用定长ByteBuffer
-        private final BlockingQueue<byte[]> buffer = new LinkedBlockingQueue<>(1024);
-        private final StateOption<byte[]> option = StateOption.empty();
+        private final BlockingQueue<Object> buffer = new LinkedBlockingQueue<>(1024);
+        private final StateOption<Object> option = StateOption.empty();
 
         private volatile boolean downloadEnd = false;
         private volatile Throwable cause;
+        private volatile Encoder<?> encoder;
 
         private ShuffleClientHandler(Thread taskThread)
         {
-            super(1048576, 0, 4);
             this.taskThread = taskThread;
         }
 
@@ -158,30 +307,26 @@ public class ClusterShuffleClient
             this.ctx = ctx;
         }
 
+        public void finish()
+        {
+            downloadEnd = true;
+            taskThread.interrupt();
+        }
+
+        private final ShuffleDataDecoder shuffleDataDecoder = new ShuffleDataDecoder();
+        private final DataInputStream dataInputStream = new DataInputStream(shuffleDataDecoder);
+
         @Override
-        protected Object decode(ChannelHandlerContext ctx, ByteBuf in1)
+        public void channelRead(ChannelHandlerContext ctx, Object msg)
                 throws Exception
         {
-            if (in1.readableBytes() == 4) {
-                if (in1.readInt() == -1) {
-                    downloadEnd = true;
-                    taskThread.interrupt();
-                    return null;
-                }
+            ByteBuf in1 = (ByteBuf) msg;
+            shuffleDataDecoder.setByteBuf(in1);
+            while (in1.readableBytes() > 0) {
+                Object value = encoder.decoder(dataInputStream);
+                buffer.put(value);
             }
-            ByteBuf frame = (ByteBuf) super.decode(ctx, in1);
-            if (frame == null) {
-                return null;
-            }
-            //check must frame.readableBytes() > 4;
-            byte[] bytes = new byte[frame.readInt()];
-            frame.readBytes(bytes);
-            if (logger.isDebugEnabled()) {
-                logger.debug("taskThread {}, io read {}", taskThread, bytes);
-            }
-            ReferenceCountUtil.release(in1);
-            buffer.put(bytes);
-            return bytes;
+            //ReferenceCountUtil.release(in1);
         }
 
         @Override
@@ -192,14 +337,15 @@ public class ClusterShuffleClient
             taskThread.interrupt();
         }
 
-        private void begin(int shuffleId, int reduceId)
+        private void begin(Encoder<?> encoder, int shuffleId, int reduceId)
         {
+            this.encoder = encoder;
             downloadEnd = false;
             cause = null;
             buffer.clear();
             option.remove();
 
-            ByteBuf byteBuf = ctx.alloc().buffer(8, 8);
+            ByteBuf byteBuf = ctx.alloc().directBuffer(8, 8);
             byteBuf.writeInt(shuffleId);
             byteBuf.writeInt(reduceId);
             ctx.writeAndFlush(byteBuf);
@@ -217,7 +363,7 @@ public class ClusterShuffleClient
 
             while (true) {
                 if (this.cause != null) {
-                    throw new RuntimeException("reducer download shuffle read failed", this.cause);
+                    throw Throwables.throwsThrowable(this.cause);
                 }
                 else if (this.downloadEnd) {
                     return getEndStateValue();
@@ -228,13 +374,14 @@ public class ClusterShuffleClient
                     return true;
                 }
                 catch (InterruptedException ignored) {
+                    logger.debug("task interrupted");
                 }
             }
         }
 
         private boolean getEndStateValue()
         {
-            byte[] bytes = this.buffer.poll();
+            Object bytes = this.buffer.poll();
             if (bytes != null) {
                 option.update(bytes);
                 return true;
@@ -245,7 +392,7 @@ public class ClusterShuffleClient
         }
 
         @Override
-        public byte[] next()
+        public Object next()
         {
             if (!hasNext()) {
                 throw new NoSuchElementException();

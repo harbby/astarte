@@ -34,11 +34,11 @@ public class JoinDemo
                 .filter(x -> !"".equals(x.trim()));
 
         KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> new Tuple2<>(x.substring(0, 1), 1L));
-        KvDataSet<String, Long> worldCounts = kvDataSet.partitionBy(2).reduceByKey(Long::sum);
+        KvDataSet<String, Long> worldCounts = kvDataSet.rePartitionByKey(2).reduceByKey(Long::sum);
         //worldCounts.print();
 
         KvDataSet<String, Long> worldLengths = worlds.kvDataSet(x -> new Tuple2<>(x.substring(0, 1), (long) x.length()))
-                .partitionBy(2).reduceByKey(Long::sum);
+                .rePartitionByKey(2).reduceByKey(Long::sum);
         //worldLengths.print();
 
         KvDataSet<String, Tuple2<Long, Long>> ds2 = worldLengths

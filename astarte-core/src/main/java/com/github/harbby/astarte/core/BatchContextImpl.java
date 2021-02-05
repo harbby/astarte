@@ -144,8 +144,9 @@ class BatchContextImpl
                 markCachedIterator.remove();
                 for (Operator<?> child : markCachedOperator.getDependencies()) {
                     stack.add(child);
+                    //todo: waiting bug fix
                     checkState(!(child instanceof ShuffleMapOperator), "推测失败");
-                    mapping.put(child, thisStage);  //这里凭感觉推测,不可能是 ShuffleMapOperator
+                    mapping.put(child, thisStage);  //这里不能是 ShuffleMapOperator
 
                     //---------递归推测cached Operator的前置依赖
                     //下面的推断不是必须的，但是推断后可以让dag show的时候更加清晰,好看.

@@ -28,6 +28,7 @@ import com.github.harbby.astarte.core.api.function.Foreach;
 import com.github.harbby.astarte.core.api.function.KvMapper;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
+import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.MutableList;
@@ -59,6 +60,7 @@ public abstract class Operator<R>
     private final transient BatchContext context;
     private final int id = nextDataSetId.getAndIncrement();
     private final List<Operator<?>> dataSets;
+    private Encoder<R> rowEncoder;
 
     public Operator(Operator<?>... dataSets)
     {
@@ -93,6 +95,18 @@ public abstract class Operator<R>
             outArray[i] = unboxing(operators[i]);
         }
         return outArray;
+    }
+
+    @Override
+    public DataSet<R> encoder(Encoder<R> encoder)
+    {
+        this.rowEncoder = encoder;
+        return this;
+    }
+
+    protected Encoder<R> getRowEncoder()
+    {
+        return rowEncoder;
     }
 
     @Override

@@ -15,8 +15,8 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
+import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import io.netty.bootstrap.ServerBootstrap;
@@ -32,10 +32,12 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.ReferenceCountUtil;
+import net.jpountz.lz4.LZ4BlockInputStream;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedInputStream;
 import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.File;
@@ -46,7 +48,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
-import java.nio.channels.FileChannel;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -54,6 +55,7 @@ import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class ShuffleManagerService
@@ -107,6 +109,10 @@ public final class ShuffleManagerService
                 });
         this.future = serverBootstrap.bind(new InetSocketAddress(InetAddress.getLocalHost(), 0)).sync();
         logger.info("stared shuffle service ,the port is {}", future.channel().localAddress());
+        future.channel().closeFuture().addListener((ChannelFutureListener) channelFuture -> {
+            boosGroup.shutdownGracefully().sync();
+            workerGroup.shutdownGracefully().sync();
+        });
         return future.channel().localAddress();
     }
 
@@ -136,24 +142,29 @@ public final class ShuffleManagerService
             ReferenceCountUtil.release(msg);
             List<File> files = getShuffleDataInput(shuffleWorkDir, currentJobId, shuffleId, reduceId);  //获取多个带发送文件
 
-            ByteBuf finish = ctx.alloc().buffer(4, 4);
-            finish.writeInt(-1);
             if (files.isEmpty()) {
                 //not found any file
+                ByteBuf finish = ctx.alloc().directBuffer(4, 4).writeInt(0);
                 ctx.writeAndFlush(finish);
                 return;
             }
-
+            //write header info
+            int headerSize = files.size() * 8 + 4;
+            ByteBuf header = ctx.alloc().directBuffer(headerSize);
+            header.writeInt(files.size());
+            for (File file : files) {
+                header.writeLong(file.length());
+            }
+            ctx.write(header);
+            //write data by zero copy
             for (File file : files) {
                 FileInputStream inputStream = new FileInputStream(file);
-                FileChannel channel = inputStream.getChannel();
-                ctx.writeAndFlush(new DefaultFileRegion(channel, 0, file.length()), ctx.newProgressivePromise())
+                ctx.writeAndFlush(new DefaultFileRegion(inputStream.getChannel(), 0, file.length()), ctx.newProgressivePromise())
                         .addListener((ChannelFutureListener) future -> {
                             logger.debug("send file {} done, size = {}", file, file.length());
                             inputStream.close();
                         });
             }
-            ctx.writeAndFlush(finish);
         }
 
         @Override
@@ -169,13 +180,14 @@ public final class ShuffleManagerService
         return new File("/tmp/ashtarte-" + executorUUID);
     }
 
-    public <K, V> Iterator<Tuple2<K, V>> getShuffleDataIterator(int shuffleId, int reduceId)
+    public <K, V> Iterator<Tuple2<K, V>> getShuffleDataIterator(Encoder<Tuple2<K, V>> encoder, int shuffleId, int reduceId)
     {
+        requireNonNull(encoder, "encoder is null");
         List<File> files = getShuffleDataInput(shuffleWorkDir, currentJobId, shuffleId, reduceId);
         return files.stream()
                 .flatMap(file -> {
                     try {
-                        LengthDataFileIteratorReader<K, V> iteratorReader = new LengthDataFileIteratorReader<>(new FileInputStream(file));
+                        Iterator<Tuple2<K, V>> iteratorReader = new EncoderDataFileIteratorReader<>(encoder, file);
                         return Iterators.toStream(iteratorReader);
                     }
                     catch (FileNotFoundException e) {
@@ -184,29 +196,38 @@ public final class ShuffleManagerService
                 }).iterator();
     }
 
-    private static class LengthDataFileIteratorReader<K, V>
+    private static class EncoderDataFileIteratorReader<K, V>
             implements Iterator<Tuple2<K, V>>, Closeable
     {
-        private final DataInputStream dataInputStream;
-        private byte[] bytes;
+        private final DataInputStream dataInput;
+        private final Encoder<Tuple2<K, V>> encoder;
+        private Tuple2<K, V> kvTuple;
 
-        public LengthDataFileIteratorReader(FileInputStream fileInputStream)
+        public EncoderDataFileIteratorReader(Encoder<Tuple2<K, V>> encoder, File file)
+                throws FileNotFoundException
         {
-            this.dataInputStream = new DataInputStream(requireNonNull(fileInputStream, "fileInputStream is null"));
+            requireNonNull(file, "file is null");
+            FileInputStream fileInputStream = new FileInputStream(file);
+            this.dataInput = new DataInputStream(new BufferedInputStream(new LZ4BlockInputStream(fileInputStream)));
+            this.encoder = requireNonNull(encoder, "encoder is null");
+            checkState(dataInput.markSupported(), "dataInput not support mark()");
         }
 
         @Override
         public boolean hasNext()
         {
-            if (bytes != null) {
+            if (kvTuple != null) {
                 return true;
             }
             try {
-                if (dataInputStream.available() == 0) {
-                    return false;
+                if (dataInput.available() == 0) {
+                    dataInput.mark(1);
+                    if (dataInput.read() == -1) {
+                        return false;
+                    }
+                    dataInput.reset();
                 }
-                bytes = new byte[dataInputStream.readInt()];
-                dataInputStream.read(bytes);
+                kvTuple = encoder.decoder(dataInput);
                 return true;
             }
             catch (IOException e) {
@@ -220,21 +241,18 @@ public final class ShuffleManagerService
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }
-            byte[] old = this.bytes;
-            this.bytes = null;
-            try {
-                return Serializables.byteToObject(old);
-            }
-            catch (IOException | ClassNotFoundException e) {
-                throw Throwables.throwsThrowable(e);
-            }
+            Tuple2<K, V> old = this.kvTuple;
+            this.kvTuple = null;
+            return old;
         }
 
         @Override
         public void close()
                 throws IOException
         {
-            dataInputStream.close();
+            if (dataInput != null) {
+                dataInput.close();
+            }
         }
     }
 

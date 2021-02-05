@@ -39,8 +39,7 @@ public class PreShufleJoinTest
         KvDataSet<String, String> cityDs = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", "xi'an"),
                 Tuple2.of("hp1", "chengdu")
-        ), 2)
-                .partitionBy(1);
+        ), 2).rePartitionByKey(1);
         //.distinct();
 
         //ageDs.print();

@@ -34,23 +34,11 @@ public class PageRank
         String sparkHome = System.getenv("SPARK_HOME");
 
         DataSet<String> lines = mppContext.textFile(sparkHome + "/data/mllib/pagerank_data.txt");
-        //KvDataSet<String,? extends Iterable<String>>
+
         KvDataSet<String, Iterable<String>> links = lines.kvDataSet(s -> {
             String[] parts = s.split("\\s+");
             return new Tuple2<>(parts[0], parts[1]);
         }).cache().union(mppContext.makeEmptyDataSet()).mapValues(x -> x).groupByKey().cache();
-
-//        links = mppContext.makeKvDataSet(Arrays.asList(
-//                new Tuple2<>("1", Arrays.asList("2", "3", "4")),
-//                new Tuple2<>("2", Arrays.asList("1")),
-//                new Tuple2<>("3", Arrays.asList("1")),
-//                new Tuple2<>("4", Arrays.asList("1"))
-//        ));
-
-        //links.join(links.mapValues(v -> 1.0)).mapValues(v->1.0).join(links).print();
-        //links.print();
-
-        //System.exit(0);
 
         KvDataSet<String, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {

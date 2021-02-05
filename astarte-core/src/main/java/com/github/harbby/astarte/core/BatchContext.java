@@ -20,19 +20,26 @@ import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.operator.CollectionSource;
+import com.github.harbby.astarte.core.operator.IteratorSourceOperator;
 import com.github.harbby.astarte.core.operator.KvOperator;
 import com.github.harbby.astarte.core.operator.Operator;
 import com.github.harbby.astarte.core.operator.TextFileSource;
 import com.github.harbby.astarte.core.runtime.ClusterScheduler;
+import com.github.harbby.astarte.core.runtime.ExecutorManager;
 import com.github.harbby.astarte.core.runtime.LocalJobScheduler;
+import com.github.harbby.astarte.core.runtime.LocalNettyExecutorManager;
 import com.github.harbby.gadtry.base.Lazys;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.function.Function1;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+
+import static com.github.harbby.gadtry.base.MoreObjects.checkState;
+import static java.util.Objects.requireNonNull;
 
 public interface BatchContext
 {
@@ -68,7 +75,7 @@ public interface BatchContext
         return new CollectionSource<>(this, collection, parallelism);
     }
 
-    public default <E> DataSet<E> makeDataSet(E... e)
+    public default <E> DataSet<E> makeDataSet(E[] e)
     {
         return makeDataSet(Arrays.asList(e), 1);
     }
@@ -83,6 +90,14 @@ public interface BatchContext
         return new TextFileSource(this, dirPath);
     }
 
+    public default <E> DataSet<E> makeDataSet(Iterator<E> source, int parallelism)
+    {
+        requireNonNull(source, "source is null");
+        checkState(source instanceof Serializable);
+        final Iterator<E> clearSource = Utils.clear((Iterator<E> & Serializable) source);
+        return new IteratorSourceOperator<>(this, clearSource, parallelism);
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -94,13 +109,41 @@ public interface BatchContext
         private final AstarteConf conf = new AstarteConf();
         private JobScheduler.Factory factory;
 
+        /**
+         * 独特local调度与运行模式。不经过网络接口协议。比netLocal更加轻巧简单。适合进行内核功能研究
+         *
+         * @param parallelism 并行度
+         * @return Builder
+         */
         public Builder local(int parallelism)
         {
             this.factory = f -> new LocalJobScheduler(f, parallelism);
             return this;
         }
 
-        public Builder cluster(int vcores, int executorNum)
+        /**
+         * 通过local网络，提供调度和数据shuffle的模式。类似与spark 和 flink local模式。
+         * 该适合进行网络通信层面的研究
+         *
+         * @param parallelism 并行度
+         * @return Builder
+         */
+        public Builder netLocal(int parallelism)
+        {
+            this.factory = f -> new ClusterScheduler(f, parallelism, 1);
+            ExecutorManager.setFactory(LocalNettyExecutorManager::new);
+            return this;
+        }
+
+        /**
+         * 独创的伪分布式运行模式。运行时将所有Executor以Fork子进程方式启动。 和真实集群运行一样的调度方式及shuffle数据传输模式
+         * 该模式适合进行快速分布式调度模块研究
+         *
+         * @param vcores      单个Executor并行度
+         * @param executorNum Executor数量
+         * @return Builder
+         */
+        public Builder localCluster(int vcores, int executorNum)
         {
             this.factory = f -> new ClusterScheduler(f, vcores, executorNum);
             return this;

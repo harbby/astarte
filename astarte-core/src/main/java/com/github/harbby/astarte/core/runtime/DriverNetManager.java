@@ -22,6 +22,7 @@ import com.github.harbby.gadtry.base.Serializables;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -86,7 +87,10 @@ public class DriverNetManager
                 });
         this.future = serverBootstrap.bind(port);
         logger.info("started... driver manager service port is {}", port);
-        //future.channel().closeFuture().sync();
+        future.channel().closeFuture().addListener((ChannelFutureListener) channelFuture -> {
+            boosGroup.shutdownGracefully().sync();
+            workerGroup.shutdownGracefully().sync();
+        });
     }
 
     public void awaitAllExecutorRegistered()
