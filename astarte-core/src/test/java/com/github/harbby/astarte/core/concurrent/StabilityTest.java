@@ -33,7 +33,7 @@ public class StabilityTest
 {
     private static final Logger logger = LoggerFactory.getLogger(StabilityTest.class);
     private final BatchContext mppContext = BatchContext.builder()
-            .cluster(2, 2)
+            .netLocal(2)
             .getOrCreate();
 
     @Test

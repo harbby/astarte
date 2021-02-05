@@ -29,6 +29,8 @@
         <slf4j.version>1.7.25</slf4j.version>
         <logback.version>1.2.3</logback.version>
         <commons-cli>1.4</commons-cli>
+        <lz4-java>1.7.1</lz4-java>
+        <zstd-jni>1.4.8-3</zstd-jni>
         <junit.version>4.13.1</junit.version>
     </properties>
 
@@ -99,6 +101,17 @@
                 <groupId>io.netty</groupId>
                 <artifactId>netty-all</artifactId>
                 <version>${netty.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.lz4</groupId>
+                <artifactId>lz4-java</artifactId>
+                <version>${lz4-java}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.luben</groupId>
+                <artifactId>zstd-jni</artifactId>
+                <version>${zstd-jni}</version>
             </dependency>
 
             <dependency>
@@ -315,7 +328,7 @@
                             <source>11</source>
                             <target>11</target>
                             <compilerArgs combine.children="append">
-<!--                                <arg>&#45;&#45;add-exports=java.base/sun.net.util=ALL-UNNAMED</arg>-->
+                                <!--                                <arg>&#45;&#45;add-exports=java.base/sun.net.util=ALL-UNNAMED</arg>-->
                             </compilerArgs>
                         </configuration>
                     </plugin>

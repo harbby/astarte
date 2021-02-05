@@ -25,8 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-//import com.google.common.collect.MapMaker;
-
 @Deprecated
 public class CacheOperator<E>
         extends Operator<E>
@@ -39,14 +37,12 @@ public class CacheOperator<E>
     }
 
     private final Operator<E> dataSet;
-    List<Operator<?>> list = new ArrayList<>();
     private static final Map<Integer, Iterable<?>[]> cacheMemMap = new ConcurrentHashMap<>();
 
     public CacheOperator(Operator<E> dataSet)
     {
         super(dataSet);
         this.dataSet = unboxing(dataSet);
-        list.add(dataSet);
     }
 
     @Override
@@ -95,8 +91,8 @@ public class CacheOperator<E>
                 {
                     boolean hasNext = iterator.hasNext();
                     if (!hasNext) {
-                        jobCachePartitons[split.getId()] = data;  //原子操作，线程安全
-                        logger.debug("-----{} cached dep stage: {} write done---", dataSet, taskContext.getDependStages());
+                        jobCachePartitons[split.getId()] = data;
+                        logger.debug("-----{} cached dep stage: {} data succeed", dataSet, taskContext.getDependStages());
                     }
                     return hasNext;
                 }

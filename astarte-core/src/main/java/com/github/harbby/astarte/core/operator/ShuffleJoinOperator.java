@@ -18,15 +18,18 @@ package com.github.harbby.astarte.core.operator;
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
+import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.deprecated.JoinExperiment;
 import com.github.harbby.astarte.core.runtime.ShuffleClient;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
@@ -47,9 +50,10 @@ public class ShuffleJoinOperator<K>
     private final int dataSetNum;
     private final int[] shuffleMapIds;
 
-    private final transient List<? extends Operator<?>> dependencies;
+    private final transient List<ShuffleMapOperator<K, Object>> dependencies;
 
-    @SuppressWarnings("unchecked")
+    private final Map<Integer, Encoder<Tuple2<K, Object>>> encoders = new HashMap<>();
+
     @SafeVarargs
     protected ShuffleJoinOperator(Partitioner partitioner, Operator<? extends Tuple2<K, ?>> leftDataSet,
             Operator<? extends Tuple2<K, ?>>... otherDataSets)
@@ -57,11 +61,15 @@ public class ShuffleJoinOperator<K>
         super(leftDataSet.getContext()); //不再传递依赖
         this.partitioner = requireNonNull(partitioner, "requireNonNull");
         this.dataSetNum = 1 + otherDataSets.length;
-        this.dependencies = ImmutableList.of(createShuffleMapOps(partitioner, leftDataSet, otherDataSets));
-        this.shuffleMapIds = dependencies.stream().mapToInt(x -> x.getId()).toArray();
+        this.dependencies = ImmutableList.copy(createShuffleMapOps(partitioner, leftDataSet, otherDataSets));
+        this.shuffleMapIds = dependencies.stream().mapToInt(Operator::getId).toArray();
+        for (int i = 0; i < dataSetNum; i++) {
+            ShuffleMapOperator<K, Object> shuffleMapOperator = dependencies.get(i);
+            encoders.put(shuffleMapOperator.getId(), shuffleMapOperator.getShuffleMapRowEncoder());
+        }
     }
 
-    private static <K> ShuffleMapOperator<?, ?>[] createShuffleMapOps(
+    private static <K> List<ShuffleMapOperator<K, Object>> createShuffleMapOps(
             Partitioner partitioner,
             Operator<? extends Tuple2<K, ?>> leftDataSet,
             Operator<? extends Tuple2<K, ?>>... otherDataSets)
@@ -79,7 +87,7 @@ public class ShuffleJoinOperator<K>
                     @SuppressWarnings("unchecked")
                     Operator<Tuple2<K, Object>> operator = (Operator<Tuple2<K, Object>>) unboxing(x);
                     return new ShuffleMapOperator<>(operator, partitioner);
-                }).toArray(ShuffleMapOperator[]::new);
+                }).collect(Collectors.toList());
     }
 
     @Override
@@ -118,7 +126,8 @@ public class ShuffleJoinOperator<K>
         Iterator<Iterator<Tuple2<K, Object>>> iterators = IntStream.of(shuffleMapIds)
                 .mapToObj(operator -> {
                     int shuffleId = deps.get(operator);
-                    return shuffleClient.<K, Object>readShuffleData(shuffleId, split.getId());
+                    Encoder<Tuple2<K, Object>> encoder = encoders.get(operator);
+                    return shuffleClient.readShuffleData(encoder, shuffleId, split.getId());
                 }).iterator();
 
         return JoinExperiment.join(iterators, dataSetNum);

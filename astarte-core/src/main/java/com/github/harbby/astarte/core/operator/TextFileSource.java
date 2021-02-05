@@ -39,9 +39,9 @@ public class TextFileSource
 {
     private final File dir;
 
-    public TextFileSource(BatchContext yarkContext, String dir)
+    public TextFileSource(BatchContext batchContext, String dir)
     {
-        super(yarkContext);
+        super(batchContext);
         this.dir = new File(dir);
     }
 

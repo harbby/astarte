@@ -27,6 +27,7 @@ import com.github.harbby.astarte.core.api.function.KvForeach;
 import com.github.harbby.astarte.core.api.function.KvMapper;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
+import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.deprecated.JoinExperiment;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -68,6 +69,13 @@ public class KvOperator<K, V>
     public Iterator<Tuple2<K, V>> compute(Partition split, TaskContext taskContext)
     {
         return dataSet.computeOrCache(split, taskContext);
+    }
+
+    @Override
+    public KvDataSet<K, V> encoder(Encoder<Tuple2<K, V>> encoder)
+    {
+        dataSet.encoder(encoder);
+        return this;
     }
 
     @Override
@@ -218,7 +226,7 @@ public class KvOperator<K, V>
     }
 
     @Override
-    public KvDataSet<K, V> partitionBy(Partitioner partitioner)
+    public KvDataSet<K, V> rePartitionByKey(Partitioner partitioner)
     {
         ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(dataSet, partitioner);
         ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
@@ -226,9 +234,9 @@ public class KvOperator<K, V>
     }
 
     @Override
-    public KvDataSet<K, V> partitionBy(int numPartitions)
+    public KvDataSet<K, V> rePartitionByKey(int numPartitions)
     {
-        return partitionBy(new HashPartitioner(numPartitions));
+        return rePartitionByKey(new HashPartitioner(numPartitions));
     }
 
     @Override

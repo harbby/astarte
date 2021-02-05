@@ -23,6 +23,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
@@ -347,5 +348,22 @@ public class YarnDeployClient
             }
         });
         return hadoopConf;
+    }
+
+    /**
+     * kerberos Login
+     *
+     * @param hadoopConf hadoop Configuration
+     * @param user       user
+     * @param krb5Path   krb5 file (krb5.conf)
+     * @param keytabPath user.keytab file
+     */
+    public static void kerberosLogin(Configuration hadoopConf, String user, String krb5Path, String keytabPath)
+            throws IOException
+    {
+        System.setProperty("java.security.krb5.conf", krb5Path);
+        hadoopConf.set("hadoop.security.authentication", "kerberos");
+        UserGroupInformation.setConfiguration(hadoopConf);
+        UserGroupInformation.loginUserFromKeytab(user, keytabPath);
     }
 }

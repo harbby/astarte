@@ -18,6 +18,7 @@ package com.github.harbby.astarte.core.operator;
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
+import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.runtime.ShuffleClient;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -52,12 +53,15 @@ public class ShuffledOperator<K, V>
      */
     private final transient Operator<?> dependOperator;
 
+    private final Encoder<Tuple2<K, V>> encoder;
+
     public ShuffledOperator(ShuffleMapOperator<K, V> operator, Partitioner partitioner)
     {
         super(operator.getContext()); //不再传递依赖
         this.shuffleMapOperatorId = operator.getId();
         this.partitioner = partitioner;
         this.dependOperator = operator;
+        this.encoder = operator.getShuffleMapRowEncoder();
     }
 
     public Partition[] getPartitions()
@@ -92,6 +96,6 @@ public class ShuffledOperator<K, V>
         Integer shuffleId = taskContext.getDependStages().get(shuffleMapOperatorId);
         checkState(shuffleId != null);
         ShuffleClient shuffleClient = taskContext.getShuffleClient();
-        return shuffleClient.readShuffleData(shuffleId, split.getId());
+        return shuffleClient.readShuffleData(encoder, shuffleId, split.getId());
     }
 }

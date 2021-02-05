@@ -33,7 +33,7 @@ public class SumAvgAggDemo
                 .filter(x -> !"".equals(x.trim()));
 
         KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> new Tuple2<>(x, 1L));
-        KvDataSet<String, Long> worldCounts = kvDataSet.partitionBy(2).reduceByKey(Long::sum);
+        KvDataSet<String, Long> worldCounts = kvDataSet.rePartitionByKey(2).reduceByKey(Long::sum);
 
         DataSet<Tuple2<String, Double>> worldCounts2 = worldCounts
                 .rePartition(4)
