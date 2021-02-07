@@ -70,4 +70,28 @@ public class StabilityTest
             Assert.assertEquals(Arrays.asList(0L, 1L, 2L, 3L, 4L), indexs);
         }
     }
+
+    @Test
+    public void unionAllTest()
+    {
+        KvDataSet<String, Integer> ds1 = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 8),
+                Tuple2.of("hp", 10)
+        )).reduceByKey(Integer::sum);
+
+        KvDataSet<String, Integer> ds2 = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 2),
+                Tuple2.of("hp1", 19),
+                Tuple2.of("hp2", 20)
+        ), 1).reduceByKey(Integer::sum);
+
+        KvDataSet<String, Integer> out = ds1.unionAll(ds2).reduceByKey(Integer::sum);
+        Map<String, Integer> map = MutableMap.of(
+                "hp", 20,
+                "hp2", 20,
+                "hp1", 19);
+        for (int i = 0; i < 100; i++) {
+            Assert.assertEquals(map, out.collectMap());
+        }
+    }
 }
