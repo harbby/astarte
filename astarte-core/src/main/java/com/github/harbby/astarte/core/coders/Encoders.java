@@ -15,14 +15,18 @@
  */
 package com.github.harbby.astarte.core.coders;
 
+import com.github.harbby.gadtry.base.Lazys;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,6 +35,8 @@ import static java.util.Objects.requireNonNull;
  */
 public final class Encoders
 {
+    protected static final Logger logger = LoggerFactory.getLogger(Encoders.class);
+
     private Encoders() {}
 
     private static final Encoder<Long> longEncoder = new LongEncoder();
@@ -43,9 +49,15 @@ public final class Encoders
 
     private static final Encoder<Double> doubleEncoder = new DoubleEncoder();
 
+    private static final Supplier<Encoder<?>> javaEncoder = Lazys.goLazy(() -> {
+        logger.warn("Don't use java serialize encoder");
+        return new DefaultEncoder<>();
+    });
+
+    @SuppressWarnings("unchecked")
     public static <E extends Serializable> Encoder<E> javaEncoder()
     {
-        return new DefaultEncoder<E>();
+        return (Encoder<E>) javaEncoder.get();
     }
 
     private static class DefaultEncoder<E extends Serializable>
