@@ -21,9 +21,9 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Arrays;
 
-public class PreShufleJoinTest
+public class PreShuffleJoinTest
 {
-    private PreShufleJoinTest() {}
+    private PreShuffleJoinTest() {}
 
     public static void main(String[] args)
     {
@@ -40,9 +40,7 @@ public class PreShufleJoinTest
                 Tuple2.of("hp", "xi'an"),
                 Tuple2.of("hp1", "chengdu")
         ), 2).rePartitionByKey(1);
-        //.distinct();
 
-        //ageDs.print();
         KvDataSet<String, Tuple2<Integer, String>> out = ageDs.leftJoin(cityDs);
 
         // a,(143, 41)
