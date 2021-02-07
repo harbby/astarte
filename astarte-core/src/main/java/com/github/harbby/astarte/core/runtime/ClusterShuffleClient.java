@@ -23,6 +23,7 @@ import com.github.harbby.gadtry.collection.StateOption;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -68,6 +69,7 @@ public class ClusterShuffleClient
     private static final ThreadLocal<ClusterShuffleClient> clientManagerTl = new ThreadLocal<>();
     private final Map<SocketAddress, ShuffleClientHandler> concurrentMap = new HashMap<>();
     private final List<ChannelFuture> futures = new ArrayList<>();
+    private static final ByteBuf STOP_DOWNLOAD = Unpooled.EMPTY_BUFFER;
 
     private ClusterShuffleClient(Set<SocketAddress> shuffleServices)
             throws InterruptedException
@@ -87,7 +89,7 @@ public class ClusterShuffleClient
                         protected void initChannel(SocketChannel ch)
                                 throws Exception
                         {
-                            ShuffleClientHandler shuffleClientHandler = new ShuffleClientHandler(taskThread);
+                            ShuffleClientHandler shuffleClientHandler = new ShuffleClientHandler();
                             Lz4FrameDecoder lz4FrameDecoder = new Lz4FrameDecoder();
                             ch.pipeline()
                                     .addLast(new FinishEventHandler(shuffleClientHandler, lz4FrameDecoder))
@@ -134,23 +136,6 @@ public class ClusterShuffleClient
         futures.clear();
     }
 
-    private static final class ShuffleDataDecoder
-            extends InputStream
-    {
-        private ByteBuf byteBuf;
-
-        public void setByteBuf(ByteBuf byteBuf)
-        {
-            this.byteBuf = byteBuf;
-        }
-
-        @Override
-        public int read()
-        {
-            return byteBuf.readByte() & 0xFF;
-        }
-    }
-
     /**
      * todo: copy to gadtry MoreObject.copyOverwriteObjectState()
      * copy(浅) source object field data to target Object
@@ -193,7 +178,7 @@ public class ClusterShuffleClient
         private final ShuffleClientHandler shuffleClientHandler;
         private final Lz4FrameDecoder lz4FrameDecoder;
         private long[] fileLengths;
-        private long currentSize;
+        private long awaitSize;
         private int currentIndex;
 
         private FinishEventHandler(ShuffleClientHandler shuffleClientHandler, Lz4FrameDecoder lz4FrameDecoder)
@@ -228,17 +213,17 @@ public class ClusterShuffleClient
                 for (int i = 0; i < fileNumber; i++) {
                     fileLengths[i] = in1.readLong();
                 }
-                currentSize = fileLengths[0];
+                awaitSize = fileLengths[0];
                 currentIndex = 0;
                 logger.debug("downloading files{}", this.fileLengths);
             }
             int readableBytes = in1.readableBytes();
-            if (currentSize > readableBytes) {
-                currentSize -= readableBytes;
+            if (readableBytes < awaitSize) {
+                awaitSize -= readableBytes;
                 ctx.fireChannelRead(in1);
             }
             else if (currentIndex == fileLengths.length - 1) {
-                checkState(currentSize == readableBytes, "file size error");
+                checkState(awaitSize == readableBytes, "file size error");
                 logger.debug("download files{} succeed", this.fileLengths);
                 ctx.fireChannelRead(in1);
                 ctx.fireChannelReadComplete();
@@ -249,20 +234,19 @@ public class ClusterShuffleClient
             else {
                 int writerIndex = in1.writerIndex();
                 ReferenceCountUtil.retain(in1);  //引用计数器加1
-                ctx.fireChannelRead(in1.writerIndex(in1.readerIndex() + (int) currentSize)); //引用计数会减1
+                ctx.fireChannelRead(in1.writerIndex(in1.readerIndex() + (int) awaitSize)); //引用计数减1
                 initLz4DecoderCheckFinish();
                 //----------------------------------------
-                if (readableBytes > currentSize) {
-                    checkState(in1.refCnt() > 0);
+                if (readableBytes > awaitSize) {
                     ctx.fireChannelRead(in1.writerIndex(writerIndex));
                 }
                 else {
                     ReferenceCountUtil.release(in1); //引用计数减1
                 }
-                currentSize = fileLengths[++currentIndex] - readableBytes + currentSize;
+                awaitSize = fileLengths[++currentIndex] - readableBytes + awaitSize;
                 logger.debug("download file[{}/{}] size: {} succeed, next size {}", currentIndex - 1, fileLengths.length,
-                        fileLengths[currentIndex - 1], currentSize);
-                if (currentSize == 0) {
+                        fileLengths[currentIndex - 1], awaitSize);
+                if (awaitSize == 0) {
                     ctx.fireChannelReadComplete();
                     shuffleClientHandler.finish();
                     this.fileLengths = null;
@@ -279,24 +263,61 @@ public class ClusterShuffleClient
         }
     }
 
+    private static final class ShuffleDataDecoder
+            extends InputStream
+    {
+        private final BlockingQueue<ByteBuf> buffer;
+        private ByteBuf byteBuf;
+
+        public ShuffleDataDecoder(BlockingQueue<ByteBuf> buffer)
+        {
+            this.buffer = buffer;
+        }
+
+        public void clear()
+        {
+            this.byteBuf = null;
+        }
+
+        @Override
+        public int read()
+        {
+            while (true) {
+                if (byteBuf == STOP_DOWNLOAD) {
+                    throw new UnsupportedOperationException();
+                }
+                if (byteBuf != null && byteBuf.readableBytes() > 0) {
+                    return byteBuf.readByte() & 0xFF;
+                }
+                else {
+                    if (byteBuf != null) {
+                        ReferenceCountUtil.release(byteBuf);
+                    }
+                    try {
+                        this.byteBuf = buffer.take();
+                    }
+                    catch (InterruptedException e) {
+                        throw Throwables.throwsThrowable(e);
+                    }
+                }
+            }
+        }
+    }
+
     private class ShuffleClientHandler
             extends ChannelInboundHandlerAdapter
             implements Iterator<Object>, Closeable
     {
-        private final Thread taskThread;
         private ChannelHandlerContext ctx;
         //todo: use number size buffer, 建议使用定长ByteBuffer
-        private final BlockingQueue<Object> buffer = new LinkedBlockingQueue<>(1024);
+        private final BlockingQueue<ByteBuf> buffer = new LinkedBlockingQueue<>(1024);
         private final StateOption<Object> option = StateOption.empty();
 
-        private volatile boolean downloadEnd = false;
-        private volatile Throwable cause;
-        private volatile Encoder<?> encoder;
+        private final ShuffleDataDecoder shuffleDataDecoder = new ShuffleDataDecoder(buffer);
+        private final DataInputStream dataInputStream = new DataInputStream(shuffleDataDecoder);
 
-        private ShuffleClientHandler(Thread taskThread)
-        {
-            this.taskThread = taskThread;
-        }
+        private volatile Throwable cause;
+        private Encoder<?> encoder;
 
         @Override
         public void channelActive(ChannelHandlerContext ctx)
@@ -308,25 +329,17 @@ public class ClusterShuffleClient
         }
 
         public void finish()
+                throws InterruptedException
         {
-            downloadEnd = true;
-            taskThread.interrupt();
+            buffer.put(STOP_DOWNLOAD);
         }
-
-        private final ShuffleDataDecoder shuffleDataDecoder = new ShuffleDataDecoder();
-        private final DataInputStream dataInputStream = new DataInputStream(shuffleDataDecoder);
 
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg)
                 throws Exception
         {
             ByteBuf in1 = (ByteBuf) msg;
-            shuffleDataDecoder.setByteBuf(in1);
-            while (in1.readableBytes() > 0) {
-                Object value = encoder.decoder(dataInputStream);
-                buffer.put(value);
-            }
-            //ReferenceCountUtil.release(in1);
+            buffer.put(in1);
         }
 
         @Override
@@ -334,15 +347,15 @@ public class ClusterShuffleClient
                 throws Exception
         {
             this.cause = cause;
-            taskThread.interrupt();
+            buffer.put(STOP_DOWNLOAD);
         }
 
         private void begin(Encoder<?> encoder, int shuffleId, int reduceId)
         {
             this.encoder = encoder;
-            downloadEnd = false;
             cause = null;
             buffer.clear();
+            this.shuffleDataDecoder.clear();
             option.remove();
 
             ByteBuf byteBuf = ctx.alloc().directBuffer(8, 8);
@@ -351,47 +364,33 @@ public class ClusterShuffleClient
             ctx.writeAndFlush(byteBuf);
         }
 
-        @Override
         public boolean hasNext()
         {
             if (this.cause != null) {
-                throw new RuntimeException("reduce reader failed", this.cause);
+                throw Throwables.throwsThrowable(this.cause);
             }
             else if (option.isDefined()) {
                 return true;
             }
 
-            while (true) {
-                if (this.cause != null) {
-                    throw Throwables.throwsThrowable(this.cause);
-                }
-                else if (this.downloadEnd) {
-                    return getEndStateValue();
-                }
-
-                try {
-                    option.update(this.buffer.take());
-                    return true;
-                }
-                catch (InterruptedException ignored) {
-                    logger.debug("task interrupted");
-                }
-            }
-        }
-
-        private boolean getEndStateValue()
-        {
-            Object bytes = this.buffer.poll();
-            if (bytes != null) {
-                option.update(bytes);
+            try {
+                option.update(encoder.decoder(dataInputStream));
+                Throwables.throwsThrowable(InterruptedException.class);
                 return true;
             }
-            else {
+            catch (InterruptedException ignored) {
+                logger.warn("whether the task is being killed?");
                 return false;
+            }
+            catch (UnsupportedOperationException ignored) {
+                //download success
+                return false;
+            }
+            catch (Exception e) {
+                throw Throwables.throwsThrowable(e);
             }
         }
 
-        @Override
         public Object next()
         {
             if (!hasNext()) {
