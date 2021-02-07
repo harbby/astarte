@@ -19,6 +19,7 @@ import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.operator.SortShuffleWriter;
+import com.github.harbby.gadtry.base.Platform;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import net.jpountz.lz4.LZ4BlockOutputStream;
 import org.slf4j.Logger;
@@ -197,7 +198,11 @@ public interface ShuffleWriter<K, V>
                     this.flush();
                 }
                 finally {
-                    if (buffer.isDirect()) {
+                    if (buffer.isDirect() && ((DirectBuffer) buffer).cleaner() != null) {
+                        //java8字节码版本为52
+                        if (Platform.getVmClassVersion() > 52) {
+                            Platform.addOpenJavaModules(((DirectBuffer) buffer).cleaner().getClass(), this.getClass());
+                        }
                         ((DirectBuffer) buffer).cleaner().clean();
                     }
                 }
