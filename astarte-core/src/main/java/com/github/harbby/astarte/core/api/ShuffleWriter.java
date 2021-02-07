@@ -19,7 +19,6 @@ import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.operator.SortShuffleWriter;
-import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import net.jpountz.lz4.LZ4BlockOutputStream;
 import org.slf4j.Logger;
@@ -34,11 +33,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.FileChannel;
 import java.util.Iterator;
 
 import static com.github.harbby.astarte.core.runtime.ShuffleManagerService.getShuffleWorkDir;
+import static java.util.Objects.requireNonNull;
 
 public interface ShuffleWriter<K, V>
         extends Closeable
@@ -72,7 +71,7 @@ public interface ShuffleWriter<K, V>
         private final int jobId;
         private final Partitioner partitioner;
         //todo: use array index, not hash
-        private final DataOutputStream[] outputStreams;
+        private final NioDataOutputStream[] outputStreams;
         private final Encoder<Tuple2<K, V>> encoder;
 
         public HashShuffleWriter(
@@ -88,58 +87,48 @@ public interface ShuffleWriter<K, V>
             this.shuffleId = shuffleId;
             this.mapId = mapId;
             this.partitioner = partitioner;
-            this.outputStreams = new DataOutputStream[partitioner.numPartitions()];
-            this.encoder = encoder;
+            this.outputStreams = new NioDataOutputStream[partitioner.numPartitions()];
+            this.encoder = requireNonNull(encoder, "encoder is null");
         }
 
         @Override
         public void write(Iterator<? extends Tuple2<K, V>> iterator)
                 throws IOException
         {
-            if (encoder != null) {
-                while (iterator.hasNext()) {
-                    Tuple2<K, V> kv = iterator.next();
-                    int reduceId = partitioner.getPartition(kv.f1());
-                    DataOutputStream dataOutputStream = getOutputChannel(reduceId);
-                    encoder.encoder(kv, dataOutputStream);
-//                    if (dataOutputStream.size() > 81920) {
-//                        dataOutputStream.flush();
-//                    }
-                }
-            }
             while (iterator.hasNext()) {
                 Tuple2<K, V> kv = iterator.next();
                 int reduceId = partitioner.getPartition(kv.f1());
-                DataOutputStream dataOutputStream = getOutputChannel(reduceId);
-                byte[] bytes = Serializables.serialize(kv);
-                dataOutputStream.writeInt(bytes.length);
-                dataOutputStream.write(bytes);
+                NioDataOutputStream dataOutputStream = getOutputChannel(reduceId);
+                encoder.encoder(kv, dataOutputStream);
+                if (dataOutputStream.getPosition() > 81920) {
+                    dataOutputStream.flush();
+                }
             }
         }
 
-        private DataOutputStream getOutputChannel(int reduceId)
+        private NioDataOutputStream getOutputChannel(int reduceId)
                 throws FileNotFoundException
         {
-            DataOutputStream dataOutputStream = outputStreams[reduceId];
+            NioDataOutputStream dataOutputStream = outputStreams[reduceId];
             if (dataOutputStream == null) {
                 File file = this.getDataFile(shuffleId, mapId, reduceId);
                 if (!file.getParentFile().exists()) {
                     file.getParentFile().mkdirs();
                 }
                 FileOutputStream fileOutputStream = new FileOutputStream(this.getDataFile(shuffleId, mapId, reduceId), false);
-                //dataOutputStream = new MyDataOutputStream(new MyOutputStream(fileOutputStream.getChannel()));
-                dataOutputStream = new DataOutputStream(new LZ4BlockOutputStream(fileOutputStream));
+                dataOutputStream = new NioDataOutputStream(new NioOutputStream(fileOutputStream.getChannel()));
+                //bio: dataOutputStream = new DataOutputStream(new LZ4BlockOutputStream(fileOutputStream));
                 outputStreams[reduceId] = dataOutputStream;
             }
             return dataOutputStream;
         }
 
-        private static final class MyDataOutputStream
+        private static final class NioDataOutputStream
                 extends DataOutputStream
         {
-            private final MyOutputStream outBuffer;
+            private final NioOutputStream outBuffer;
 
-            public MyDataOutputStream(MyOutputStream out)
+            public NioDataOutputStream(NioOutputStream out)
             {
                 super(new LZ4BlockOutputStream(out));
                 this.outBuffer = out;
@@ -147,23 +136,23 @@ public interface ShuffleWriter<K, V>
 
             public int getPosition()
             {
-                return outBuffer.buffer.position();
+                return outBuffer.position();
             }
         }
 
-        private static final class MyOutputStream
+        public static final class NioOutputStream
                 extends OutputStream
         {
             private final ByteBuffer buffer;
             private final FileChannel channel;
 
-            private MyOutputStream(FileChannel channel, int buffSize)
+            public NioOutputStream(FileChannel channel, int buffSize)
             {
                 this.buffer = ByteBuffer.allocateDirect(buffSize);
                 this.channel = channel;
             }
 
-            private MyOutputStream(FileChannel channel)
+            private NioOutputStream(FileChannel channel)
             {
                 this(channel, 1024 * 1024);
             }
@@ -191,13 +180,13 @@ public interface ShuffleWriter<K, V>
                     throws IOException
             {
                 buffer.flip();
-                try {
-                    channel.write(buffer);
-                }
-                catch (ClosedByInterruptException e) {
-                    throw new UnsupportedOperationException();
-                }
+                channel.write(buffer);
                 buffer.clear();
+            }
+
+            public int position()
+            {
+                return buffer.position();
             }
 
             @Override
