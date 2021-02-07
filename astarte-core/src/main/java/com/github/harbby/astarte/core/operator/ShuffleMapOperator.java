@@ -63,7 +63,6 @@ public class ShuffleMapOperator<K, V>
         this.sortShuffle = sortShuffle;
         Encoder<Tuple2<K, V>> rowEncoder = operator.getRowEncoder();
         if (rowEncoder == null) {
-            logger.warn("Do not use java encoder");
             rowEncoder = Encoders.javaEncoder();
         }
         this.encoder = rowEncoder;
