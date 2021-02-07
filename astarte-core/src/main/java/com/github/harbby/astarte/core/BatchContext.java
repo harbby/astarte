@@ -20,12 +20,13 @@ import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.operator.CollectionSource;
-import com.github.harbby.astarte.core.operator.IteratorSourceOperator;
 import com.github.harbby.astarte.core.operator.KvOperator;
 import com.github.harbby.astarte.core.operator.Operator;
+import com.github.harbby.astarte.core.operator.ParallelIteratorSourceOperator;
 import com.github.harbby.astarte.core.operator.TextFileSource;
 import com.github.harbby.astarte.core.runtime.ClusterScheduler;
 import com.github.harbby.astarte.core.runtime.ExecutorManager;
+import com.github.harbby.astarte.core.runtime.ForkVmExecutorManager;
 import com.github.harbby.astarte.core.runtime.LocalJobScheduler;
 import com.github.harbby.astarte.core.runtime.LocalNettyExecutorManager;
 import com.github.harbby.gadtry.base.Lazys;
@@ -33,6 +34,7 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.function.Function1;
 
 import java.io.Serializable;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
@@ -85,9 +87,10 @@ public interface BatchContext
         return makeDataSet(Arrays.asList(e), parallelism);
     }
 
-    public default DataSet<String> textFile(String dirPath)
+    public default DataSet<String> textFile(String path)
     {
-        return new TextFileSource(this, dirPath);
+        requireNonNull(path, "path is null");
+        return new TextFileSource(this, URI.create(path));
     }
 
     public default <E> DataSet<E> makeDataSet(Iterator<E> source, int parallelism)
@@ -95,7 +98,7 @@ public interface BatchContext
         requireNonNull(source, "source is null");
         checkState(source instanceof Serializable);
         final Iterator<E> clearSource = Utils.clear((Iterator<E> & Serializable) source);
-        return new IteratorSourceOperator<>(this, clearSource, parallelism);
+        return new ParallelIteratorSourceOperator<>(this, clearSource, parallelism);
     }
 
     public static Builder builder()
@@ -108,9 +111,11 @@ public interface BatchContext
         private static final Function1<AstarteConf, BatchContext> context = Lazys.goLazy(BatchContextImpl::new);
         private final AstarteConf conf = new AstarteConf();
         private JobScheduler.Factory factory;
+        private ExecutorManager.Factory emFactory;
 
         /**
-         * 独特local调度与运行模式。不经过网络接口协议。比netLocal更加轻巧简单。适合进行内核功能研究
+         * 独特的local调度与运行模式。不经过网络接口协议，比netLocal更加轻巧简单
+         * 适合进行内核功能研究
          *
          * @param parallelism 并行度
          * @return Builder
@@ -122,8 +127,8 @@ public interface BatchContext
         }
 
         /**
-         * 通过local网络，提供调度和数据shuffle的模式。类似与spark 和 flink local模式。
-         * 该适合进行网络通信层面的研究
+         * 通过local网络提供调度和数据shuffle的模式。类似与spark和flink的local模式。
+         * 适合进行网络通信层面的研究
          *
          * @param parallelism 并行度
          * @return Builder
@@ -131,13 +136,13 @@ public interface BatchContext
         public Builder netLocal(int parallelism)
         {
             this.factory = f -> new ClusterScheduler(f, parallelism, 1);
-            ExecutorManager.setFactory(LocalNettyExecutorManager::new);
+            this.emFactory = LocalNettyExecutorManager::new;
             return this;
         }
 
         /**
-         * 独创的伪分布式运行模式。运行时将所有Executor以Fork子进程方式启动。 和真实集群运行一样的调度方式及shuffle数据传输模式
-         * 该模式适合进行快速分布式调度模块研究
+         * 独特的伪分布式运行模式。运行时将所有Executor以Fork子进程方式启动。和真实集群运行一样的调度及shuffle数据传输模式
+         * 适合进行快速分布式调度模块研究,该模式验证所有功能在其他物理集群的功能可行性
          *
          * @param vcores      单个Executor并行度
          * @param executorNum Executor数量
@@ -146,6 +151,7 @@ public interface BatchContext
         public Builder localCluster(int vcores, int executorNum)
         {
             this.factory = f -> new ClusterScheduler(f, vcores, executorNum);
+            this.emFactory = ForkVmExecutorManager::new;
             return this;
         }
 
@@ -159,6 +165,9 @@ public interface BatchContext
         {
             if (factory != null) {
                 JobScheduler.setFactory(factory);
+            }
+            if (emFactory != null) {
+                ExecutorManager.setFactory(emFactory);
             }
             return context.apply(conf);
         }

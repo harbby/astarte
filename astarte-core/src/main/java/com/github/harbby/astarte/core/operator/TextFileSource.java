@@ -27,44 +27,61 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Serializable;
+import java.net.URI;
 import java.nio.file.NoSuchFileException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 import static com.github.harbby.gadtry.base.Throwables.throwsThrowable;
 
 public class TextFileSource
         extends Operator<String>
 {
-    private final File dir;
+    private final transient Partition[] partitions;
 
-    public TextFileSource(BatchContext batchContext, String dir)
+    public TextFileSource(BatchContext batchContext, URI dataUri)
     {
         super(batchContext);
-        this.dir = new File(dir);
+        String schema = Optional.ofNullable(dataUri.getScheme()).orElse("file");
+        switch (schema.toLowerCase()) {
+            case "file":
+                this.partitions = prepareLocalFileSplit(dataUri);
+                break;
+            case "hdfs":
+                throw new UnsupportedOperationException();
+            default:
+                throw new UnsupportedOperationException("schema " + schema + " not support URI " + dataUri);
+        }
+    }
+
+    private static Partition[] prepareLocalFileSplit(URI uri)
+    {
+        File rootFile = new File(uri.getPath());
+        if (!rootFile.exists()) {
+            throw throwsThrowable(new NoSuchFileException(rootFile.getPath()));
+        }
+        List<File> files = Files.listFiles(rootFile, false, file -> file.length() > 0);
+        Partition[] partitions = new Partition[files.size()];
+        for (int i = 0; i < files.size(); i++) {
+            partitions[i] = new TextFileSplit(i, files.get(i));
+        }
+        return partitions;
     }
 
     @Override
     public Partition[] getPartitions()
     {
-        if (!dir.exists()) {
-            throw throwsThrowable(new NoSuchFileException(dir.getPath()));
-        }
-        List<File> files = Files.listFiles(dir, false, file -> file.length() > 0);
-        Partition[] partitions = new Partition[files.size()];
-        for (int i = 0; i < files.size(); i++) {
-            partitions[i] = new TextFilePartition(i, files.get(i));
-        }
         return partitions;
     }
 
-    private static class TextFilePartition
+    private static class TextFileSplit
             extends Partition
     {
         private final File file;
 
-        public TextFilePartition(int index, File file)
+        public TextFileSplit(int index, File file)
         {
             super(index);
             this.file = file;
@@ -74,7 +91,7 @@ public class TextFileSource
     @Override
     public Iterator<String> compute(Partition partition, TaskContext taskContext)
     {
-        TextFilePartition filePartition = (TextFilePartition) partition;
+        TextFileSplit filePartition = (TextFileSplit) partition;
         try {
             return new FileIteratorReader(filePartition.file);
         }
