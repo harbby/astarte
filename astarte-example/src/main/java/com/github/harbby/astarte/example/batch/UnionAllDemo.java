@@ -17,13 +17,9 @@ package com.github.harbby.astarte.example.batch;
 
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.KvDataSet;
-import com.github.harbby.gadtry.collection.MutableMap;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Arrays;
-import java.util.Map;
-
-import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 
 public class UnionAllDemo
 {
@@ -32,7 +28,7 @@ public class UnionAllDemo
     public static void main(String[] args)
             throws Exception
     {
-        BatchContext mppContext = BatchContext.builder().netLocal(1).getOrCreate();
+        BatchContext mppContext = BatchContext.builder().getOrCreate();
 
         KvDataSet<String, Integer> ds1 = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", 8),
@@ -44,15 +40,8 @@ public class UnionAllDemo
                 Tuple2.of("hp1", 19),
                 Tuple2.of("hp2", 20)
         ), 1).reduceByKey(Integer::sum);
-        //.distinct();
 
         KvDataSet<String, Integer> out = ds1.unionAll(ds2).reduceByKey(Integer::sum);
         out.collect().forEach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
-        Map<String, Integer> map = MutableMap.of("hp", 20,
-                "hp2", 20,
-                "hp1", 19);
-        for (int i = 0; i < 100; i++) {
-            checkState(map.equals(out.collectMap()));
-        }
     }
 }
