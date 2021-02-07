@@ -17,15 +17,16 @@ package com.github.harbby.astarte.core.api;
 
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
+import com.github.harbby.astarte.core.coders.MapEncoder;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutput;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 public class EncoderTest
 {
@@ -42,5 +43,28 @@ public class EncoderTest
 
         Assert.assertEquals(outputStream.toByteArray().length, 16);
         Assert.assertTrue(bytes.length > 16 * 10);
+    }
+
+    @Test
+    public void mapSerializeTest()
+            throws IOException
+    {
+
+        Map<String,String> map = new HashMap<>();
+        map.put("weight","1");
+        map.put("height","2");
+        map.put(null,"3");
+        map.put("ss",null);
+        Encoder<Map<String, String>> mapEncoder = MapEncoder.mapEncoder(Encoders.jString(), Encoders.jString());
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        mapEncoder.encoder(map,dataOutput);
+        ByteArrayInputStream inputtStream = new ByteArrayInputStream(outputStream.toByteArray());
+        DataInput input = new DataInputStream(inputtStream);
+        Map<String, String> decoder = mapEncoder.decoder(input);
+        Set<String> keys = map.keySet();
+        Assert.assertTrue(decoder.keySet().toString().equals(keys.toString()));
+
+
     }
 }
