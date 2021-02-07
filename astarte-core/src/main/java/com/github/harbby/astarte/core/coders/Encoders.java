@@ -48,6 +48,7 @@ public final class Encoders
     private static final int[] zeroIntArr = new int[0];
 
     private static final Encoder<Double> doubleEncoder = new DoubleEncoder();
+    private static final Encoder<String> stringEncoder = new StringEncoder();
 
     private static final Supplier<Encoder<?>> javaEncoder = Lazys.goLazy(() -> {
         logger.warn("Don't use java serialize encoder");
@@ -87,11 +88,17 @@ public final class Encoders
         }
     }
 
+
+
     public static <K, V> Encoder<Tuple2<K, V>> tuple2(Encoder<K> kEncoder, Encoder<V> vEncoder)
     {
         requireNonNull(kEncoder, "key Encoder is null");
         requireNonNull(vEncoder, "value Encoder is null");
         return new Tuple2Encoder<>(kEncoder, vEncoder);
+    }
+
+    public static Encoder<String> jString(){
+        return stringEncoder;
     }
 
     public static Encoder<Long> jLong()
