@@ -18,6 +18,7 @@ package com.github.harbby.astarte.example.batch;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.core.api.ShuffleWriter;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -32,6 +33,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Serializable;
+import java.nio.channels.FileChannel;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -43,16 +45,28 @@ public class PageRankClueWeb09
 {
     private PageRankClueWeb09() {}
 
+    private static final String DATA_PATH = "/ideal/data/page_rank/ClueWeb09_WG_50m.graph-txt";
+
     public static void main(String[] args)
             throws Exception
     {
-        BatchContext mppContext = BatchContext.builder().local(2).getOrCreate();
+        BatchContext mppContext = BatchContext.builder().netLocal(2).getOrCreate();
         int iters = 3;  //迭代次数
 
-        DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(new FileIteratorReader("/data/data/ClueWeb09_WG_50m.graph-txt"), 1);
+//        testZeroCopy2();
+//        System.exit(0);
+//        bioTest1();
+//        nioTest2();
+
+        DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(new FileIteratorReader(DATA_PATH), 1);
         KvDataSet<Integer, int[]> links = KvDataSet.toKvDataSet(lines)
                 .encoder(Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray()))
-                .rePartitionByKey(2).mapValues(x -> x).cache();
+                .rePartitionByKey(2).mapValues(x -> x); //.cache();
+        for (int i = 0; i < 3; i++) {
+            System.out.println(links.count());
+        }
+        System.exit(0);
+
         KvDataSet<Integer, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {
             DataSet<Tuple2<Integer, Double>> contribs = links.join(ranks).values().flatMapIterator(it -> {
@@ -75,11 +89,11 @@ public class PageRankClueWeb09
     private static void bioTest1()
             throws Exception
     {
-        File file = new File("/data/data/ClueWeb09_WG_50m.graph-txt");
+        File file = new File(DATA_PATH);
         long start = System.currentTimeMillis();
         Encoder<Tuple2<Integer, int[]>> encoder = Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray());
         try (InputStreamReader inputStreamReader = new InputStreamReader(new FileInputStream(file));
-                BufferedOutputStream fileOutputStream = new BufferedOutputStream(new FileOutputStream("/data/tmp/shuffle_test"))) {
+                BufferedOutputStream fileOutputStream = new BufferedOutputStream(new FileOutputStream("/tmp/shuffle_test"))) {
             DataOutput dataOutput = new DataOutputStream(fileOutputStream);
             BufferedReader reader = new BufferedReader(inputStreamReader);
 
@@ -106,40 +120,39 @@ public class PageRankClueWeb09
         System.out.println("bioTest1 : " + (System.currentTimeMillis() - start) + "ms");
     }
 
-//    private static void nioTest2()
-//            throws Exception
-//    {
-//        File file = new File("/data/data/ClueWeb09_WG_50m.graph-txt");
-//        long start = System.currentTimeMillis();
-//        Encoder<Tuple2<Integer, int[]>> encoder = Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray());
-//        try (FileOutputStream fileOutputStream = new FileOutputStream("/data/tmp/shuffle_test")) {
-//            FileChannel fileChannel = fileOutputStream.getChannel();
-//            ByteBuffer buffer = ByteBuffer.allocateDirect(819200);
-//            DataOutput dataOutput = new DataOutputStream(new MyOutputStream(buffer));
-//            for (Tuple2<Integer, int[]> integerTuple2 : (Iterable<Tuple2<Integer, int[]>>) () -> new FileIteratorReader(file)) {
-//                dataOutput.writeInt(integerTuple2.f1);
-//                int[] values = integerTuple2.f2;
-//                dataOutput.writeInt(values.length);
-//                for (int v : values) {
-//                    dataOutput.writeInt(v);
-//                }
-//                encoder.encoder(integerTuple2, dataOutput);
-//                if (buffer.position() > 81920) {
-//                    buffer.flip();
-//                    fileChannel.write(buffer);
-//                    buffer.clear();
-//                }
-//            }
-//        }
-//        System.out.println("nioTest2 : " + (System.currentTimeMillis() - start) + "ms");
-//    }
+    private static void nioTest2()
+            throws Exception
+    {
+        File file = new File(DATA_PATH);
+        long start = System.currentTimeMillis();
+        Encoder<Tuple2<Integer, int[]>> encoder = Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray());
+        try (FileOutputStream fileOutputStream = new FileOutputStream("/tmp/shuffle_test")) {
+            FileChannel fileChannel = fileOutputStream.getChannel();
+            ShuffleWriter.HashShuffleWriter.NioOutputStream nioOutputStream =
+                    new ShuffleWriter.HashShuffleWriter.NioOutputStream(fileChannel, 819200);
+            DataOutput dataOutput = new DataOutputStream(nioOutputStream);
+            for (Tuple2<Integer, int[]> integerTuple2 : (Iterable<Tuple2<Integer, int[]>>) () -> new FileIteratorReader(file)) {
+                dataOutput.writeInt(integerTuple2.f1);
+                int[] values = integerTuple2.f2;
+                dataOutput.writeInt(values.length);
+                for (int v : values) {
+                    dataOutput.writeInt(v);
+                }
+                encoder.encoder(integerTuple2, dataOutput);
+                if (nioOutputStream.position() > 81920) {
+                    nioOutputStream.flush();
+                }
+            }
+        }
+        System.out.println("nioTest2 : " + (System.currentTimeMillis() - start) + "ms");
+    }
 
     private static void testZeroCopy2()
             throws Exception
     {
-        File file = new File("/data/data/ClueWeb09_WG_50m.graph-txt");
+        File file = new File(DATA_PATH);
         long start = System.currentTimeMillis();
-        FileOutputStream outputStream = new FileOutputStream("/data/tmp/shuffle_test");
+        FileOutputStream outputStream = new FileOutputStream("/tmp/shuffle_test");
         int i = 5;
         while (i-- > 0) {
             try (FileInputStream inputStream = new FileInputStream(file)) {
@@ -156,10 +169,10 @@ public class PageRankClueWeb09
             implements Iterator<Tuple2<Integer, int[]>>, Serializable
     {
         private final File file;
-        private BufferedReader reader;
+        private transient BufferedReader reader;
 
-        private String line;
-        private int number = 0;
+        private transient String line;
+        private transient int number = 0;
 
         private FileIteratorReader(File file)
         {
