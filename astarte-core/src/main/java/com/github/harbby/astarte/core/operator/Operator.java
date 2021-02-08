@@ -164,7 +164,7 @@ public abstract class Operator<R>
     public final Iterator<R> computeOrCache(Partition split, TaskContext taskContext)
     {
         if (markedCache) {
-            return CacheOperator.compute(this, id, split, taskContext);
+            return CacheManager.compute(this, id, split, taskContext);
         }
         else {
             return this.compute(split, taskContext);
@@ -174,13 +174,13 @@ public abstract class Operator<R>
     @Override
     public DataSet<R> cache()
     {
-        return this.cache(CacheOperator.CacheMode.MEM_ONLY);
+        return this.cache(CacheManager.CacheMode.MEM_ONLY);
     }
 
     @Override
-    public DataSet<R> cache(CacheOperator.CacheMode cacheMode)
+    public DataSet<R> cache(CacheManager.CacheMode cacheMode)
     {
-        checkState(cacheMode == CacheOperator.CacheMode.MEM_ONLY, "目前只支持mem模式");
+        checkState(cacheMode == CacheManager.CacheMode.MEM_ONLY, "目前只支持mem模式");
         markedCache = true;
         return this;
     }
@@ -196,7 +196,7 @@ public abstract class Operator<R>
         //blocking = true
         //todo: 通过job触发 代价比较重(会出发额外的stage多计算)，后续应该改为通信解决(斩断dag血缘)
         context.runJob(unboxing(this), iterator -> {
-            CacheOperator.unCacheExec(id);
+            CacheManager.unCacheExec(id);
             return true;
         });
         markedCache = false;
@@ -406,7 +406,9 @@ public abstract class Operator<R>
         requireNonNull(reducer, "reducer is null");
         Reducer<R> clearedFunc = Utils.clear(reducer);
         return context.runJob(unboxing(this), iterator -> Iterators.reduce(iterator, clearedFunc::reduce))
-                .stream().reduce(clearedFunc::reduce);
+                .stream().filter(Optional::isPresent)
+                .map(Optional::get)
+                .reduce(clearedFunc::reduce);
     }
 
     @Override
@@ -437,24 +439,13 @@ public abstract class Operator<R>
     @Override
     public void print(int limit)
     {
-        context.runJob(unboxing(this), iterator -> {
-            Iterator<R> limitIterator = Iterators.limit(iterator, limit);
-            while (limitIterator.hasNext()) {
-                System.out.println((limitIterator.next()));
-            }
-            return null;
-        });
+        this.partitionLimit(limit).collect().stream().limit(limit).forEach(System.out::println);
     }
 
     @Override
     public void print()
     {
-        context.runJob(unboxing(this), iterator -> {
-            while (iterator.hasNext()) {
-                System.out.println((iterator.next()));
-            }
-            return null;
-        });
+        this.print(10);
     }
 
     @Override

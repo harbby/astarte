@@ -24,7 +24,7 @@ import java.util.List;
 
 public class CoreApiTest
 {
-    private final BatchContext mppContext = BatchContext.builder().getOrCreate();
+    private final BatchContext mppContext = BatchContext.builder().local(2).getOrCreate();
 
     @Test
     public void fromCollectionTestReturnDataSet()

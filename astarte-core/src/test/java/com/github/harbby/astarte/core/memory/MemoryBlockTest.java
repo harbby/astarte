@@ -15,25 +15,27 @@
  */
 package com.github.harbby.astarte.core.memory;
 
-import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicInteger;
+import com.github.harbby.gadtry.io.IOUtils;
+import org.junit.Assert;
+import org.junit.Test;
 
-public class MemoryManager
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+
+public class MemoryBlockTest
 {
-    private MemoryManager() {}
-
-    private static final AtomicInteger allocatedMemory = new AtomicInteger(0);
-
-    public static MemoryBlock allocateMemoryBlock()
+    @Test
+    public void coreFeaturesTest()
+            throws IOException
     {
-        return new MemoryBlock();
-    }
+        MemoryBlock block = new MemoryBlock();
+        block.write(-1);
+        block.write(-2);
+        block.write(3);
+        block.write("abc".getBytes(StandardCharsets.UTF_8));
+        block.finalData();
 
-    public static ByteBuffer allocateMemory(int capacity)
-    {
-        //ByteBuffer page = Platform.allocateDirectBuffer(capacity);
-        ByteBuffer page = ByteBuffer.allocate(capacity);
-        allocatedMemory.addAndGet(page.capacity());
-        return page;
+        byte[] bytes = IOUtils.readAllBytes(block.prepareInputStream());
+        Assert.assertArrayEquals(bytes, new byte[] {-1, -2, 3, 97, 98, 99});
     }
 }

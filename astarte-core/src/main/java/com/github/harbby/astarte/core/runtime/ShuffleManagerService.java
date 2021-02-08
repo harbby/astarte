@@ -16,6 +16,7 @@
 package com.github.harbby.astarte.core.runtime;
 
 import com.github.harbby.astarte.core.coders.Encoder;
+import com.github.harbby.astarte.core.coders.EncoderInputStream;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -32,14 +33,10 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.ReferenceCountUtil;
-import net.jpountz.lz4.LZ4BlockInputStream;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedInputStream;
-import java.io.Closeable;
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -51,20 +48,16 @@ import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class ShuffleManagerService
-
 {
     private static final Logger logger = LoggerFactory.getLogger(ShuffleManagerService.class);
     private final File shuffleWorkDir;
     private ChannelFuture future;
-
     private volatile int currentJobId;
 
     public ShuffleManagerService(String executorUUID)
@@ -75,6 +68,7 @@ public final class ShuffleManagerService
             File workDir = ShuffleManagerService.getShuffleWorkDir(executorUUID);
             try {
                 FileUtils.deleteDirectory(workDir);
+                logger.debug("clear shuffle data temp dir {}", workDir);
             }
             catch (IOException e) {
                 logger.error("clear shuffle data temp dir failed", e);
@@ -90,8 +84,8 @@ public final class ShuffleManagerService
     public SocketAddress start()
             throws UnknownHostException, InterruptedException
     {
-        NioEventLoopGroup boosGroup = new NioEventLoopGroup();
-        NioEventLoopGroup workerGroup = new NioEventLoopGroup();
+        final NioEventLoopGroup boosGroup = new NioEventLoopGroup();
+        final NioEventLoopGroup workerGroup = new NioEventLoopGroup();
         ServerBootstrap serverBootstrap = new ServerBootstrap();
         serverBootstrap.group(boosGroup, workerGroup)
                 .channel(NioServerSocketChannel.class)
@@ -110,8 +104,8 @@ public final class ShuffleManagerService
         this.future = serverBootstrap.bind(new InetSocketAddress(InetAddress.getLocalHost(), 0)).sync();
         logger.info("stared shuffle service ,the port is {}", future.channel().localAddress());
         future.channel().closeFuture().addListener((ChannelFutureListener) channelFuture -> {
-            boosGroup.shutdownGracefully().sync();
-            workerGroup.shutdownGracefully().sync();
+            boosGroup.shutdownGracefully();
+            workerGroup.shutdownGracefully();
         });
         return future.channel().localAddress();
     }
@@ -120,6 +114,11 @@ public final class ShuffleManagerService
             throws InterruptedException
     {
         future.channel().closeFuture().sync();
+    }
+
+    public void stop()
+    {
+        future.channel().close();
     }
 
     private class ShuffleServiceHandler
@@ -184,76 +183,16 @@ public final class ShuffleManagerService
     {
         requireNonNull(encoder, "encoder is null");
         List<File> files = getShuffleDataInput(shuffleWorkDir, currentJobId, shuffleId, reduceId);
-        return files.stream()
-                .flatMap(file -> {
+
+        return Iterators.concat(files.stream()
+                .map(file -> {
                     try {
-                        Iterator<Tuple2<K, V>> iteratorReader = new EncoderDataFileIteratorReader<>(encoder, file);
-                        return Iterators.toStream(iteratorReader);
+                        return new EncoderInputStream<>(new FileInputStream(file), encoder);
                     }
                     catch (FileNotFoundException e) {
                         throw Throwables.throwsThrowable(e);
                     }
-                }).iterator();
-    }
-
-    private static class EncoderDataFileIteratorReader<K, V>
-            implements Iterator<Tuple2<K, V>>, Closeable
-    {
-        private final DataInputStream dataInput;
-        private final Encoder<Tuple2<K, V>> encoder;
-        private Tuple2<K, V> kvTuple;
-
-        public EncoderDataFileIteratorReader(Encoder<Tuple2<K, V>> encoder, File file)
-                throws FileNotFoundException
-        {
-            requireNonNull(file, "file is null");
-            FileInputStream fileInputStream = new FileInputStream(file);
-            this.dataInput = new DataInputStream(new BufferedInputStream(new LZ4BlockInputStream(fileInputStream)));
-            this.encoder = requireNonNull(encoder, "encoder is null");
-            checkState(dataInput.markSupported(), "dataInput not support mark()");
-        }
-
-        @Override
-        public boolean hasNext()
-        {
-            if (kvTuple != null) {
-                return true;
-            }
-            try {
-                if (dataInput.available() == 0) {
-                    dataInput.mark(1);
-                    if (dataInput.read() == -1) {
-                        return false;
-                    }
-                    dataInput.reset();
-                }
-                kvTuple = encoder.decoder(dataInput);
-                return true;
-            }
-            catch (IOException e) {
-                throw Throwables.throwsThrowable(e);
-            }
-        }
-
-        @Override
-        public Tuple2<K, V> next()
-        {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-            Tuple2<K, V> old = this.kvTuple;
-            this.kvTuple = null;
-            return old;
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            if (dataInput != null) {
-                dataInput.close();
-            }
-        }
+                }).iterator());
     }
 
     private static List<File> getShuffleDataInput(File shuffleWorkDir, int jobId, int shuffleId, int reduceId)

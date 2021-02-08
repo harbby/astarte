@@ -71,6 +71,12 @@ public class ShuffledOperator<K, V>
     }
 
     @Override
+    protected Encoder<Tuple2<K, V>> getRowEncoder()
+    {
+        return encoder;
+    }
+
+    @Override
     public Partitioner getPartitioner()
     {
         // ShuffledOperator在设计中应该为一切shuffle的后端第一个Operator

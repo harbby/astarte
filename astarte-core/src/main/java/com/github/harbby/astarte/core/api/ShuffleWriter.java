@@ -198,6 +198,7 @@ public interface ShuffleWriter<K, V>
                     this.flush();
                 }
                 finally {
+                    //todo: use Platform.freeDirectBuffer(buff)
                     if (buffer.isDirect() && ((DirectBuffer) buffer).cleaner() != null) {
                         //java8字节码版本为52
                         if (Platform.getVmClassVersion() > 52) {

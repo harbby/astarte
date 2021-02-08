@@ -18,13 +18,13 @@ package com.github.harbby.astarte.core.runtime;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.base.Throwables;
-import com.github.harbby.gadtry.collection.MutableSet;
 import com.github.harbby.gadtry.collection.StateOption;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
@@ -41,7 +41,6 @@ import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Field;
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,7 +54,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
-import static java.util.Objects.requireNonNull;
+import static com.github.harbby.gadtry.base.MoreObjects.copyOverwriteObjectState;
 
 /**
  * n * n client
@@ -74,7 +73,6 @@ public class ClusterShuffleClient
     private ClusterShuffleClient(Set<SocketAddress> shuffleServices)
             throws InterruptedException
     {
-        Thread taskThread = Thread.currentThread();
         NioEventLoopGroup workerGroup = new NioEventLoopGroup();
         for (SocketAddress address : shuffleServices) {
             Bootstrap bootstrap = new Bootstrap();
@@ -97,7 +95,11 @@ public class ClusterShuffleClient
                                     .addLast(shuffleClientHandler);
                         }
                     });
-            futures.add(bootstrap.connect(address).sync());
+            ChannelFuture future = bootstrap.connect(address).sync();
+            future.channel().closeFuture().addListener((ChannelFutureListener) channelFuture -> {
+                workerGroup.shutdownGracefully();
+            });
+            futures.add(future);
         }
         while (concurrentMap.size() < shuffleServices.size()) {
             TimeUnit.MILLISECONDS.sleep(10);
@@ -113,6 +115,14 @@ public class ClusterShuffleClient
             clientManagerTl.set(clientManager);
         }
         return clientManager;
+    }
+
+    @Override
+    protected void finalize()
+            throws Throwable
+    {
+        super.finalize();
+        logger.info("close ClusterShuffleClient {}", Thread.currentThread());
     }
 
     @Override
@@ -134,42 +144,6 @@ public class ClusterShuffleClient
         futures.forEach(channelFuture -> channelFuture.channel().close());
         concurrentMap.clear();
         futures.clear();
-    }
-
-    /**
-     * todo: copy to gadtry MoreObject.copyOverwriteObjectState()
-     * copy(浅) source object field data to target Object
-     *
-     * @param modelClass copy model
-     * @param source     source object
-     * @param target     target object
-     */
-    private static void copyOverwriteObjectState(Class<?> modelClass, Object source, Object target)
-    {
-        requireNonNull(modelClass, "modelClass is null");
-        requireNonNull(source, "source is null");
-        requireNonNull(target, "target is null");
-        checkState(!modelClass.isInterface(), "don't copy interface field");
-
-        Set<Field> fields = MutableSet.<Field>builder().addAll(modelClass.getDeclaredFields())
-                .addAll(modelClass.getFields())
-                .build();
-
-        for (Field field : fields) {
-            if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
-                continue;
-            }
-            if (!field.isAccessible()) {
-                field.setAccessible(true);
-            }
-            try {
-                Object value = field.get(source);
-                field.set(target, value);
-            }
-            catch (IllegalAccessException e) {
-                throw Throwables.throwsThrowable(e);
-            }
-        }
     }
 
     private class FinishEventHandler
@@ -386,7 +360,7 @@ public class ClusterShuffleClient
                 //download success
                 return false;
             }
-            catch (Exception e) {
+            catch (IOException e) {
                 throw Throwables.throwsThrowable(e);
             }
         }

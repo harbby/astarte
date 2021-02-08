@@ -28,6 +28,7 @@ import com.github.harbby.astarte.core.api.function.KvMapper;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
+import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.astarte.core.deprecated.JoinExperiment;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -50,7 +51,7 @@ public class KvOperator<K, V>
 
     public KvOperator(Operator<Tuple2<K, V>> dataSet)
     {
-        super(dataSet);
+        super(unboxing(dataSet));
         this.dataSet = unboxing(dataSet);
     }
 
@@ -76,6 +77,12 @@ public class KvOperator<K, V>
     {
         dataSet.encoder(encoder);
         return this;
+    }
+
+    @Override
+    protected Encoders.Tuple2Encoder<K, V> getRowEncoder()
+    {
+        return (Encoders.Tuple2Encoder<K, V>) dataSet.getRowEncoder();
     }
 
     @Override
@@ -112,7 +119,7 @@ public class KvOperator<K, V>
         Mapper<K, K1> clearedFunc = Utils.clear(mapper);
         Operator<Tuple2<K1, V>> out = new MapPartitionOperator<>(dataSet,
                 it -> Iterators.map(it, x -> new Tuple2<>(clearedFunc.map(x.f1()), x.f2())),
-                false); //如果想需要保留分区器，则请使用mapValues
+                false); //如果想保留分区器，则请使用mapValues
         return new KvOperator<>(out);
     }
 
@@ -124,6 +131,20 @@ public class KvOperator<K, V>
                 this.dataSet,
                 it -> Iterators.map(it, kv -> new Tuple2<>(kv.f1(), clearedFunc.map(kv.f2()))),
                 true);
+        return new KvOperator<>(out);
+    }
+
+    @Override
+    public <O> KvDataSet<K, O> mapValues(Mapper<V, O> mapper, Encoder<O> oEncoder)
+    {
+        Mapper<V, O> clearedFunc = Utils.clear(mapper);
+        Encoder<Tuple2<K, O>> kvEncoder = Encoders.tuple2(this.getRowEncoder().getKeyEncoder(), oEncoder);
+        Operator<Tuple2<K, O>> out = new MapPartitionOperator<>(
+                this.dataSet,
+                it -> Iterators.map(it, kv -> new Tuple2<>(kv.f1(), clearedFunc.map(kv.f2()))),
+                true);
+        out.encoder(kvEncoder);
+
         return new KvOperator<>(out);
     }
 
@@ -175,7 +196,7 @@ public class KvOperator<K, V>
     }
 
     @Override
-    public KvDataSet<K, V> cache(CacheOperator.CacheMode cacheMode)
+    public KvDataSet<K, V> cache(CacheManager.CacheMode cacheMode)
     {
         this.dataSet.cache(cacheMode);
         return this;
@@ -322,6 +343,18 @@ public class KvOperator<K, V>
     }
 
     @Override
+    public <W> KvDataSet<K, Tuple2<V, W>> rightJoin(DataSet<Tuple2<K, W>> kvDataSet)
+    {
+        return join(kvDataSet, JoinExperiment.JoinMode.RIGHT_JOIN);
+    }
+
+    @Override
+    public <W> KvDataSet<K, Tuple2<V, W>> fullJoin(DataSet<Tuple2<K, W>> kvDataSet)
+    {
+        return join(kvDataSet, JoinExperiment.JoinMode.FULL_JOIN);
+    }
+
+    @Override
     public <W> KvDataSet<K, Tuple2<V, W>> join(DataSet<Tuple2<K, W>> kvDataSet)
     {
         return join(kvDataSet, JoinExperiment.JoinMode.INNER_JOIN);
@@ -333,12 +366,12 @@ public class KvOperator<K, V>
         checkState(rightDataSet instanceof Operator, rightDataSet + "not instanceof Operator");
         Operator<Tuple2<K, W>> rightOperator = unboxing((Operator<Tuple2<K, W>>) rightDataSet);
 
-        Operator<Tuple2<K, Iterable<?>[]>> joinOperator;
+        Operator<Tuple2<K, Object[]>> joinOperator;
         Partitioner leftPartitioner = dataSet.getPartitioner();
         Partitioner rightPartitioner = rightDataSet.getPartitioner();
         if (leftPartitioner != null && leftPartitioner.equals(rightPartitioner)) {
             // 因为上一个stage已经按照相同的分区器, 将数据分好，因此这里我们无需shuffle
-            joinOperator = new LocalJoinOperator<>(dataSet, rightOperator);
+            joinOperator = new LocalJoinOperator<>(joinMode, dataSet, rightOperator);
         }
         else if ((Object) rightOperator == dataSet) {
             return this.mapValues(x -> new Tuple2<>(x, (W) x));
@@ -346,18 +379,12 @@ public class KvOperator<K, V>
         else {
             int reduceNum = Math.max(dataSet.numPartitions(), rightDataSet.numPartitions());
             Partitioner partitioner = new HashPartitioner(reduceNum);
-            joinOperator = new ShuffleJoinOperator<>(partitioner, dataSet, rightOperator);
+            joinOperator = new ShuffleJoinOperator<>(partitioner, joinMode, dataSet, rightOperator);
         }
 
-        Operator<Tuple2<K, Tuple2<V, W>>> operator = joinOperator.flatMapIterator(x -> {
-            @SuppressWarnings("unchecked")
-            Iterable<V> v = (Iterable<V>) x.f2()[0];
-            @SuppressWarnings("unchecked")
-            Iterable<W> w = (Iterable<W>) x.f2()[1];
-
-            Iterator<Tuple2<V, W>> iterator = JoinExperiment.cartesian(v, w, joinMode);
-            return Iterators.map(iterator, it -> new Tuple2<>(x.f1(), it));
-        });
+        @SuppressWarnings("unchecked")
+        Operator<Tuple2<K, Tuple2<V, W>>> operator = joinOperator
+                .map(x -> Tuple2.of(x.f1, Tuple2.of((V) x.f2()[0], (W) x.f2()[1])));
         return new KvOperator<>(operator);
     }
 

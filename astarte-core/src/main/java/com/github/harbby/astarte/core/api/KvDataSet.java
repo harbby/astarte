@@ -22,7 +22,7 @@ import com.github.harbby.astarte.core.api.function.KvMapper;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
-import com.github.harbby.astarte.core.operator.CacheOperator;
+import com.github.harbby.astarte.core.operator.CacheManager;
 import com.github.harbby.astarte.core.operator.KvOperator;
 import com.github.harbby.astarte.core.operator.Operator;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -53,6 +53,8 @@ public interface KvDataSet<K, V>
 
     <O> KvDataSet<K, O> mapValues(Mapper<V, O> mapper);
 
+    <O> KvDataSet<K, O> mapValues(Mapper<V, O> mapper, Encoder<O> encoder);
+
     <O> KvDataSet<K, O> flatMapValues(Mapper<V, Iterator<O>> mapper);
 
     <K1> KvDataSet<K1, V> mapKeys(Mapper<K, K1> mapper);
@@ -72,7 +74,7 @@ public interface KvDataSet<K, V>
     KvDataSet<K, V> cache();
 
     @Override
-    KvDataSet<K, V> cache(CacheOperator.CacheMode cacheMode);
+    KvDataSet<K, V> cache(CacheManager.CacheMode cacheMode);
 
     @Override
     KvDataSet<K, V> unCache();
@@ -113,6 +115,10 @@ public interface KvDataSet<K, V>
     public <W> KvDataSet<K, Tuple2<V, W>> join(DataSet<Tuple2<K, W>> kvDataSet);
 
     public <W> KvDataSet<K, Tuple2<V, W>> leftJoin(DataSet<Tuple2<K, W>> kvDataSet);
+
+    public <W> KvDataSet<K, Tuple2<V, W>> rightJoin(DataSet<Tuple2<K, W>> kvDataSet);
+
+    public <W> KvDataSet<K, Tuple2<V, W>> fullJoin(DataSet<Tuple2<K, W>> kvDataSet);
 
     @Override
     public KvDataSet<K, V> union(DataSet<Tuple2<K, V>> kvDataSet);

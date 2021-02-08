@@ -35,16 +35,19 @@ import static java.util.Objects.requireNonNull;
  * pre-shuffle join
  */
 public class LocalJoinOperator<K>
-        extends Operator<Tuple2<K, Iterable<?>[]>>
+        extends Operator<Tuple2<K, Object[]>>
 {
     private final Operator<Tuple2<K, Object>>[] kvDataSets;
+    private final JoinExperiment.JoinMode joinMode;
 
     @SuppressWarnings("unchecked")
     @SafeVarargs
-    protected LocalJoinOperator(Operator<? extends Tuple2<K, ?>> leftDataSet,
+    protected LocalJoinOperator(JoinExperiment.JoinMode joinMode,
+            Operator<? extends Tuple2<K, ?>> leftDataSet,
             Operator<? extends Tuple2<K, ?>>... otherDataSets)
     {
         super(requireNonNull(leftDataSet, "leftDataSet is null").getContext());
+        this.joinMode = requireNonNull(joinMode, "joinMode is null");
         checkState(otherDataSets.length > 0, "must otherDataSets.length > 0");
         this.kvDataSets = MutableList.<Operator<? extends Tuple2<K, ?>>>builder()
                 .add(leftDataSet)
@@ -85,11 +88,12 @@ public class LocalJoinOperator<K>
     }
 
     @Override
-    public Iterator<Tuple2<K, Iterable<?>[]>> compute(Partition split, TaskContext taskContext)
+    public Iterator<Tuple2<K, Object[]>> compute(Partition split, TaskContext taskContext)
     {
-        Iterator<Iterator<Tuple2<K, Object>>> iterators = Stream.of(kvDataSets)
+        @SuppressWarnings("unchecked")
+        Iterator<Tuple2<K, ?>>[] iterators = Stream.of(kvDataSets)
                 .map(operator -> operator.computeOrCache(split, taskContext))
-                .iterator();
-        return JoinExperiment.join(iterators, kvDataSets.length);
+                .toArray(Iterator[]::new);
+        return JoinExperiment.join(joinMode, iterators);
     }
 }

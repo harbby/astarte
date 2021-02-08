@@ -60,6 +60,12 @@ class BatchContextImpl
     }
 
     @Override
+    public void stop()
+    {
+        jobScheduler.stop();
+    }
+
+    @Override
     public AstarteConf getConf()
     {
         return conf;

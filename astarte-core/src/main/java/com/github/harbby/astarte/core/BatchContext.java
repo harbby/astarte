@@ -47,6 +47,8 @@ public interface BatchContext
 {
     public AstarteConf getConf();
 
+    public void stop();
+
     public default <K, V> KvDataSet<K, V> makeKvDataSet(List<Tuple2<K, V>> collection, int parallelism)
     {
         return new KvOperator<>(new CollectionSource<>(this, collection, parallelism));
@@ -115,7 +117,7 @@ public interface BatchContext
 
         /**
          * 独特的local调度与运行模式。不经过网络接口协议，比netLocal更加轻巧简单
-         * 适合进行内核功能研究
+         * 适合进行算子与执行计划研究
          *
          * @param parallelism 并行度
          * @return Builder

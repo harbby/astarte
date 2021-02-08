@@ -16,21 +16,20 @@
 package com.github.harbby.astarte.core.deprecated;
 
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
-import static java.util.Objects.requireNonNull;
+import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 
-@Deprecated
+/**
+ * 实验性join
+ * todo: hash shuffle join存在诸多内存策略问题, 推荐使用sort merge join
+ */
 public class JoinExperiment
 {
     private JoinExperiment() {}
@@ -44,93 +43,104 @@ public class JoinExperiment
     }
 
     @SafeVarargs
-    public static <K> Iterator<Tuple2<K, Iterable<?>[]>> join(Iterator<Tuple2<K, Object>>... iterators)
+    public static <K> Iterator<Tuple2<K, Object[]>> join(JoinMode joinMode, Iterator<Tuple2<K, ?>>... iterators)
     {
-        return join(Iterators.of(iterators), iterators.length);
-    }
-
-    public static <K> Iterator<Tuple2<K, Iterable<?>[]>> join(Iterator<Iterator<Tuple2<K, Object>>> iterators, int length)
-    {
-        Map<K, Iterable<?>[]> memAppendMap = new HashMap<>();
-        int i = 0;
-        while (iterators.hasNext()) {
-            if (i >= length) {
-                throw new IllegalStateException("must length = iterators.size()");
-            }
-
-            Iterator<? extends Tuple2<K, Object>> iterator = iterators.next();
-            while (iterator.hasNext()) {
-                Tuple2<K, Object> t = iterator.next();
-                Collection<Object>[] values = (Collection<Object>[]) memAppendMap.get(t.f1());
-                if (values == null) {
-                    values = new Collection[length];
-                    for (int j = 0; j < length; j++) {
-                        values[j] = new ArrayList<>();
-                    }
-                    memAppendMap.put(t.f1(), values);
-                }
-
-                values[i].add(t.f2());
-            }
-            i++;
+        if (iterators.length == 2) {
+            return broadcastJoin(joinMode, iterators[0], iterators[1]);
         }
-
-        return memAppendMap.entrySet().stream().map(x -> new Tuple2<>(x.getKey(), x.getValue()))
-                .iterator();
+        else {
+            //todo: sort merge join
+            throw new UnsupportedOperationException();
+        }
     }
 
-    public static <F1, F2> Iterator<Tuple2<F1, F2>> cartesian(
-            Iterable<F1> iterable,
-            Iterable<F2> iterable2,
-            JoinMode joinMode)
+    /**
+     * left is small dataSet
+     * right is big dataSet
+     * right >> left
+     */
+    public static <K> Iterator<Tuple2<K, Object[]>> broadcastJoin(JoinMode joinMode, Iterator<Tuple2<K, ?>> left, Iterator<Tuple2<K, ?>> right)
     {
-        requireNonNull(iterable);
-        requireNonNull(iterable2);
-        requireNonNull(joinMode);
-
-        final Collection<F2> collection = (iterable2 instanceof Collection) ?
-                (Collection<F2>) iterable2 : MutableList.copy(iterable2);
-
-        Function<F1, Stream<Tuple2<F1, F2>>> mapper = null;
+        if (joinMode == JoinMode.LEFT_JOIN || joinMode == JoinMode.FULL_JOIN) {
+            return broadcastLeftAndFullJoin(joinMode, left, right);
+        }
+        Map<K, List<Object>> cacheLeft = new HashMap<>();
+        while (left.hasNext()) {
+            Tuple2<K, ?> row = left.next();
+            List<Object> values = cacheLeft.computeIfAbsent(row.f1, key -> new ArrayList<>());
+            values.add(row.f2);
+        }
         switch (joinMode) {
             case INNER_JOIN:
-                if (collection.isEmpty()) {
-                    return Iterators.empty();
-                }
-                mapper = x2 -> collection.stream().map(x3 -> new Tuple2<>(x2, x3));
-                break;
-            case LEFT_JOIN:
-                mapper = x2 -> collection.isEmpty() ?
-                        Stream.of(new Tuple2<>(x2, null)) :
-                        collection.stream().map(x3 -> new Tuple2<>(x2, x3));
-                break;
+                return Iterators.flatMap(right, rightRow -> {
+                    List<Object> values = cacheLeft.get(rightRow.f1);
+                    if (values == null) {
+                        return Iterators.empty();
+                    }
+                    else if (values.size() == 1) {
+                        Object[] objects = new Object[] {values.get(0), rightRow.f2};
+                        return Iterators.of(Tuple2.of(rightRow.f1, objects));
+                    }
+                    return values.stream().map(v -> {
+                        Object[] objects = new Object[] {v, rightRow.f2};
+                        return Tuple2.of(rightRow.f1, objects);
+                    }).iterator();
+                });
+            case RIGHT_JOIN:
+                return Iterators.flatMap(right, rightRow -> {
+                    List<Object> values = cacheLeft.get(rightRow.f1);
+                    if (values == null) {
+                        Object[] objects = new Object[] {null, rightRow.f2};
+                        return Iterators.of(Tuple2.of(rightRow.f1, objects));
+                    }
+                    else if (values.size() == 1) {
+                        Object[] objects = new Object[] {values.get(0), rightRow.f2};
+                        return Iterators.of(Tuple2.of(rightRow.f1, objects));
+                    }
+                    return values.stream().map(v -> {
+                        Object[] objects = new Object[] {v, rightRow.f2};
+                        return Tuple2.of(rightRow.f1, objects);
+                    }).iterator();
+                });
             default:
-                //todo: other
                 throw new UnsupportedOperationException();
         }
-
-        return toStream(iterable)
-                .flatMap(mapper)
-                .iterator();
     }
 
-    private static <T> Stream<T> toStream(Iterable<T> iterable)
+    public static <K> Iterator<Tuple2<K, Object[]>> broadcastLeftAndFullJoin(JoinMode joinMode, Iterator<Tuple2<K, ?>> left, Iterator<Tuple2<K, ?>> right)
     {
-        if (iterable instanceof Collection) {
-            return ((Collection<T>) iterable).stream();
+        checkState(joinMode == JoinMode.LEFT_JOIN || joinMode == JoinMode.FULL_JOIN, "LEFT_JOIN or FULL_JOIN");
+        Map<K, Tuple2<List<Object>, Boolean>> cacheLeft = new HashMap<>();
+        while (left.hasNext()) {
+            Tuple2<K, ?> row = left.next();
+            Tuple2<List<Object>, Boolean> values = cacheLeft.computeIfAbsent(row.f1, key -> Tuple2.of(new ArrayList<>(), false));
+            values.f1.add(row.f2);
         }
-        return StreamSupport.stream(iterable.spliterator(), false);
-    }
-
-    public static <F1, F2> Iterator<Tuple2<F1, F2>> cartesian(
-            Iterator<F1> iterator,
-            Iterator<F2> iterator2,
-            JoinMode joinMode)
-    {
-        requireNonNull(iterator);
-        requireNonNull(iterator2);
-        requireNonNull(joinMode);
-
-        return cartesian(() -> iterator, () -> iterator2, joinMode);
+        Iterator<Tuple2<K, Object[]>> innerJoin = Iterators.flatMap(right, rightRow -> {
+            Tuple2<List<Object>, Boolean> values = cacheLeft.get(rightRow.f1);
+            if (values == null) {
+                if (joinMode == JoinMode.LEFT_JOIN) {
+                    return Iterators.empty();
+                }
+                else {
+                    Object[] objects = new Object[] {null, rightRow.f2};
+                    return Iterators.of(Tuple2.of(rightRow.f1, objects));
+                }
+            }
+            values.f2 = true; //标注为命中
+            if (values.f1.size() == 1) {
+                Object[] objects = new Object[] {values.f1.get(0), rightRow.f2};
+                return Iterators.of(Tuple2.of(rightRow.f1, objects));
+            }
+            return values.f1.stream().map(v -> {
+                Object[] objects = new Object[] {v, rightRow.f2};
+                return Tuple2.of(rightRow.f1, objects);
+            }).iterator();
+        });
+        Iterator<Tuple2<K, Object[]>> leftOnly = cacheLeft.entrySet().stream().filter(x -> !x.getValue().f2).map(x -> {
+            Object[] objects = new Object[] {x.getValue().f1.get(0), null};
+            return Tuple2.of(x.getKey(), objects);
+        }).iterator();
+        return Iterators.concat(innerJoin, leftOnly);
     }
 }
