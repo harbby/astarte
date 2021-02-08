@@ -23,7 +23,7 @@ import com.github.harbby.astarte.core.api.function.KvMapper;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
-import com.github.harbby.astarte.core.operator.CacheOperator;
+import com.github.harbby.astarte.core.operator.CacheManager;
 import com.github.harbby.astarte.core.operator.KeyValueGroupedOperator;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
@@ -65,7 +65,7 @@ public interface DataSet<R>
 
     <K> KeyValueGroupedOperator<K, R> groupByKey(Mapper<R, K> mapFunc);
 
-    DataSet<R> cache(CacheOperator.CacheMode cacheMode);
+    DataSet<R> cache(CacheManager.CacheMode cacheMode);
 
     DataSet<R> cache();
 

@@ -44,31 +44,33 @@ import static java.util.Objects.requireNonNull;
  * shuffle join
  */
 public class ShuffleJoinOperator<K>
-        extends Operator<Tuple2<K, Iterable<?>[]>>
+        extends Operator<Tuple2<K, Object[]>>
 {
     private final Partitioner partitioner;
-    private final int dataSetNum;
     private final int[] shuffleMapIds;
+    private final JoinExperiment.JoinMode joinMode;
 
     private final transient List<ShuffleMapOperator<K, Object>> dependencies;
 
     private final Map<Integer, Encoder<Tuple2<K, Object>>> encoders = new HashMap<>();
 
     @SafeVarargs
-    protected ShuffleJoinOperator(Partitioner partitioner, Operator<? extends Tuple2<K, ?>> leftDataSet,
+    protected ShuffleJoinOperator(Partitioner partitioner, JoinExperiment.JoinMode joinMode,
+            Operator<? extends Tuple2<K, ?>> leftDataSet,
             Operator<? extends Tuple2<K, ?>>... otherDataSets)
     {
         super(leftDataSet.getContext()); //不再传递依赖
         this.partitioner = requireNonNull(partitioner, "requireNonNull");
-        this.dataSetNum = 1 + otherDataSets.length;
+        this.joinMode = requireNonNull(joinMode, "joinMode is null");
         this.dependencies = ImmutableList.copy(createShuffleMapOps(partitioner, leftDataSet, otherDataSets));
         this.shuffleMapIds = dependencies.stream().mapToInt(Operator::getId).toArray();
-        for (int i = 0; i < dataSetNum; i++) {
+        for (int i = 0; i < otherDataSets.length + 1; i++) {
             ShuffleMapOperator<K, Object> shuffleMapOperator = dependencies.get(i);
             encoders.put(shuffleMapOperator.getId(), shuffleMapOperator.getShuffleMapRowEncoder());
         }
     }
 
+    @SafeVarargs
     private static <K> List<ShuffleMapOperator<K, Object>> createShuffleMapOps(
             Partitioner partitioner,
             Operator<? extends Tuple2<K, ?>> leftDataSet,
@@ -116,20 +118,21 @@ public class ShuffleJoinOperator<K>
     }
 
     @Override
-    public Iterator<Tuple2<K, Iterable<?>[]>> compute(Partition split, TaskContext taskContext)
+    public Iterator<Tuple2<K, Object[]>> compute(Partition split, TaskContext taskContext)
     {
         Map<Integer, Integer> deps = taskContext.getDependStages();
         for (Integer shuffleId : deps.values()) {
             checkState(shuffleId != null, "shuffleId is null");
         }
         ShuffleClient shuffleClient = taskContext.getShuffleClient();
-        Iterator<Iterator<Tuple2<K, Object>>> iterators = IntStream.of(shuffleMapIds)
+        @SuppressWarnings("unchecked")
+        Iterator<Tuple2<K, ?>>[] iterators = IntStream.of(shuffleMapIds)
                 .mapToObj(operator -> {
                     int shuffleId = deps.get(operator);
                     Encoder<Tuple2<K, Object>> encoder = encoders.get(operator);
                     return shuffleClient.readShuffleData(encoder, shuffleId, split.getId());
-                }).iterator();
+                }).toArray(Iterator[]::new);
 
-        return JoinExperiment.join(iterators, dataSetNum);
+        return JoinExperiment.join(joinMode, iterators);
     }
 }

@@ -13,32 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.harbby.astarte.core.operator;
+package com.github.harbby.astarte.core;
 
-import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
-public class CacheOperatorTest
+public class OptimizerTest
 {
-    private final BatchContext mppContext = BatchContext.builder().local(1).getOrCreate();
+    private final BatchContext mppContext = BatchContext.builder()
+            .local(2)
+            .getOrCreate();
 
     @Test
-    public void cacheUnCacheTest()
+    public void optimize1est()
     {
-        KvDataSet<String, Integer> ds1 = mppContext.makeKvDataSet(Arrays.asList(
-                Tuple2.of("hp", 8),
-                Tuple2.of("hp", 10)
-        )).mapValues(x -> x).cache().reduceByKey(Integer::sum).cache();
+        KvDataSet<String, Integer> ageDs = mppContext.makeKvDataSet(Collections.singletonList(
+                Tuple2.of("hp", 18)
+        )).reduceByKey(Integer::sum);
 
-        ds1.print();
-
-        //todo: 未实现该算子
-        ds1.unCache();
-
-        System.out.println();
+        List<Tuple2<String, Tuple2<Integer, Integer>>> data = ageDs
+                //.mapKeys(x -> x + 1)  //todo: ind bug
+                .join(ageDs)
+                .collect();
+        Assert.assertEquals(data,
+                Collections.singletonList(Tuple2.of("hp", Tuple2.of(18, 18))));
     }
 }

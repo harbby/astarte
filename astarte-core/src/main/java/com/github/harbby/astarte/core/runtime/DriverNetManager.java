@@ -88,8 +88,8 @@ public class DriverNetManager
         this.future = serverBootstrap.bind(port);
         logger.info("started... driver manager service port is {}", port);
         future.channel().closeFuture().addListener((ChannelFutureListener) channelFuture -> {
-            boosGroup.shutdownGracefully().sync();
-            workerGroup.shutdownGracefully().sync();
+            boosGroup.shutdownGracefully();
+            workerGroup.shutdownGracefully();
         });
     }
 
@@ -134,7 +134,7 @@ public class DriverNetManager
 
         public DriverNetManagerHandler()
         {
-            super(65536, 0, 4);
+            super(1048576, 0, 4);
         }
 
         @Override

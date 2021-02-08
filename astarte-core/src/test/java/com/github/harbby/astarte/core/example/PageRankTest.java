@@ -18,6 +18,7 @@ package com.github.harbby.astarte.core.example;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
@@ -26,6 +27,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * pageRank 由google创始人 拉里·佩奇（Larry Page）发明.
@@ -40,7 +42,7 @@ public class PageRankTest
             .getOrCreate();
 
     @Test
-    public void pageRank4itersTest()
+    public void pageRank150ItersTest()
     {
         int iters = 150;  //迭代次数
 
@@ -70,5 +72,41 @@ public class PageRankTest
         Assert.assertEquals(data.get("2"), 0.6936936936936938, 1e-7);
         Assert.assertEquals(data.get("3"), 0.6936936936936938, 1e-7);
         Assert.assertEquals(data.get("4"), 0.6936936936936938, 1e-7);
+    }
+
+    @Test
+    public void pageRankUseNumberEncoderTest()
+    {
+        int iters = 150;  //迭代次数
+
+        DataSet<String> lines = mppContext.textFile("../data/batch/pagerank_data.txt");
+        KvDataSet<Integer, int[]> links = lines.kvDataSet(s -> {
+            String[] parts = s.split("\\s+");
+            return new Tuple2<>(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
+        }).distinct(2).groupByKey()
+                .mapValues(x -> ((List<Integer>) x).stream().mapToInt(y -> y).toArray())
+                .encoder(Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray()))
+                .cache();
+        KvDataSet<Integer, Double> ranks = links.mapValues(v -> 1.0);
+        for (int i = 1; i <= iters; i++) {
+            DataSet<Tuple2<Integer, Double>> contribs = links.join(ranks).values().flatMapIterator(it -> {
+                int[] urls = it.f1();
+                Double rank = it.f2();
+
+                long size = urls.length;
+                return IntStream.of(urls).mapToObj(url -> new Tuple2<>(url, rank / size)).iterator();
+            });
+
+            ranks = KvDataSet.toKvDataSet(contribs).reduceByKey((x, y) -> x + y).mapValues(x -> 0.15 + 0.85 * x);
+        }
+
+        List<Tuple2<Integer, Double>> output = ranks.collect();
+        output.forEach(tup -> System.out.println(String.format("%s has rank:  %s .", tup.f1(), tup.f2())));
+
+        Map<Integer, Double> data = output.stream().collect(Collectors.toMap(k -> k.f1(), v -> v.f2()));
+        Assert.assertEquals(data.get(1), 1.918918918918918D, 1e-7);
+        Assert.assertEquals(data.get(2), 0.6936936936936938, 1e-7);
+        Assert.assertEquals(data.get(3), 0.6936936936936938, 1e-7);
+        Assert.assertEquals(data.get(4), 0.6936936936936938, 1e-7);
     }
 }

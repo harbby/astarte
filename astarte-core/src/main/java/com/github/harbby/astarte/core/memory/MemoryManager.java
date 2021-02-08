@@ -15,6 +15,25 @@
  */
 package com.github.harbby.astarte.core.memory;
 
+import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class MemoryManager
 {
+    private MemoryManager() {}
+
+    private static final AtomicInteger allocatedMemory = new AtomicInteger(0);
+
+    public static MemoryBlock allocateMemoryBlock()
+    {
+        return new MemoryBlock();
+    }
+
+    public static ByteBuffer allocateMemory(int capacity)
+    {
+        //ByteBuffer page = Platform.allocateDirectBuffer(capacity);
+        ByteBuffer page = ByteBuffer.allocate(capacity);
+        allocatedMemory.addAndGet(page.capacity());
+        return page;
+    }
 }

@@ -37,12 +37,11 @@ public class LocalNettyExecutorManager
     public void start()
     {
         pool.submit(() -> {
-            try {
-                Executor executor = new Executor(getVcores());
+            try (Executor executor = new Executor(getVcores())) {
                 executor.join();
             }
             catch (InterruptedException e) {
-                logger.info("local executor exit 0");
+                logger.info("local executor closing...");
             }
             catch (Exception e) {
                 logger.error("executor running failed ", e);
@@ -53,6 +52,6 @@ public class LocalNettyExecutorManager
     @Override
     public void stop()
     {
-        pool.shutdown();
+        pool.shutdownNow();
     }
 }

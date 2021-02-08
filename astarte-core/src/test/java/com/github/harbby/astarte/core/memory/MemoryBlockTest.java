@@ -15,6 +15,27 @@
  */
 package com.github.harbby.astarte.core.memory;
 
-public class MemoryPage
+import com.github.harbby.gadtry.io.IOUtils;
+import org.junit.Assert;
+import org.junit.Test;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+
+public class MemoryBlockTest
 {
+    @Test
+    public void coreFeaturesTest()
+            throws IOException
+    {
+        MemoryBlock block = new MemoryBlock();
+        block.write(-1);
+        block.write(-2);
+        block.write(3);
+        block.write("abc".getBytes(StandardCharsets.UTF_8));
+        block.finalData();
+
+        byte[] bytes = IOUtils.readAllBytes(block.prepareInputStream());
+        Assert.assertArrayEquals(bytes, new byte[] {-1, -2, 3, 97, 98, 99});
+    }
 }

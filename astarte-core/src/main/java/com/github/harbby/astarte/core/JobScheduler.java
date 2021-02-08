@@ -37,9 +37,7 @@ public abstract class JobScheduler
             Mapper<Iterator<E>, R> action,
             Map<Stage, Map<Integer, Integer>> stageMap);
 
-    public void stop()
-    {
-    }
+    public abstract void stop();
 
     public static void setFactory(JobScheduler.Factory factory)
     {

@@ -267,11 +267,21 @@ public final class Encoders
         }
     }
 
-    private static class Tuple2Encoder<K, V>
+    public static class Tuple2Encoder<K, V>
             implements Encoder<Tuple2<K, V>>
     {
         private final Encoder<K> kEncoder;
         private final Encoder<V> vEncoder;
+
+        public Encoder<K> getKeyEncoder()
+        {
+            return kEncoder;
+        }
+
+        public Encoder<V> getValueEncoder()
+        {
+            return vEncoder;
+        }
 
         private Tuple2Encoder(Encoder<K> kEncoder, Encoder<V> vEncoder)
         {

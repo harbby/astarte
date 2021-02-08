@@ -107,4 +107,9 @@ public class LocalJobScheduler
         }
         throw new UnsupportedOperationException("job " + jobId + " Not found ResultStage");
     }
+
+    @Override
+    public void stop()
+    {
+    }
 }

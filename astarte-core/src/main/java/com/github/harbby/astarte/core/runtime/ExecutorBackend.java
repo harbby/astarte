@@ -73,7 +73,11 @@ public class ExecutorBackend
                 .addListener((ChannelFutureListener) future -> {
                     this.channel = future.channel();
                     writeEvent(channel, new ExecutorEvent.ExecutorInitSuccessEvent(shuffleServiceAddress));
-                }).sync();
+                }).sync()
+                .channel().closeFuture()
+                .addListener((ChannelFutureListener) future -> {
+                    workerGroup.shutdownGracefully();
+                });
     }
 
     private class ExecutorBackendHandler

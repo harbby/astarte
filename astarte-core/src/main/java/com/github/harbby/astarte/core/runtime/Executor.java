@@ -22,6 +22,7 @@ import com.github.harbby.gadtry.base.Throwables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.net.SocketAddress;
 import java.util.Set;
 import java.util.UUID;
@@ -32,6 +33,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 public class Executor
+        implements Closeable
 {
     private static final Logger logger = LoggerFactory.getLogger(Executor.class);
     private final String executorUUID = UUID.randomUUID().toString();
@@ -92,6 +94,13 @@ public class Executor
             }
         });
         runningTasks.put(task.getTaskId(), new TaskRunner(task, future));
+    }
+
+    @Override
+    public void close()
+    {
+        pool.shutdownNow();
+        shuffleService.stop();
     }
 
     public static class TaskRunner
