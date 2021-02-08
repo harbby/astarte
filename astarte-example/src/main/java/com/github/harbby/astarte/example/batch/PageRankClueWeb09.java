@@ -50,7 +50,7 @@ public class PageRankClueWeb09
     public static void main(String[] args)
             throws Exception
     {
-        BatchContext mppContext = BatchContext.builder().netLocal(2).getOrCreate();
+        BatchContext mppContext = BatchContext.builder().local(2).getOrCreate();
         int iters = 3;  //迭代次数
 
 //        testZeroCopy2();
@@ -58,14 +58,12 @@ public class PageRankClueWeb09
 //        bioTest1();
 //        nioTest2();
 
-        DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(new FileIteratorReader(DATA_PATH), 1);
+        DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(new FileIteratorReader(DATA_PATH), 1)
+                .partitionLimit(100_0000);
         KvDataSet<Integer, int[]> links = KvDataSet.toKvDataSet(lines)
                 .encoder(Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray()))
-                .rePartitionByKey(2).mapValues(x -> x); //.cache();
-        for (int i = 0; i < 3; i++) {
-            System.out.println(links.count());
-        }
-        System.exit(0);
+                .rePartitionByKey(2).mapValues(x -> x, Encoders.jIntArray())
+                .cache();
 
         KvDataSet<Integer, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {
@@ -81,6 +79,8 @@ public class PageRankClueWeb09
         }
         List<Tuple2<Integer, Double>> output = ranks.collect();
         output.forEach(tup -> System.out.println(String.format("%s has rank:  %s .", tup.f1(), tup.f2())));
+
+        mppContext.stop();
     }
 
     /**
