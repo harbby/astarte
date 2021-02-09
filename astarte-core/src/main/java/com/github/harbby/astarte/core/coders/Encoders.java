@@ -48,6 +48,7 @@ public final class Encoders
     private static final Encoder<Character> charEncoder = new CharEncoder();
     private static final Encoder<Date> dateEncoder = new DateEncoder();
     private static final Encoder<Short> shortEncoder = new ShortEncoder();
+    private static final Encoder<Float> floatEncoder = new FloatEncoder();
     private static final Encoder<java.sql.Date> sqlDateEncoder = new SqlDateEncoder();
     private static final Encoder<Timestamp> timestampEncoder = new SqlTimestampEncoder();
     private static final Encoder<long[]> longArrEncoder = new LongArrayEncoder();
@@ -134,6 +135,11 @@ public final class Encoders
     public static Encoder<Byte> jByte()
     {
         return byteEncoder;
+    }
+
+    public static Encoder<Float> jFloat()
+    {
+        return floatEncoder;
     }
     public static Encoder<Date> jDate()
     {

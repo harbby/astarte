@@ -95,7 +95,7 @@ public class EncoderTest
         Encoder<Byte> byteEncoder = Encoders.jByte();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         DataOutput dataOutput = new DataOutputStream(outputStream);
-        byte a = (byte)127;
+        byte a = (byte) 127;
         byteEncoder.encoder(a, dataOutput);
         ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
         DataInput input = new DataInputStream(inputStream);
@@ -145,11 +145,27 @@ public class EncoderTest
         Encoder<Short> shortEncoder = Encoders.jShort();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         DataOutput dataOutput = new DataOutputStream(outputStream);
-        Short a = (short)10;
+        Short a = (short) 10;
         shortEncoder.encoder(a, dataOutput);
         ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
         DataInput input = new DataInputStream(inputStream);
         Short decoder = shortEncoder.decoder(input);
+
+        Assert.assertTrue(decoder == a);
+    }
+
+    @Test
+    public void floatSerializeTest()
+            throws IOException
+    {
+        Encoder<Float> floatEncoder = Encoders.jFloat();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        float a = 10.0f;
+        floatEncoder.encoder(a, dataOutput);
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
+        DataInput input = new DataInputStream(inputStream);
+        float decoder = floatEncoder.decoder(input);
 
         Assert.assertTrue(decoder == a);
     }
