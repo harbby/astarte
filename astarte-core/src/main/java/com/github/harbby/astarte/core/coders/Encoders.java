@@ -88,8 +88,6 @@ public final class Encoders
         }
     }
 
-
-
     public static <K, V> Encoder<Tuple2<K, V>> tuple2(Encoder<K> kEncoder, Encoder<V> vEncoder)
     {
         requireNonNull(kEncoder, "key Encoder is null");
@@ -97,7 +95,8 @@ public final class Encoders
         return new Tuple2Encoder<>(kEncoder, vEncoder);
     }
 
-    public static Encoder<String> jString(){
+    public static Encoder<String> jString()
+    {
         return stringEncoder;
     }
 

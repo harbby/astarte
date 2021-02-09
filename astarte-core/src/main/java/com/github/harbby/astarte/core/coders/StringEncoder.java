@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.github.harbby.astarte.core.coders;
 
 import java.io.DataInput;
@@ -25,10 +24,14 @@ import java.io.IOException;
  * @date 2021.02.07 21:58
  * Java String Serialize
  */
-public class StringEncoder implements Encoder<String> {
+@SuppressWarnings("checkstyle:RegexpMultiline")
+public class StringEncoder
+        implements Encoder<String>
+{
     //todo 有缺陷，如果字符串长度很大，会有问题
     @Override
-    public void encoder(String value, DataOutput output) throws IOException {
+    public void encoder(String value, DataOutput output) throws IOException
+    {
         if (value != null) {
             final int length = value.length();
             output.writeInt(length);
@@ -36,15 +39,14 @@ public class StringEncoder implements Encoder<String> {
                 char c = value.charAt(i);
                 output.write(c);
             }
-        } else {
+        }
+        else {
             output.writeInt(0);
         }
-
-
     }
-
     @Override
-    public String decoder(DataInput input) throws IOException {
+    public String decoder(DataInput input) throws IOException
+    {
         final int length = input.readInt();
         if (length == 0) {
             return null;
