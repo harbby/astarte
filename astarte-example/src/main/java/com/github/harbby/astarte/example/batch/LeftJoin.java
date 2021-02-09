@@ -21,13 +21,13 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Arrays;
 
-public class Join2
+public class LeftJoin
 {
-    private Join2() {}
+    private LeftJoin() {}
 
     public static void main(String[] args)
     {
-        BatchContext mppContext = BatchContext.builder().getOrCreate();
+        BatchContext mppContext = BatchContext.builder().local(2).getOrCreate();
 
         KvDataSet<String, Integer> ageDs = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", 8),
@@ -45,6 +45,6 @@ public class Join2
         KvDataSet<String, Tuple2<Integer, String>> out = ageDs.leftJoin(cityDs);
 
         // a,(143, 41)
-        out.foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
+        out.print();
     }
 }

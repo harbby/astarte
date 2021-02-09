@@ -18,6 +18,7 @@ package com.github.harbby.astarte.example.batch;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.example.batch.util.ExampleUtil;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 public class JoinDemo
@@ -26,10 +27,8 @@ public class JoinDemo
 
     public static void main(String[] args)
     {
-        BatchContext mppContext = BatchContext.builder().getOrCreate();
-        String sparkHome = System.getenv("SPARK_HOME");
-
-        DataSet<String> ds = mppContext.textFile(sparkHome + "/README.md");
+        BatchContext mppContext = BatchContext.builder().local(2).getOrCreate();
+        DataSet<String> ds = ExampleUtil.getDataSet(mppContext);
         DataSet<String> worlds = ds.flatMap(input -> input.toLowerCase().split(" "))
                 .filter(x -> !"".equals(x.trim()));
 
