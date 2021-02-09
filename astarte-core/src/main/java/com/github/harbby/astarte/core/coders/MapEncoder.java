@@ -15,8 +15,6 @@
  */
 package com.github.harbby.astarte.core.coders;
 
-
-
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -30,32 +28,37 @@ import static java.util.Objects.requireNonNull;
  * @date 2021.02.07 21:34:23
  * map Serialize
  */
-public class MapEncoder<K, V> implements Encoder<Map<K,V>>{
-
+public class MapEncoder<K, V>
+        implements Encoder<Map<K, V>>
+{
     private final Encoder<K> kEncoder;
     private final Encoder<V> vEncoder;
 
     /**
      * encode map
+     *
      * @param kEncoder
      * @param vEncoder
      * @param <K>
      * @param <V>
      * @return
      */
-    public static <K,V> Encoder<Map<K,V>> mapEncoder(Encoder<K> kEncoder, Encoder<V> vEncoder){
+    public static <K, V> Encoder<Map<K, V>> mapEncoder(Encoder<K> kEncoder, Encoder<V> vEncoder)
+    {
         requireNonNull(kEncoder, "key Encoder is null");
         requireNonNull(vEncoder, "value Encoder is null");
         return new MapEncoder<>(kEncoder, vEncoder);
     }
 
-    private MapEncoder(Encoder<K> kEncoder, Encoder<V> vEncoder) {
+    private MapEncoder(Encoder<K> kEncoder, Encoder<V> vEncoder)
+    {
         this.kEncoder = kEncoder;
         this.vEncoder = vEncoder;
     }
 
     @Override
-    public void encoder(Map<K, V> value, DataOutput output) throws IOException {
+    public void encoder(Map<K, V> value, DataOutput output) throws IOException
+    {
         final int size = value.size();
         //write size on the head
         output.writeInt(size);
@@ -64,20 +67,20 @@ public class MapEncoder<K, V> implements Encoder<Map<K,V>>{
                 value.entrySet()) {
             K k = entry.getKey();
             V v = entry.getValue();
-            kEncoder.encoder(k,output);
-            vEncoder.encoder(v,output);
+            kEncoder.encoder(k, output);
+            vEncoder.encoder(v, output);
         }
-
     }
 
     @Override
-    public Map<K, V> decoder(DataInput input) throws IOException {
+    public Map<K, V> decoder(DataInput input) throws IOException
+    {
         final int size = input.readInt();
-        Map<K,V> map = new HashMap<>(size);
+        Map<K, V> map = new HashMap<>(size);
         for (int i = 0; i < size; i++) {
             K key = kEncoder.decoder(input);
             V value = vEncoder.decoder(input);
-            map.put(key,value);
+            map.put(key, value);
         }
         return map;
     }
