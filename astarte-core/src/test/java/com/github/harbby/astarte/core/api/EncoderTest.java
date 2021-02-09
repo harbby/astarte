@@ -22,7 +22,6 @@ import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
-
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutput;
 import java.io.DataOutputStream;
@@ -34,10 +33,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-public class EncoderTest {
+public class EncoderTest
+{
     @Test
     public void javaSerializeTest()
-            throws IOException {
+            throws IOException
+    {
         Tuple2<Long, Long> tuple2 = Tuple2.of(1L, 2L);
         byte[] bytes = Serializables.serialize(tuple2);
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -66,8 +67,7 @@ public class EncoderTest {
         DataInput input = new DataInputStream(inputtStream);
         Map<String, String> decoder = mapEncoder.decoder(input);
         Set<String> keys = map.keySet();
+
         Assert.assertTrue(decoder.keySet().toString().equals(keys.toString()));
-
-
     }
 }
