@@ -17,7 +17,6 @@ package com.github.harbby.astarte.core.api;
 
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
-import com.github.harbby.astarte.core.coders.MapEncoder;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
@@ -30,6 +29,8 @@ import java.io.DataInputStream;
 import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.sql.Timestamp;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -60,15 +61,130 @@ public class EncoderTest
         map.put("height", "2");
         map.put(null, "3");
         map.put("ss", null);
-        Encoder<Map<String, String>> mapEncoder = MapEncoder.mapEncoder(Encoders.jString(), Encoders.jString());
+        Encoder<Map<String, String>> mapEncoder = Encoders.mapEncoder(Encoders.jString(), Encoders.jString());
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         DataOutput dataOutput = new DataOutputStream(outputStream);
         mapEncoder.encoder(map, dataOutput);
-        ByteArrayInputStream inputtStream = new ByteArrayInputStream(outputStream.toByteArray());
-        DataInput input = new DataInputStream(inputtStream);
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
+        DataInput input = new DataInputStream(inputStream);
         Map<String, String> decoder = mapEncoder.decoder(input);
         Set<String> keys = map.keySet();
 
         Assert.assertTrue(decoder.keySet().toString().equals(keys.toString()));
+    }
+
+    @Test
+    public void booleanSerializeTest()
+            throws IOException
+    {
+        Encoder<Boolean> booleanEncoder = Encoders.jBoolean();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        booleanEncoder.encoder(true, dataOutput);
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
+        DataInput input = new DataInputStream(inputStream);
+        Boolean decoder = booleanEncoder.decoder(input);
+
+        Assert.assertTrue(decoder == true);
+    }
+
+    @Test
+    public void byteSerializeTest()
+            throws IOException
+    {
+        Encoder<Byte> byteEncoder = Encoders.jByte();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        byte a = (byte)127;
+        byteEncoder.encoder(a, dataOutput);
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
+        DataInput input = new DataInputStream(inputStream);
+        byte decoder = byteEncoder.decoder(input);
+
+        Assert.assertTrue(decoder == a);
+    }
+
+    @Test
+    public void charSerializeTest()
+            throws IOException
+    {
+        Encoder<Character> characterEncoder = Encoders.jChar();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        char a = 'a';
+        characterEncoder.encoder(a, dataOutput);
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
+        DataInput input = new DataInputStream(inputStream);
+        char decoder = characterEncoder.decoder(input);
+
+        Assert.assertTrue(decoder == a);
+    }
+
+    @Test
+    public void dateSerializeTest()
+            throws IOException
+    {
+        Encoder<Date> dateEncoder = Encoders.jDate();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        Date a = null;
+//        Date a = new Date();
+        dateEncoder.encoder(a, dataOutput);
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
+        DataInput input = new DataInputStream(inputStream);
+        Date decoder = dateEncoder.decoder(input);
+
+        Assert.assertTrue(decoder == null);
+//        Assert.assertTrue(decoder.getTime() == a.getTime());
+    }
+
+    @Test
+    public void shortSerializeTest()
+            throws IOException
+    {
+        Encoder<Short> shortEncoder = Encoders.jShort();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        Short a = (short)10;
+        shortEncoder.encoder(a, dataOutput);
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
+        DataInput input = new DataInputStream(inputStream);
+        Short decoder = shortEncoder.decoder(input);
+
+        Assert.assertTrue(decoder == a);
+    }
+
+    @Test
+    public void sqlDateSerializeTest()
+            throws IOException
+    {
+        Encoder<java.sql.Date> dateEncoder = Encoders.sqlDate();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        java.sql.Date a = new java.sql.Date(1567865756L);
+        dateEncoder.encoder(a, dataOutput);
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
+        DataInput input = new DataInputStream(inputStream);
+        java.sql.Date decoder = dateEncoder.decoder(input);
+
+        Assert.assertTrue(decoder.getTime() == a.getTime());
+    }
+
+    @Test
+    public void sqlTimestampSerializeTest()
+            throws IOException
+    {
+        Encoder<Timestamp> timestampEncoder = Encoders.sqlTimestamp();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        Timestamp a = new Timestamp(1567865756L);
+        timestampEncoder.encoder(a, dataOutput);
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
+        DataInput input = new DataInputStream(inputStream);
+        Timestamp decoder = timestampEncoder.decoder(input);
+
+//        Assert.assertTrue(decoder == a);
+        Assert.assertTrue(decoder.getTime() == a.getTime());
+        Assert.assertTrue(decoder.getNanos() == a.getNanos());
     }
 }

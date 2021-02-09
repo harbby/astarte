@@ -21,8 +21,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import static java.util.Objects.requireNonNull;
-
 /**
  * @author ivan
  * @date 2021.02.07 21:34:23
@@ -34,23 +32,7 @@ public class MapEncoder<K, V>
     private final Encoder<K> kEncoder;
     private final Encoder<V> vEncoder;
 
-    /**
-     * encode map
-     *
-     * @param kEncoder
-     * @param vEncoder
-     * @param <K>
-     * @param <V>
-     * @return
-     */
-    public static <K, V> Encoder<Map<K, V>> mapEncoder(Encoder<K> kEncoder, Encoder<V> vEncoder)
-    {
-        requireNonNull(kEncoder, "key Encoder is null");
-        requireNonNull(vEncoder, "value Encoder is null");
-        return new MapEncoder<>(kEncoder, vEncoder);
-    }
-
-    private MapEncoder(Encoder<K> kEncoder, Encoder<V> vEncoder)
+    protected MapEncoder(Encoder<K> kEncoder, Encoder<V> vEncoder)
     {
         this.kEncoder = kEncoder;
         this.vEncoder = vEncoder;

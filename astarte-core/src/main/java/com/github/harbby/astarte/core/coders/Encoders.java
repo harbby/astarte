@@ -26,6 +26,9 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.Serializable;
+import java.sql.Timestamp;
+import java.util.Date;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -40,6 +43,13 @@ public final class Encoders
     private Encoders() {}
 
     private static final Encoder<Long> longEncoder = new LongEncoder();
+    private static final Encoder<Boolean> booleanEncoder = new BooleanEncoder();
+    private static final Encoder<Byte> byteEncoder = new ByteEncoder();
+    private static final Encoder<Character> charEncoder = new CharEncoder();
+    private static final Encoder<Date> dateEncoder = new DateEncoder();
+    private static final Encoder<Short> shortEncoder = new ShortEncoder();
+    private static final Encoder<java.sql.Date> sqlDateEncoder = new SqlDateEncoder();
+    private static final Encoder<Timestamp> timestampEncoder = new SqlTimestampEncoder();
     private static final Encoder<long[]> longArrEncoder = new LongArrayEncoder();
     private static final long[] zeroLongArr = new long[0];
 
@@ -88,6 +98,22 @@ public final class Encoders
         }
     }
 
+    /**
+     * encode map
+     *
+     * @param kEncoder
+     * @param vEncoder
+     * @param <K>
+     * @param <V>
+     * @return
+     */
+    public static <K, V> Encoder<Map<K, V>> mapEncoder(Encoder<K> kEncoder, Encoder<V> vEncoder)
+    {
+        requireNonNull(kEncoder, "key Encoder is null");
+        requireNonNull(vEncoder, "value Encoder is null");
+        return new MapEncoder<>(kEncoder, vEncoder);
+    }
+
     public static <K, V> Encoder<Tuple2<K, V>> tuple2(Encoder<K> kEncoder, Encoder<V> vEncoder)
     {
         requireNonNull(kEncoder, "key Encoder is null");
@@ -100,6 +126,36 @@ public final class Encoders
         return stringEncoder;
     }
 
+    public static Encoder<Boolean> jBoolean()
+    {
+        return booleanEncoder;
+    }
+
+    public static Encoder<Byte> jByte()
+    {
+        return byteEncoder;
+    }
+    public static Encoder<Date> jDate()
+    {
+        return dateEncoder;
+    }
+    public static Encoder<Short> jShort()
+    {
+        return shortEncoder;
+    }
+    public static Encoder<java.sql.Date> sqlDate()
+    {
+        return sqlDateEncoder;
+    }
+    public static Encoder<Timestamp> sqlTimestamp()
+    {
+        return timestampEncoder;
+    }
+
+    public static Encoder<Character> jChar()
+    {
+        return charEncoder;
+    }
     public static Encoder<Long> jLong()
     {
         return longEncoder;
