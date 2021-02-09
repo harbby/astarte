@@ -34,6 +34,16 @@
         <junit.version>4.13.1</junit.version>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>snapshot</id>
+            <name>aliyun</name>
+            <url>https://oss.sonatype.org/service/local/repositories/snapshots/content/</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
     <dependencyManagement>
         <dependencies>
             <dependency>
