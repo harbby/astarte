@@ -36,11 +36,12 @@
 
     <repositories>
         <repository>
-            <id>snapshot</id>
-            <name>aliyun</name>
+            <id>maven snapshots</id>
+            <name>maven snapshots</name>
             <url>https://oss.sonatype.org/service/local/repositories/snapshots/content/</url>
             <snapshots>
                 <enabled>true</enabled>
+                <updatePolicy>daily</updatePolicy>
             </snapshots>
         </repository>
     </repositories>
