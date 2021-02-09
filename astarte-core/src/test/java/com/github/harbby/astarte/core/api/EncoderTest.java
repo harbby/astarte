@@ -23,17 +23,21 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutput;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-public class EncoderTest
-{
+public class EncoderTest {
     @Test
     public void javaSerializeTest()
-            throws IOException
-    {
+            throws IOException {
         Tuple2<Long, Long> tuple2 = Tuple2.of(1L, 2L);
         byte[] bytes = Serializables.serialize(tuple2);
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -49,16 +53,15 @@ public class EncoderTest
     public void mapSerializeTest()
             throws IOException
     {
-
-        Map<String,String> map = new HashMap<>();
-        map.put("weight","1");
-        map.put("height","2");
-        map.put(null,"3");
-        map.put("ss",null);
+        Map<String, String> map = new HashMap<>();
+        map.put("weight", "1");
+        map.put("height", "2");
+        map.put(null, "3");
+        map.put("ss", null);
         Encoder<Map<String, String>> mapEncoder = MapEncoder.mapEncoder(Encoders.jString(), Encoders.jString());
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         DataOutput dataOutput = new DataOutputStream(outputStream);
-        mapEncoder.encoder(map,dataOutput);
+        mapEncoder.encoder(map, dataOutput);
         ByteArrayInputStream inputtStream = new ByteArrayInputStream(outputStream.toByteArray());
         DataInput input = new DataInputStream(inputtStream);
         Map<String, String> decoder = mapEncoder.decoder(input);
