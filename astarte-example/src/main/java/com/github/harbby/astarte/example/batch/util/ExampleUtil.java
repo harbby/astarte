@@ -3,8 +3,11 @@ package com.github.harbby.astarte.example.batch.util;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 
-public class ExampleUtil {
-    public static final String[] WORDS = new String[] {
+public class ExampleUtil
+{
+    private ExampleUtil(){}
+    public static final String[] WORDS = new String[]
+            {
             "To be, or not to be,--that is the question:--",
             "Whether 'tis nobler in the mind to suffer",
             "The slings and arrows of outrageous fortune",
