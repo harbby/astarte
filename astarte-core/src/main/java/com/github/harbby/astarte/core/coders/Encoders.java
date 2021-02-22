@@ -59,7 +59,8 @@ public final class Encoders
     private static final int[] zeroIntArr = new int[0];
 
     private static final Encoder<Double> doubleEncoder = new DoubleEncoder();
-    private static final Encoder<String> stringEncoder = new StringEncoder();
+    private static final Encoder<String> charStringEncoder = new CharStringEncoder();
+    private static final Encoder<String> byteStringEncoder = new ByteStringEncoder();
 
     private static final Supplier<Encoder<?>> javaEncoder = Lazys.goLazy(() -> {
         logger.warn("Don't use java serialize encoder");
@@ -122,9 +123,14 @@ public final class Encoders
         return new Tuple2Encoder<>(kEncoder, vEncoder);
     }
 
-    public static Encoder<String> jString()
+    public static Encoder<String> jCharString()
     {
-        return stringEncoder;
+        return charStringEncoder;
+    }
+
+    public static Encoder<String> jByteString()
+    {
+        return byteStringEncoder;
     }
 
     public static Encoder<Boolean> jBoolean()

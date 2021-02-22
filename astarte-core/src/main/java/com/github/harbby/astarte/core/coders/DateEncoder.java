@@ -25,6 +25,7 @@ import java.util.Date;
  * @date 2021.02.09 10:01:00
  * date Serialize
  */
+@Deprecated
 public class DateEncoder
         implements Encoder<Date>
 {

@@ -61,7 +61,7 @@ public class EncoderTest
         map.put("height", "2");
         map.put(null, "3");
         map.put("ss", null);
-        Encoder<Map<String, String>> mapEncoder = Encoders.mapEncoder(Encoders.jString(), Encoders.jString());
+        Encoder<Map<String, String>> mapEncoder = Encoders.mapEncoder(Encoders.jCharString(), Encoders.jCharString());
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         DataOutput dataOutput = new DataOutputStream(outputStream);
         mapEncoder.encoder(map, dataOutput);
@@ -86,6 +86,22 @@ public class EncoderTest
         Boolean decoder = booleanEncoder.decoder(input);
 
         Assert.assertTrue(decoder == true);
+    }
+
+    @Test
+    public void stringSerializeTest()
+            throws IOException
+    {
+//        Encoder<String> stringEncoder = Encoders.jByteString();
+        Encoder<String> stringEncoder = Encoders.jCharString();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        stringEncoder.encoder("yes", dataOutput);
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
+        DataInput input = new DataInputStream(inputStream);
+        String decoder = stringEncoder.decoder(input);
+
+        Assert.assertTrue(decoder.equals("yes"));
     }
 
     @Test

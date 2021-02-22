@@ -22,10 +22,10 @@ import java.io.IOException;
 /**
  * @author ivan
  * @date 2021.02.07 21:58
- * Java String Serialize
+ * Java String Serialize,chose this for letters and numbers
  */
 @SuppressWarnings("checkstyle:RegexpMultiline")
-public class StringEncoder
+public class ByteStringEncoder
         implements Encoder<String>
 {
     //todo 有缺陷，如果字符串长度很大，会有问题
@@ -35,10 +35,7 @@ public class StringEncoder
         if (value != null) {
             final int length = value.length();
             output.writeInt(length);
-            for (int i = 0; i < length; i++) {
-                char c = value.charAt(i);
-                output.write(c);
-            }
+            output.writeBytes(value);
         }
         else {
             output.writeInt(0);
@@ -51,10 +48,10 @@ public class StringEncoder
         if (length == 0) {
             return null;
         }
-        final char[] data = new char[length];
+        final byte[] data = new byte[length];
         for (int i = 0; i < length; i++) {
-            int c = input.readUnsignedByte();
-            data[i] = (char) c;
+            byte c = input.readByte();
+            data[i] = c;
         }
         return new String(data, 0, length);
     }

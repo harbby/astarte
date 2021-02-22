@@ -34,7 +34,7 @@ public class SqlTimestampEncoder
     public void encoder(Timestamp value, DataOutput output) throws IOException
     {
         if (value == null) {
-            output.writeLong(Long.MIN_VALUE);
+            output.writeLong(-1);
             output.writeInt(0);
         }
         else {
@@ -47,7 +47,7 @@ public class SqlTimestampEncoder
     public Timestamp decoder(DataInput input) throws IOException
     {
         final long l = input.readLong();
-        if (l == Long.MIN_VALUE) {
+        if (l == -1) {
             return null;
         }
         else {
