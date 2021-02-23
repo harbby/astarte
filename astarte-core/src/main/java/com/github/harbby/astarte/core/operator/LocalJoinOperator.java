@@ -18,15 +18,18 @@ package com.github.harbby.astarte.core.operator;
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
-import com.github.harbby.astarte.core.deprecated.JoinExperiment;
-import com.github.harbby.gadtry.collection.MutableList;
+import com.github.harbby.astarte.core.api.function.Mapper;
+import com.github.harbby.astarte.core.utils.JoinUtil;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Stream;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
@@ -34,48 +37,44 @@ import static java.util.Objects.requireNonNull;
 /**
  * pre-shuffle join
  */
-public class LocalJoinOperator<K>
-        extends Operator<Tuple2<K, Object[]>>
+public class LocalJoinOperator<K, V1, V2>
+        extends Operator<Tuple2<K, Tuple2<V1, V2>>>
 {
-    private final Operator<Tuple2<K, Object>>[] kvDataSets;
-    private final JoinExperiment.JoinMode joinMode;
+    protected final Operator<Tuple2<K, V1>> leftDataSet;
+    protected final Operator<Tuple2<K, V2>> rightDataSet;
+    protected final JoinUtil.JoinMode joinMode;
 
-    @SuppressWarnings("unchecked")
-    @SafeVarargs
-    protected LocalJoinOperator(JoinExperiment.JoinMode joinMode,
-            Operator<? extends Tuple2<K, ?>> leftDataSet,
-            Operator<? extends Tuple2<K, ?>>... otherDataSets)
+    protected LocalJoinOperator(JoinUtil.JoinMode joinMode,
+            Operator<Tuple2<K, V1>> leftDataSet,
+            Operator<Tuple2<K, V2>> rightDataSet)
     {
         super(requireNonNull(leftDataSet, "leftDataSet is null").getContext());
+
         this.joinMode = requireNonNull(joinMode, "joinMode is null");
-        checkState(otherDataSets.length > 0, "must otherDataSets.length > 0");
-        this.kvDataSets = MutableList.<Operator<? extends Tuple2<K, ?>>>builder()
-                .add(leftDataSet)
-                .addAll(otherDataSets)
-                .build()
-                .stream()
-                .map(x -> {
-                    checkState(Objects.equals(leftDataSet.getPartitioner(), x.getPartitioner()));
-                    return unboxing(x);
-                }).toArray(Operator[]::new);
+        this.leftDataSet = unboxing(leftDataSet);
+        this.rightDataSet = unboxing(rightDataSet);
+        checkState(Objects.equals(leftDataSet.getPartitioner(), rightDataSet.getPartitioner()));
     }
 
     @Override
     public List<? extends Operator<?>> getDependencies()
     {
-        return Arrays.asList(kvDataSets);
+        if ((Object) leftDataSet == rightDataSet) {
+            return Collections.singletonList(leftDataSet);
+        }
+        return Arrays.asList(leftDataSet, rightDataSet);
     }
 
     @Override
     public Partition[] getPartitions()
     {
-        return kvDataSets[0].getPartitions();
+        return leftDataSet.getPartitions();
     }
 
     @Override
     public int numPartitions()
     {
-        return kvDataSets[0].numPartitions();
+        return leftDataSet.numPartitions();
     }
 
     /**
@@ -84,16 +83,133 @@ public class LocalJoinOperator<K>
     @Override
     public Partitioner getPartitioner()
     {
-        return kvDataSets[0].getPartitioner();
+        return leftDataSet.getPartitioner();
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public Iterator<Tuple2<K, Object[]>> compute(Partition split, TaskContext taskContext)
+    public Iterator<Tuple2<K, Tuple2<V1, V2>>> compute(Partition partition, TaskContext taskContext)
     {
-        @SuppressWarnings("unchecked")
-        Iterator<Tuple2<K, ?>>[] iterators = Stream.of(kvDataSets)
-                .map(operator -> operator.computeOrCache(split, taskContext))
-                .toArray(Iterator[]::new);
-        return JoinExperiment.join(joinMode, iterators);
+        if ((Object) leftDataSet == rightDataSet) {
+            Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(partition, taskContext);
+            return JoinUtil.sameJoin(left, Collections.emptyList(), Collections.emptyList());
+        }
+        List<? extends Operator<?>> leftOperators = getOperatorStageDependencies(leftDataSet);
+        List<? extends Operator<?>> rightOperators = getOperatorStageDependencies(rightDataSet);
+        Optional<Operator<?>> sameOperator = findLastSameOperator(leftOperators, rightOperators);
+        if (!sameOperator.isPresent()) {
+            Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(partition, taskContext);
+            Iterator<Tuple2<K, V2>> right = rightDataSet.computeOrCache(partition, taskContext);
+            //todo: use merge join JoinUtil.mergeJoin();
+            return JoinUtil.join(joinMode, left, right);
+        }
+
+        List<Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>>> leftCalc = leftOperators.subList(0, leftOperators.indexOf(sameOperator.get())).stream()
+                .map(x -> ((MapPartitionOperator<Tuple2<K, ?>, Tuple2<K, ?>>) x).getFlatMapper()).collect(Collectors.toList());
+        List<Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>>> rightCalc = rightOperators.subList(0, rightOperators.indexOf(sameOperator.get())).stream()
+                .map(x -> ((MapPartitionOperator<Tuple2<K, ?>, Tuple2<K, ?>>) x).getFlatMapper()).collect(Collectors.toList());
+        Operator<Tuple2<K, ?>> operator = (Operator<Tuple2<K, ?>>) sameOperator.get();
+        return JoinUtil.sameJoin(operator.compute(partition, taskContext), leftCalc, rightCalc);
+    }
+
+    public static List<Operator<?>> getOperatorStageDependencies(Operator<?> operator)
+    {
+        List<Operator<?>> result = new ArrayList<>();
+        result.add(operator);
+        List<? extends Operator<?>> deps = operator.getDependencies();
+        while (true) {
+            if (deps.size() != 1) {
+                return result;
+            }
+            Operator<?> child = deps.get(0);
+            if (!(child instanceof MapPartitionOperator)) {  //todo: add holdPartitioner == true
+                result.add(child);
+                return result;
+            }
+            result.add(child);
+            deps = child.getDependencies();
+        }
+    }
+
+    public static Optional<Operator<?>> findLastSameOperator(
+            List<? extends Operator<?>> leftOperators,
+            List<? extends Operator<?>> rightOperators)
+    {
+        Iterator<? extends Operator<?>> leftIterator = leftOperators.iterator();
+        Iterator<? extends Operator<?>> rightIterator = rightOperators.iterator();
+        Operator<?> right = rightIterator.next();
+        while (leftIterator.hasNext()) {
+            Operator<?> left = leftIterator.next();
+            if (left.getId() < right.getId()) {
+                while (rightIterator.hasNext()) {
+                    right = rightIterator.next();
+                    if (right.getId() <= left.getId()) {
+                        break;
+                    }
+                }
+            }
+            if (left.getId() == right.getId()) {
+                return Optional.of(left);
+            }
+        }
+        return Optional.empty();
+    }
+
+    protected static class OnePartitionLocalJoin<K, V1, V2>
+            extends LocalJoinOperator<K, V1, V2>
+    {
+        private final Partition[] partitions;
+
+        protected OnePartitionLocalJoin(JoinUtil.JoinMode joinMode, Operator<Tuple2<K, V1>> leftDataSet, Operator<Tuple2<K, V2>> rightDataSet)
+        {
+            super(joinMode, leftDataSet, rightDataSet);
+            this.partitions = new Partition[leftDataSet.numPartitions()];
+            Partition[] leftPartitions = leftDataSet.getPartitions();
+            Partition[] rightPartitions = rightDataSet.getPartitions();
+            for (int i = 0; i < partitions.length; i++) {
+                partitions[i] = new LocalJoinPartition(i, leftPartitions[i], rightPartitions[i]);
+            }
+        }
+
+        @Override
+        public Partition[] getPartitions()
+        {
+            return partitions;
+        }
+
+        @Override
+        public int numPartitions()
+        {
+            return partitions.length;
+        }
+
+        @Override
+        public Iterator<Tuple2<K, Tuple2<V1, V2>>> compute(Partition partition, TaskContext taskContext)
+        {
+            LocalJoinPartition localJoinPartition = (LocalJoinPartition) partition;
+            if ((Object) leftDataSet == rightDataSet) {
+                Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(localJoinPartition.left, taskContext);
+                return JoinUtil.sameJoin(left, Collections.emptyList(), Collections.emptyList());
+            }
+
+            Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(localJoinPartition.left, taskContext);
+            Iterator<Tuple2<K, V2>> right = rightDataSet.computeOrCache(localJoinPartition.right, taskContext);
+            //todo: use merge join JoinUtil.mergeJoin();
+            return JoinUtil.join(joinMode, left, right);
+        }
+    }
+
+    private static class LocalJoinPartition
+            extends Partition
+    {
+        private final Partition left;
+        private final Partition right;
+
+        public LocalJoinPartition(int index, Partition left, Partition right)
+        {
+            super(index);
+            this.left = left;
+            this.right = right;
+        }
     }
 }

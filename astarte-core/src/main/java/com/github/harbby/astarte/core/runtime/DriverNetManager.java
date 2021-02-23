@@ -37,7 +37,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.SocketAddress;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -121,9 +122,11 @@ public class DriverNetManager
 
     public void submitTask(Task<?> task)
     {
-        task.getStage().setShuffleServices(new HashSet<>(executorHandlers.keySet()));
-        //todo: 这里应按优化调度策略进行task调度
-        executorHandlers.values().stream().findAny().get().submitTask(task);
+        List<SocketAddress> addresses = new ArrayList<>(executorHandlers.keySet());
+        task.getStage().setShuffleServices(addresses);
+        //cache算子会使得Executor节点拥有状态，调度时应注意幂等
+        SocketAddress address = addresses.get(task.getTaskId() % executorNum);
+        executorHandlers.get(address).submitTask(task);
     }
 
     private class DriverNetManagerHandler

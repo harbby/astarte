@@ -15,6 +15,7 @@
  */
 package com.github.harbby.astarte.core.api;
 
+import com.github.harbby.astarte.core.HashPartitioner;
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.KvForeach;
@@ -29,6 +30,7 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
 
 public interface KvDataSet<K, V>
         extends DataSet<Tuple2<K, V>>
@@ -89,6 +91,13 @@ public interface KvDataSet<K, V>
     KvDataSet<K, V> distinct(Partitioner partitioner);
 
     KvDataSet<K, Iterable<V>> groupByKey();
+
+    public default KvDataSet<K, V> rePartitionByKey()
+    {
+        Partitioner partitioner = Optional.ofNullable(this.getPartitioner())
+                .orElse(new HashPartitioner(this.numPartitions()));
+        return this.rePartitionByKey(partitioner);
+    }
 
     public KvDataSet<K, V> rePartitionByKey(Partitioner partitioner);
 

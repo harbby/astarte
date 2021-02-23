@@ -45,7 +45,7 @@ public class PageRankClueWeb09
 {
     private PageRankClueWeb09() {}
 
-    private static final String DATA_PATH = "/ideal/data/page_rank/ClueWeb09_WG_50m.graph-txt";
+    private static final String DATA_PATH = "/data/data/ClueWeb09_WG_50m.graph-txt";
 
     public static void main(String[] args)
             throws Exception
@@ -58,8 +58,8 @@ public class PageRankClueWeb09
 //        bioTest1();
 //        nioTest2();
 
-        DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(new FileIteratorReader(DATA_PATH), 1)
-                .partitionLimit(100_0000);
+        DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(new FileIteratorReader(DATA_PATH))
+                .partitionLimit(1000_0000);
         KvDataSet<Integer, int[]> links = KvDataSet.toKvDataSet(lines)
                 .encoder(Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray()))
                 .rePartitionByKey(2).mapValues(x -> x, Encoders.jIntArray())
@@ -77,7 +77,7 @@ public class PageRankClueWeb09
 
             ranks = KvDataSet.toKvDataSet(contribs).reduceByKey((x, y) -> x + y).mapValues(x -> 0.15 + 0.85 * x);
         }
-        List<Tuple2<Integer, Double>> output = ranks.collect();
+        List<Tuple2<Integer, Double>> output = ranks.partitionLimit(10).collect();
         output.forEach(tup -> System.out.println(String.format("%s has rank:  %s .", tup.f1(), tup.f2())));
 
         mppContext.stop();

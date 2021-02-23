@@ -45,7 +45,7 @@ public class ClusterScheduler
 {
     private static final Logger logger = LoggerFactory.getLogger(ClusterScheduler.class);
     private final ExecutorManager executorManager;
-    private DriverNetManager driverNetManager;
+    private final DriverNetManager driverNetManager;
 
     public ClusterScheduler(AstarteConf astarteConf, int vcores, int executorNum)
     {

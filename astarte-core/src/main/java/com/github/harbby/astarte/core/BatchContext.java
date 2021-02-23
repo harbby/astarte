@@ -19,10 +19,11 @@ import com.github.harbby.astarte.core.api.AstarteConf;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.astarte.core.api.function.Mapper;
-import com.github.harbby.astarte.core.operator.CollectionSource;
+import com.github.harbby.astarte.core.operator.DataSourceOperator;
+import com.github.harbby.astarte.core.operator.IteratorDataSource;
 import com.github.harbby.astarte.core.operator.KvOperator;
+import com.github.harbby.astarte.core.operator.ListDataSource;
 import com.github.harbby.astarte.core.operator.Operator;
-import com.github.harbby.astarte.core.operator.ParallelIteratorSourceOperator;
 import com.github.harbby.astarte.core.operator.TextFileSource;
 import com.github.harbby.astarte.core.runtime.ClusterScheduler;
 import com.github.harbby.astarte.core.runtime.ExecutorManager;
@@ -51,37 +52,34 @@ public interface BatchContext
 
     public default <K, V> KvDataSet<K, V> makeKvDataSet(List<Tuple2<K, V>> collection, int parallelism)
     {
-        return new KvOperator<>(new CollectionSource<>(this, collection, parallelism));
+        checkState(parallelism > 0, "parallelism > 0");
+        return new KvOperator<>(new DataSourceOperator<>(this, new ListDataSource<>(collection), parallelism));
     }
 
     public default <V> DataSet<V> makeEmptyDataSet()
     {
-        return makeEmptyDataSet(1);
-    }
-
-    public default <V> DataSet<V> makeEmptyDataSet(int parallelism)
-    {
-        return new CollectionSource<>(this, Collections.emptyList(), parallelism);
+        return makeDataSet(Collections.emptyList());
     }
 
     public default <K, V> KvDataSet<K, V> makeKvDataSet(List<Tuple2<K, V>> collection)
     {
-        return new KvOperator<>(new CollectionSource<>(this, collection, 1));
+        return makeKvDataSet(collection, 1);
     }
 
     public default <E> DataSet<E> makeDataSet(List<E> collection)
     {
-        return new CollectionSource<>(this, collection, 1);
+        return this.makeDataSet(collection, 1);
     }
 
     public default <E> DataSet<E> makeDataSet(List<E> collection, int parallelism)
     {
-        return new CollectionSource<>(this, collection, parallelism);
+        checkState(parallelism > 0, "parallelism > 0");
+        return new DataSourceOperator<>(this, new ListDataSource<>(collection), parallelism);
     }
 
     public default <E> DataSet<E> makeDataSet(E[] e)
     {
-        return makeDataSet(Arrays.asList(e), 1);
+        return makeDataSet(Arrays.asList(e));
     }
 
     public default <E> DataSet<E> makeDataSet(E[] e, int parallelism)
@@ -92,15 +90,22 @@ public interface BatchContext
     public default DataSet<String> textFile(String path)
     {
         requireNonNull(path, "path is null");
-        return new TextFileSource(this, URI.create(path));
+        return new DataSourceOperator<>(this, new TextFileSource(URI.create(path)), -1);
     }
 
-    public default <E> DataSet<E> makeDataSet(Iterator<E> source, int parallelism)
+    public default DataSet<String> textFile(String path, int parallelism)
+    {
+        checkState(parallelism > 0, "parallelism > 0");
+        requireNonNull(path, "path is null");
+        return new DataSourceOperator<>(this, new TextFileSource(URI.create(path)), parallelism);
+    }
+
+    public default <E> DataSet<E> makeDataSet(Iterator<E> source)
     {
         requireNonNull(source, "source is null");
         checkState(source instanceof Serializable);
         final Iterator<E> clearSource = Utils.clear((Iterator<E> & Serializable) source);
-        return new ParallelIteratorSourceOperator<>(this, clearSource, parallelism);
+        return new DataSourceOperator<>(this, new IteratorDataSource<>(clearSource), 1);
     }
 
     public static Builder builder()

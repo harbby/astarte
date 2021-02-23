@@ -65,10 +65,16 @@ public class MapPartitionOperator<I, O>
         return null;
     }
 
+    public Mapper<Iterator<I>, Iterator<O>> getFlatMapper()
+    {
+        return flatMapper;
+    }
+
     @Override
     public Iterator<O> compute(Partition split, TaskContext taskContext)
     {
         Iterator<O> iterator;
+
         if (flatMapper != null) {
             iterator = flatMapper.map(dataSet.computeOrCache(split, taskContext));
         }

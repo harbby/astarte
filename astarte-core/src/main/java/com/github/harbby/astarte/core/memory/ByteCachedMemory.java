@@ -20,6 +20,8 @@ import com.github.harbby.astarte.core.coders.EncoderInputStream;
 import com.github.harbby.astarte.core.operator.CacheManager;
 import com.github.harbby.gadtry.base.Throwables;
 import net.jpountz.lz4.LZ4BlockOutputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -33,6 +35,7 @@ import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 public class ByteCachedMemory<E>
         extends CacheManager.CacheMemory<E>
 {
+    private static final Logger logger = LoggerFactory.getLogger(ByteCachedMemory.class);
     private final Encoder<E> encoder;
     private final MemoryBlock block;
     private final DataOutputStream dataOutputStream;
@@ -80,5 +83,16 @@ public class ByteCachedMemory<E>
         catch (IOException e) {
             throw Throwables.throwsThrowable(e);
         }
+    }
+
+    @Override
+    protected void finalize()
+            throws Throwable
+    {
+        if (block.getBlockSize() > 0) {
+            logger.error("A memory[size: {}] leak risk is found and is trying to release", block.getBlockSize());
+            this.freeMemory();
+        }
+        super.finalize();
     }
 }
