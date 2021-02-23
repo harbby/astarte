@@ -186,13 +186,14 @@ public class JoinOperatorTest
         ), 2);
 
         List<Tuple2<String, Tuple2<Integer, Integer>>> data = ds.mapValues(x -> x).join(ds.mapValues(x -> x)).collect();
+        data.sort(Comparator.comparing(it -> it.f1));
         Assert.assertEquals(Arrays.asList(
                 Tuple2.of("hp", Tuple2.of(8, 8)),
                 Tuple2.of("hp", Tuple2.of(10, 8)),
                 Tuple2.of("hp", Tuple2.of(8, 10)),
                 Tuple2.of("hp", Tuple2.of(10, 10)),
-                Tuple2.of("hp2", Tuple2.of(20, 20)),
-                Tuple2.of("hp1", Tuple2.of(19, 19))),
+                Tuple2.of("hp1", Tuple2.of(19, 19)),
+                Tuple2.of("hp2", Tuple2.of(20, 20))),
                 data);
     }
 
