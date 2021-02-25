@@ -139,9 +139,15 @@ public class JoinUtil
     }
 
     public static <K, V1, V2> Iterator<Tuple2<K, Tuple2<V1, V2>>> sameJoin(
+            Iterator<? extends Tuple2<K, ?>> iterator)
+    {
+        return sameJoin(iterator, i -> i, i -> i);
+    }
+
+    public static <K, V1, V2> Iterator<Tuple2<K, Tuple2<V1, V2>>> sameJoin(
             Iterator<? extends Tuple2<K, ?>> iterator,
-            List<Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>>> leftMapOperator,
-            List<Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>>> rightMapOperator)
+            Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>> leftMapOperator,
+            Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>> rightMapOperator)
     {
         return new Iterator<Tuple2<K, Tuple2<V1, V2>>>()
         {
@@ -187,20 +193,13 @@ public class JoinUtil
             @SuppressWarnings("unchecked")
             private Iterator<Tuple2<K, Tuple2<V1, V2>>> propreChild()
             {
-                Iterator<Tuple2<K, ?>> left = leftIterator;
-                for (Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>> mapOperator : leftMapOperator) {
-                    left = mapOperator.map(left);
-                }
-                Iterator<Tuple2<K, ?>> right = rightIterator;
-                for (Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>> mapOperator : rightMapOperator) {
-                    right = mapOperator.map(right);
-                }
-                Iterator<Tuple2<K, ?>> finalRight = right;
+                Iterator<Tuple2<K, ?>> left = leftMapOperator.map(leftIterator);
+                Iterator<Tuple2<K, ?>> right = rightMapOperator.map(rightIterator);
                 //笛卡尔积,如果是多个dataset同时Join,则唯一变化时这里变成多个笛卡尔积
                 return Iterators.flatMap(left,
                         x -> {
                             rightIterator.reset();
-                            return Iterators.map(finalRight, y -> Tuple2.of(x.f1, Tuple2.of((V1) x.f2, (V2) y.f2)));
+                            return Iterators.map(right, y -> Tuple2.of(x.f1, Tuple2.of((V1) x.f2, (V2) y.f2)));
                         });
             }
 

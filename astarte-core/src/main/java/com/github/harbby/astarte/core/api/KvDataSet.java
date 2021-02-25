@@ -79,7 +79,7 @@ public interface KvDataSet<K, V>
     KvDataSet<K, V> cache(CacheManager.CacheMode cacheMode);
 
     @Override
-    KvDataSet<K, V> unCache();
+    void unCache();
 
     @Override
     KvDataSet<K, V> distinct();

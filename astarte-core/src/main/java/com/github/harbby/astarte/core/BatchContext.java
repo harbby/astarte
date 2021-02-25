@@ -32,9 +32,9 @@ import com.github.harbby.astarte.core.runtime.LocalJobScheduler;
 import com.github.harbby.astarte.core.runtime.LocalNettyExecutorManager;
 import com.github.harbby.gadtry.base.Lazys;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.github.harbby.gadtry.function.Creator;
 import com.github.harbby.gadtry.function.Function1;
 
-import java.io.Serializable;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
@@ -100,11 +100,10 @@ public interface BatchContext
         return new DataSourceOperator<>(this, new TextFileSource(URI.create(path)), parallelism);
     }
 
-    public default <E> DataSet<E> makeDataSet(Iterator<E> source)
+    public default <E> DataSet<E> makeDataSet(Creator<Iterator<E>> source)
     {
         requireNonNull(source, "source is null");
-        checkState(source instanceof Serializable);
-        final Iterator<E> clearSource = Utils.clear((Iterator<E> & Serializable) source);
+        Creator<Iterator<E>> clearSource = Utils.clear(source);
         return new DataSourceOperator<>(this, new IteratorDataSource<>(clearSource), 1);
     }
 

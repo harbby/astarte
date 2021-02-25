@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -177,11 +178,14 @@ public class CacheManager
         dataSetCache.putCache(partitionId, partitionCacheMemory);
         return new Iterator<E>()
         {
+            private boolean done = false;
+
             @Override
             public boolean hasNext()
             {
                 boolean hasNext = iterator.hasNext();
-                if (!hasNext) {
+                if (!hasNext && !done) {
+                    done = true;
                     partitionCacheMemory.finalCache(); //后面跟随limit时存在缺陷，无法进行final
                     logger.debug("-----{} cached dep stage: {} data succeed", dataSet, taskContext.getDependStages());
                 }
@@ -191,6 +195,9 @@ public class CacheManager
             @Override
             public E next()
             {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
                 E row = iterator.next();
                 partitionCacheMemory.append(row);
                 return row;
