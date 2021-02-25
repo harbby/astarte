@@ -22,7 +22,6 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -37,9 +36,7 @@ public class JoinUtilTest
                 Tuple2.of("hp1", 19),
                 Tuple2.of("hp2", 20));
 
-        Iterator<Tuple2<String, Tuple2<Integer, Integer>>> rs = JoinUtil.sameJoin(iterator,
-                Collections.emptyList(),
-                Collections.emptyList());
+        Iterator<Tuple2<String, Tuple2<Integer, Integer>>> rs = JoinUtil.sameJoin(iterator);
         List<Tuple2<String, Tuple2<Integer, Integer>>> data = MutableList.copy(rs);
         Assert.assertEquals(Arrays.asList(
                 Tuple2.of("hp", Tuple2.of(8, 8)),
@@ -58,9 +55,7 @@ public class JoinUtilTest
                 Tuple2.of("hp", 8),
                 Tuple2.of("hp", 10));
 
-        Iterator<Tuple2<String, Tuple2<Integer, Integer>>> rs = JoinUtil.sameJoin(iterator,
-                Collections.emptyList(),
-                Collections.emptyList());
+        Iterator<Tuple2<String, Tuple2<Integer, Integer>>> rs = JoinUtil.sameJoin(iterator);
         List<Tuple2<String, Tuple2<Integer, Integer>>> data = MutableList.copy(rs);
         Assert.assertEquals(Arrays.asList(
                 Tuple2.of("hp", Tuple2.of(8, 8)),
