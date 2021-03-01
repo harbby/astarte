@@ -92,7 +92,7 @@ public class LocalJoinOperator<K, V1, V2>
     {
         if ((Object) leftDataSet == rightDataSet) {
             Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(partition, taskContext);
-            return JoinUtil.sameJoin(left, Collections.emptyList(), Collections.emptyList());
+            return JoinUtil.sameJoin(left);
         }
         List<? extends Operator<?>> leftOperators = getOperatorStageDependencies(leftDataSet);
         List<? extends Operator<?>> rightOperators = getOperatorStageDependencies(rightDataSet);
@@ -103,13 +103,18 @@ public class LocalJoinOperator<K, V1, V2>
             //todo: use merge join JoinUtil.mergeJoin();
             return JoinUtil.join(joinMode, left, right);
         }
+        List<CalcOperator<?, ?>> leftCalcOperators = leftOperators.subList(0, leftOperators.indexOf(sameOperator.get())).stream()
+                .map(x -> ((CalcOperator<?, ?>) x)).collect(Collectors.toList());
+        Collections.reverse(leftCalcOperators); // 倒序排列
+        List<CalcOperator<?, ?>> rightCalcOperators = rightOperators.subList(0, rightOperators.indexOf(sameOperator.get())).stream()
+                .map(x -> ((CalcOperator<?, ?>) x)).collect(Collectors.toList());
+        Collections.reverse(rightCalcOperators); // 倒序排列
 
-        List<Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>>> leftCalc = leftOperators.subList(0, leftOperators.indexOf(sameOperator.get())).stream()
-                .map(x -> ((MapPartitionOperator<Tuple2<K, ?>, Tuple2<K, ?>>) x).getFlatMapper()).collect(Collectors.toList());
-        List<Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>>> rightCalc = rightOperators.subList(0, rightOperators.indexOf(sameOperator.get())).stream()
-                .map(x -> ((MapPartitionOperator<Tuple2<K, ?>, Tuple2<K, ?>>) x).getFlatMapper()).collect(Collectors.toList());
+        Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>> leftCalc = it -> CalcOperator.doCodeGen(it, leftCalcOperators);
+        Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>> rightCalc = it -> CalcOperator.doCodeGen(it, rightCalcOperators);
+
         Operator<Tuple2<K, ?>> operator = (Operator<Tuple2<K, ?>>) sameOperator.get();
-        return JoinUtil.sameJoin(operator.compute(partition, taskContext), leftCalc, rightCalc);
+        return JoinUtil.sameJoin(operator.computeOrCache(partition, taskContext), leftCalc, rightCalc);
     }
 
     public static List<Operator<?>> getOperatorStageDependencies(Operator<?> operator)
@@ -122,7 +127,7 @@ public class LocalJoinOperator<K, V1, V2>
                 return result;
             }
             Operator<?> child = deps.get(0);
-            if (!(child instanceof MapPartitionOperator)) {  //todo: add holdPartitioner == true
+            if (!(child instanceof CalcOperator) || !((CalcOperator<?, ?>) child).holdPartitioner()) {
                 result.add(child);
                 return result;
             }
@@ -189,7 +194,7 @@ public class LocalJoinOperator<K, V1, V2>
             LocalJoinPartition localJoinPartition = (LocalJoinPartition) partition;
             if ((Object) leftDataSet == rightDataSet) {
                 Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(localJoinPartition.left, taskContext);
-                return JoinUtil.sameJoin(left, Collections.emptyList(), Collections.emptyList());
+                return JoinUtil.sameJoin(left);
             }
 
             Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(localJoinPartition.left, taskContext);

@@ -37,6 +37,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.github.harbby.astarte.core.api.Constant.SHUFFLE_MAP_COMBINE_ENABLE;
+
 public class KvOperator<K, V>
         extends Operator<Tuple2<K, V>>
         implements KvDataSet<K, V>
@@ -45,7 +47,7 @@ public class KvOperator<K, V>
     /*
      * 启用map端combine功能
      */
-    private boolean combine = true;
+    private boolean combine = context.getConf().getBoolean(SHUFFLE_MAP_COMBINE_ENABLE, true);
 
     public KvOperator(Operator<Tuple2<K, V>> dataSet)
     {
@@ -106,18 +108,14 @@ public class KvOperator<K, V>
     @Override
     public DataSet<K> keys()
     {
-        return new MapPartitionOperator<>(dataSet,
-                it -> Iterators.map(it, Tuple2::f1),
-                false); //如果想需要保留分区器，则请使用mapValues
+        return new MapOperator<>(dataSet, it -> it.f1, true);
     }
 
     @Override
     public <K1> KvDataSet<K1, V> mapKeys(Mapper<K, K1> mapper)
     {
         Mapper<K, K1> clearedFunc = Utils.clear(mapper);
-        Operator<Tuple2<K1, V>> out = new MapPartitionOperator<>(dataSet,
-                it -> Iterators.map(it, x -> new Tuple2<>(clearedFunc.map(x.f1()), x.f2())),
-                false); //如果想保留分区器，则请使用mapValues
+        Operator<Tuple2<K1, V>> out = new MapOperator<>(dataSet, x -> new Tuple2<>(clearedFunc.map(x.f1()), x.f2()), false);
         return new KvOperator<>(out);
     }
 
@@ -125,40 +123,27 @@ public class KvOperator<K, V>
     public <O> KvDataSet<K, O> mapValues(Mapper<V, O> mapper)
     {
         Mapper<V, O> clearedFunc = Utils.clear(mapper);
-        Operator<Tuple2<K, O>> out = new MapPartitionOperator<>(
-                this.dataSet,
-                it -> Iterators.map(it, kv -> new Tuple2<>(kv.f1(), clearedFunc.map(kv.f2()))),
-                true);
+        Operator<Tuple2<K, O>> out = new MapOperator<>(dataSet, kv -> new Tuple2<>(kv.f1(), clearedFunc.map(kv.f2())), true);
         return new KvOperator<>(out);
     }
 
     @Override
     public <O> KvDataSet<K, O> mapValues(Mapper<V, O> mapper, Encoder<O> oEncoder)
     {
-        Mapper<V, O> clearedFunc = Utils.clear(mapper);
+        KvDataSet<K, O> out = this.mapValues(mapper);
         Encoder<Tuple2<K, O>> kvEncoder = Encoders.tuple2(this.getRowEncoder().getKeyEncoder(), oEncoder);
-        Operator<Tuple2<K, O>> out = new MapPartitionOperator<>(
-                this.dataSet,
-                it -> Iterators.map(it, kv -> new Tuple2<>(kv.f1(), clearedFunc.map(kv.f2()))),
-                true);
         out.encoder(kvEncoder);
-
-        return new KvOperator<>(out);
+        return out;
     }
 
     @Override
     public <O> KvDataSet<K, O> flatMapValues(Mapper<V, Iterator<O>> mapper)
     {
         Mapper<V, Iterator<O>> clearedFunc = Utils.clear(mapper);
-        Mapper<Iterator<Tuple2<K, V>>, Iterator<Tuple2<K, O>>> flatMapper =
-                input -> Iterators.flatMap(input,
-                        kv -> Iterators.map(clearedFunc.map(kv.f2()), o -> new Tuple2<>(kv.f1(), o)));
-
-        Operator<Tuple2<K, O>> dataSet = new MapPartitionOperator<>(
-                this.dataSet,
-                flatMapper,
-                true);
-        return new KvOperator<>(dataSet);
+        Mapper<Tuple2<K, V>, Iterator<Tuple2<K, O>>> flatMapper =
+                input -> Iterators.map(clearedFunc.map(input.f2), o -> new Tuple2<>(input.f1, o));
+        Operator<Tuple2<K, O>> out = new FlatMapOperator<>(dataSet, flatMapper, true);
+        return new KvOperator<>(out);
     }
 
     @Override
@@ -201,10 +186,9 @@ public class KvOperator<K, V>
     }
 
     @Override
-    public KvOperator<K, V> unCache()
+    public void unCache()
     {
         this.dataSet.unCache();
-        return this;
     }
 
     @Override

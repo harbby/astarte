@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static com.github.harbby.gadtry.base.MoreObjects.toStringHelper;
@@ -55,7 +56,7 @@ public abstract class Operator<R>
     protected static final Logger logger = LoggerFactory.getLogger(Operator.class);
 
     private static final AtomicInteger nextDataSetId = new AtomicInteger(0);  //发号器
-    private final transient BatchContext context;
+    protected final transient BatchContext context;
     private final int dataSetId = nextDataSetId.getAndIncrement();
     private final List<Operator<?>> dataSets;
     private Encoder<R> rowEncoder;
@@ -176,18 +177,23 @@ public abstract class Operator<R>
      * todo: 需重新实现
      */
     @Override
-    public DataSet<R> unCache()
+    public void unCache()
     {
         checkState(!(this instanceof KvOperator) && this.isMarkedCache(),
                 "this DataSet not cached");
         //blocking = true
+
+        //context.freeCache(dataSetId, this);
         //todo: 通过job触发代价比较重,且未必会正确调度，后续应该改为使用DriverNetManager通信解决
-        context.runJob(unboxing(this), iterator -> {
+        Operator<Integer> emp = (Operator<Integer>)
+                context.makeDataSet(IntStream.range(0, this.numPartitions()).boxed().collect(Collectors.toList()),
+                        this.numPartitions());
+        checkState(emp.numPartitions() == this.numPartitions());
+        context.runJob(emp, iterator -> {
             CacheManager.unCacheExec(dataSetId);
             return true;
         });
         markedCache = false;
-        return this;
     }
 
     @Override
@@ -301,10 +307,7 @@ public abstract class Operator<R>
     {
         requireNonNull(mapper, "mapper is null");
         Mapper<R, O> clearedFunc = Utils.clear(mapper);
-        return new MapPartitionOperator<>(
-                this,
-                it -> Iterators.map(it, clearedFunc::map),
-                false);
+        return new MapOperator<>(this, clearedFunc, false);
     }
 
     @Override
@@ -312,7 +315,7 @@ public abstract class Operator<R>
     {
         requireNonNull(flatMapper, "flatMapper is null");
         Mapper<R, O[]> clearedFunc = Utils.clear(flatMapper);
-        return new FlatMapOperator<>(this, clearedFunc);
+        return new FlatMapOperator<>(this, it -> Iterators.of(clearedFunc.map(it)), false);
     }
 
     @Override
@@ -320,7 +323,7 @@ public abstract class Operator<R>
     {
         requireNonNull(flatMapper, "flatMapper is null");
         Mapper<R, Iterator<O>> clearedFunc = Utils.clear(flatMapper);
-        return new FlatMapIteratorOperator<>(this, clearedFunc);
+        return new FlatMapOperator<>(this, clearedFunc, false);
     }
 
     @Override
@@ -344,10 +347,7 @@ public abstract class Operator<R>
     {
         requireNonNull(filter, "filter is null");
         Filter<R> clearedFunc = Utils.clear(filter);
-        return new MapPartitionOperator<>(
-                this,
-                it -> Iterators.filter(it, clearedFunc::filter),
-                true);
+        return new FilterOperator<>(this, clearedFunc);
     }
 
     @Override

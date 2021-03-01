@@ -44,6 +44,28 @@ public class AstarteConf
         return props.getOrDefault(key, defaultValue);
     }
 
+    public boolean getBoolean(String key)
+    {
+        String value = props.get(key);
+        if (value == null) {
+            throw new NullPointerException();
+        }
+        else {
+            return Boolean.parseBoolean(value);
+        }
+    }
+
+    public boolean getBoolean(String key, boolean defaultValue)
+    {
+        String value = props.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        else {
+            return Boolean.parseBoolean(value);
+        }
+    }
+
     public int getInt(String key)
     {
         String value = props.get(key);
