@@ -15,23 +15,22 @@
  */
 package com.github.harbby.astarte.core.operator;
 
-import com.github.harbby.astarte.core.Utils;
 import com.github.harbby.astarte.core.api.Collector;
 import com.github.harbby.astarte.core.api.DataSetSource;
 import com.github.harbby.astarte.core.api.Split;
+import com.github.harbby.gadtry.function.Creator;
 
-import java.io.Serializable;
 import java.util.Iterator;
 
 public class IteratorDataSource<E>
         implements DataSetSource<E>
 {
-    private final Iterator<E> iterator;
-    private volatile boolean stop = false;
+    private final Creator<Iterator<E>> source;
+    private transient volatile boolean stop = false;
 
-    public IteratorDataSource(Iterator<E> source)
+    public IteratorDataSource(Creator<Iterator<E>> source)
     {
-        this.iterator = (Iterator<E>) Utils.clear((Serializable) source);
+        this.source = source;
     }
 
     @Override
@@ -43,12 +42,13 @@ public class IteratorDataSource<E>
     @Override
     public Iterator<E> phyPlan(Split split)
     {
-        return iterator;
+        return source.get();
     }
 
     @Override
     public void pushModePhyPlan(Collector<E> collector, Split split)
     {
+        Iterator<E> iterator = source.get();
         while (!stop && iterator.hasNext()) {
             collector.collect(iterator.next());
         }

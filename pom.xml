@@ -340,7 +340,7 @@
                             <source>11</source>
                             <target>11</target>
                             <compilerArgs combine.children="append">
-                                <!--下面两个仅影响javac编译器,对于java11是必须的，java15则不必导出-->
+                                <!--下面两个仅影响javac编译器,对于java11+是必须的-->
                                 <arg>--add-exports=java.base/sun.nio.ch=ALL-UNNAMED</arg>
                                 <arg>--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED</arg>
                             </compilerArgs>

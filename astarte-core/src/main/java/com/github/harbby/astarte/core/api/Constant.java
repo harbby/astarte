@@ -22,4 +22,6 @@ public class Constant
     public static final String DRIVER_SCHEDULER_PORT = "driver.manager.port";
 
     public static final String EXECUTOR_MEMORY_CONF = "executor.memory.mb";
+
+    public static final String SHUFFLE_MAP_COMBINE_ENABLE = "shuffle.map.combine.enable";
 }

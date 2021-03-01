@@ -15,7 +15,6 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
-import com.github.harbby.astarte.core.MapTaskState;
 import com.github.harbby.astarte.core.api.Task;
 import com.github.harbby.gadtry.base.Serializables;
 import io.netty.bootstrap.Bootstrap;
@@ -30,6 +29,8 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.util.ReferenceCountUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.SocketAddress;
@@ -41,6 +42,7 @@ import java.net.SocketAddress;
 public class ExecutorBackend
 
 {
+    private static final Logger logger = LoggerFactory.getLogger(ExecutorBackend.class);
     private final Executor executor;
     private Channel channel;
 
@@ -102,7 +104,7 @@ public class ExecutorBackend
             in.readBytes(bytes);
             ReferenceCountUtil.release(in);
 
-            Task<MapTaskState> task = Serializables.byteToObject(bytes);
+            Task<?> task = Serializables.byteToObject(bytes);
             executor.runTask(task);
             return task;
         }
@@ -111,7 +113,7 @@ public class ExecutorBackend
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
                 throws Exception
         {
-            cause.printStackTrace();
+            logger.error("", cause);
         }
     }
 
