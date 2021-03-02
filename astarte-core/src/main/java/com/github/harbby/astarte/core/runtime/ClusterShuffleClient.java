@@ -43,12 +43,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.SocketAddress;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -70,7 +70,7 @@ public class ClusterShuffleClient
     private final List<ChannelFuture> futures = new ArrayList<>();
     private static final ByteBuf STOP_DOWNLOAD = Unpooled.EMPTY_BUFFER;
 
-    private ClusterShuffleClient(Set<SocketAddress> shuffleServices)
+    private ClusterShuffleClient(Collection<SocketAddress> shuffleServices)
             throws InterruptedException
     {
         NioEventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -106,7 +106,7 @@ public class ClusterShuffleClient
         }
     }
 
-    static ClusterShuffleClient start(Set<SocketAddress> shuffleServices)
+    static ClusterShuffleClient start(Collection<SocketAddress> shuffleServices)
             throws InterruptedException
     {
         ClusterShuffleClient clientManager = clientManagerTl.get();

@@ -29,6 +29,7 @@ import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -39,13 +40,14 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.IntStream;
 
+import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static com.github.harbby.gadtry.base.Throwables.throwsThrowable;
 
 public class PageRankClueWeb09
 {
     private PageRankClueWeb09() {}
 
-    private static final String DATA_PATH = "/ideal/data/page_rank/ClueWeb09_WG_50m.graph-txt";
+    private static final String DATA_PATH = "/data/data/ClueWeb09_WG_50m.graph-txt";
 
     public static void main(String[] args)
             throws Exception
@@ -58,7 +60,7 @@ public class PageRankClueWeb09
 //        bioTest1();
 //        nioTest2();
 
-        DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(new FileIteratorReader(DATA_PATH), 1)
+        DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(() -> new FileIteratorReader(DATA_PATH))
                 .partitionLimit(100_0000);
         KvDataSet<Integer, int[]> links = KvDataSet.toKvDataSet(lines)
                 .encoder(Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray()))
@@ -77,7 +79,7 @@ public class PageRankClueWeb09
 
             ranks = KvDataSet.toKvDataSet(contribs).reduceByKey((x, y) -> x + y).mapValues(x -> 0.15 + 0.85 * x);
         }
-        List<Tuple2<Integer, Double>> output = ranks.collect();
+        List<Tuple2<Integer, Double>> output = ranks.partitionLimit(10).collect();
         output.forEach(tup -> System.out.println(String.format("%s has rank:  %s .", tup.f1(), tup.f2())));
 
         mppContext.stop();
@@ -169,19 +171,26 @@ public class PageRankClueWeb09
             implements Iterator<Tuple2<Integer, int[]>>, Serializable
     {
         private final File file;
-        private transient BufferedReader reader;
+        private final BufferedReader reader;
 
-        private transient String line;
-        private transient int number = 0;
+        private String line;
+        private int number = 0;
 
         private FileIteratorReader(File file)
         {
             this.file = file;
+            try {
+                InputStreamReader inputStreamReader = new InputStreamReader(new FileInputStream(file));
+                this.reader = new BufferedReader(inputStreamReader);
+            }
+            catch (FileNotFoundException e) {
+                throw throwsThrowable(e);
+            }
         }
 
         private FileIteratorReader(String file)
         {
-            this.file = new File(file);
+            this(new File(file));
         }
 
         @Override
@@ -190,19 +199,20 @@ public class PageRankClueWeb09
             if (line != null) {
                 return true;
             }
-            try {
-                if (reader == null) {
-                    InputStreamReader inputStreamReader = new InputStreamReader(new FileInputStream(file));
-                    this.reader = new BufferedReader(inputStreamReader);
+            do {
+                try {
+                    line = reader.readLine();
+                    number++;
                 }
-
-                line = reader.readLine();
-                number++;
+                catch (IOException e) {
+                    throw throwsThrowable(e);
+                }
+                if (line == null) {
+                    return false;
+                }
             }
-            catch (IOException e) {
-                throw throwsThrowable(e);
-            }
-            return line != null;
+            while (line.length() == 0);
+            return true;
         }
 
         @Override
@@ -211,10 +221,7 @@ public class PageRankClueWeb09
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }
-            if (this.line.length() == 0) {
-                this.line = null;
-                return new Tuple2<>(number, new int[0]);
-            }
+            checkState(line.length() > 0);
             String[] targets = this.line.trim().split(" ");
             int[] targetIds = new int[targets.length];
             for (int i = 0; i < targets.length; i++) {

@@ -69,6 +69,7 @@ public class MapPartitionOperator<I, O>
     public Iterator<O> compute(Partition split, TaskContext taskContext)
     {
         Iterator<O> iterator;
+
         if (flatMapper != null) {
             iterator = flatMapper.map(dataSet.computeOrCache(split, taskContext));
         }

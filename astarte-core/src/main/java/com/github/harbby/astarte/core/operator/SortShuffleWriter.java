@@ -312,7 +312,7 @@ public class SortShuffleWriter<K, V>
         }
 
         @Override
-        public List<? extends Operator<?>> getDependencies()
+        public List<Operator<?>> getDependencies()
         {
             return ImmutableList.of(dependOperator);
         }

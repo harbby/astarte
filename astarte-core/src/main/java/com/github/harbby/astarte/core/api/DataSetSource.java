@@ -15,13 +15,27 @@
  */
 package com.github.harbby.astarte.core.api;
 
-public class Constant
+import java.io.Serializable;
+import java.util.Iterator;
+
+public interface DataSetSource<E>
+        extends Serializable
 {
-    private Constant() {}
+    public Split[] trySplit(int tryParallelism);
 
-    public static final String DRIVER_SCHEDULER_PORT = "driver.manager.port";
+    /**
+     * Physical execution plan
+     *
+     * @return Iterator poll model
+     */
+    Iterator<E> phyPlan(Split split);
 
-    public static final String EXECUTOR_MEMORY_CONF = "executor.memory.mb";
+    /**
+     * Physical execution plan
+     * <p>
+     * Collector push model
+     */
+    void pushModePhyPlan(Collector<E> collector, Split split);
 
-    public static final String SHUFFLE_MAP_COMBINE_ENABLE = "shuffle.map.combine.enable";
+    void close();
 }

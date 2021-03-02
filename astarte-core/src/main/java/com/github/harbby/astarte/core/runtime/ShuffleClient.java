@@ -21,8 +21,8 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.SocketAddress;
+import java.util.Collection;
 import java.util.Iterator;
-import java.util.Set;
 
 public interface ShuffleClient
         extends Closeable
@@ -34,7 +34,7 @@ public interface ShuffleClient
         return shuffleManagerService::getShuffleDataIterator;
     }
 
-    public static ShuffleClient getClusterShuffleClient(Set<SocketAddress> shuffleServices)
+    public static ShuffleClient getClusterShuffleClient(Collection<SocketAddress> shuffleServices)
             throws InterruptedException
     {
         return ClusterShuffleClient.start(shuffleServices);

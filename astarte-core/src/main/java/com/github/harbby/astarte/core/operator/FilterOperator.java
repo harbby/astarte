@@ -15,31 +15,31 @@
  */
 package com.github.harbby.astarte.core.operator;
 
-import com.github.harbby.astarte.core.api.function.Mapper;
+import com.github.harbby.astarte.core.api.function.Filter;
 import com.github.harbby.gadtry.base.Iterators;
 
 import java.util.Iterator;
 
-public class FlatMapOperator<I, O>
-        extends CalcOperator<I, O>
+public class FilterOperator<R>
+        extends CalcOperator<R, R>
 {
-    private final Mapper<I, Iterator<O>> flatMapper;
+    private final Filter<R> filter;
 
-    protected FlatMapOperator(Operator<I> dataSet, Mapper<I, Iterator<O>> flatMapper, boolean holdPartitioner)
+    public FilterOperator(Operator<R> dataSet, Filter<R> filter)
     {
-        super(dataSet, holdPartitioner);
-        this.flatMapper = flatMapper;
-    }
-
-    @Override
-    protected Iterator<O> doCompute(Iterator<I> iterator)
-    {
-        return Iterators.flatMap(iterator, flatMapper::map);
+        super(dataSet, true);
+        this.filter = filter;
     }
 
     @Override
     public Object getOperator()
     {
-        return flatMapper;
+        return filter;
+    }
+
+    @Override
+    protected Iterator<R> doCompute(Iterator<R> iterator)
+    {
+        return Iterators.filter(iterator, filter::filter);
     }
 }

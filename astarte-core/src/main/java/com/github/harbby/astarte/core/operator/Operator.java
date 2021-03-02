@@ -31,7 +31,6 @@ import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.ImmutableList;
-import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.stream.IntStream;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static com.github.harbby.gadtry.base.MoreObjects.toStringHelper;
@@ -57,16 +56,17 @@ public abstract class Operator<R>
     protected static final Logger logger = LoggerFactory.getLogger(Operator.class);
 
     private static final AtomicInteger nextDataSetId = new AtomicInteger(0);  //发号器
-    private final transient BatchContext context;
-    private final int id = nextDataSetId.getAndIncrement();
+    protected final transient BatchContext context;
+    private final int dataSetId = nextDataSetId.getAndIncrement();
     private final List<Operator<?>> dataSets;
     private Encoder<R> rowEncoder;
+    private boolean markedCache = false;
 
-    public Operator(Operator<?>... dataSets)
+    public Operator(Operator<?> dataSet)
     {
-        checkState(dataSets != null && dataSets.length > 0, "dataSet is Empty");
-        this.dataSets = Stream.of(dataSets).map(Operator::unboxing).collect(Collectors.toList());
-        this.context = requireNonNull(dataSets[0].getContext(), "getContext is null " + dataSets[0]);
+        checkState(dataSet != null, "dataSet is Empty");
+        this.dataSets = ImmutableList.of(unboxing(dataSet));
+        this.context = requireNonNull(dataSet.getContext(), "getContext is null " + dataSet);
     }
 
     protected Operator(BatchContext context)
@@ -76,7 +76,7 @@ public abstract class Operator<R>
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    protected static <E> Operator<E> unboxing(Operator<E> operator)
+    public static <E> Operator<E> unboxing(Operator<E> operator)
     {
         requireNonNull(operator, "operator is null");
         if (operator instanceof KvOperator) {
@@ -85,16 +85,6 @@ public abstract class Operator<R>
         else {
             return operator;
         }
-    }
-
-    @SuppressWarnings({"unchecked"})
-    protected static <E> Operator<? extends E>[] unboxing(Operator<? extends E>[] operators)
-    {
-        Operator<? extends E>[] outArray = new Operator[operators.length];
-        for (int i = 0; i < operators.length; i++) {
-            outArray[i] = unboxing(operators[i]);
-        }
-        return outArray;
     }
 
     @Override
@@ -112,7 +102,7 @@ public abstract class Operator<R>
     @Override
     public final int getId()
     {
-        return id;
+        return dataSetId;
     }
 
     @Override
@@ -140,7 +130,7 @@ public abstract class Operator<R>
 
     public List<? extends Operator<?>> getDependencies()
     {
-        return ImmutableList.copy(dataSets);
+        return dataSets;
     }
 
     @Override
@@ -157,14 +147,12 @@ public abstract class Operator<R>
         return markedCache;
     }
 
-    protected abstract Iterator<R> compute(Partition split, TaskContext taskContext);
-
-    private boolean markedCache = false;
+    protected abstract Iterator<R> compute(Partition partition, TaskContext taskContext);
 
     public final Iterator<R> computeOrCache(Partition split, TaskContext taskContext)
     {
         if (markedCache) {
-            return CacheManager.compute(this, id, split, taskContext);
+            return CacheManager.compute(this, dataSetId, split, taskContext);
         }
         else {
             return this.compute(split, taskContext);
@@ -189,18 +177,23 @@ public abstract class Operator<R>
      * todo: 需重新实现
      */
     @Override
-    public DataSet<R> unCache()
+    public void unCache()
     {
         checkState(!(this instanceof KvOperator) && this.isMarkedCache(),
                 "this DataSet not cached");
         //blocking = true
-        //todo: 通过job触发 代价比较重(会出发额外的stage多计算)，后续应该改为通信解决(斩断dag血缘)
-        context.runJob(unboxing(this), iterator -> {
-            CacheManager.unCacheExec(id);
+
+        //context.freeCache(dataSetId, this);
+        //todo: 通过job触发代价比较重,且未必会正确调度，后续应该改为使用DriverNetManager通信解决
+        Operator<Integer> emp = (Operator<Integer>)
+                context.makeDataSet(IntStream.range(0, this.numPartitions()).boxed().collect(Collectors.toList()),
+                        this.numPartitions());
+        checkState(emp.numPartitions() == this.numPartitions());
+        context.runJob(emp, iterator -> {
+            CacheManager.unCacheExec(dataSetId);
             return true;
         });
         markedCache = false;
-        return this;
     }
 
     @Override
@@ -212,13 +205,14 @@ public abstract class Operator<R>
     @Override
     public DataSet<R> limit(int limit)
     {
-        //todo: 如果上一个算子是排序,则还可以进一步下推优化
         int[] partitionSize = new int[numPartitions()];
         int[] partitionLimit = new int[partitionSize.length];
-        this.mapPartitionWithId((id, iterator) ->
-                Iterators.of(new int[] {id, (int) Iterators.size(Iterators.limit(iterator, limit))}))
+        DataSet<R> cached = this.partitionLimit(limit).cache();
+        cached.mapPartitionWithId((id, iterator) ->
+                Iterators.of(new int[] {id, (int) Iterators.size(iterator)}))
                 .collect().forEach(it -> partitionSize[it[0]] = it[1]);
         int diff = limit;
+        //todo: 如果limit很大，且单分区数据很多会造成热点。此时需要考虑水平切分热点
         for (int i = 0; i < numPartitions() && diff > 0; i++) {
             if (diff >= partitionSize[i]) {
                 partitionLimit[i] = partitionSize[i];
@@ -229,7 +223,10 @@ public abstract class Operator<R>
                 break;
             }
         }
-        return this.mapPartitionWithId((id, iterator) -> Iterators.limit(iterator, partitionLimit[id]));
+        int cachedDataSetId = cached.getId();
+        //此处限制每个task都必须幂等调度。需要driver单独触发一次全局释放
+        return cached.mapPartitionWithId((id, iterator) ->
+                Iterators.limit(iterator, partitionLimit[id], () -> CacheManager.unCacheExec(cachedDataSetId, id)));
     }
 
     @Override
@@ -310,10 +307,7 @@ public abstract class Operator<R>
     {
         requireNonNull(mapper, "mapper is null");
         Mapper<R, O> clearedFunc = Utils.clear(mapper);
-        return new MapPartitionOperator<>(
-                this,
-                it -> Iterators.map(it, clearedFunc::map),
-                false);
+        return new MapOperator<>(this, clearedFunc, false);
     }
 
     @Override
@@ -321,7 +315,7 @@ public abstract class Operator<R>
     {
         requireNonNull(flatMapper, "flatMapper is null");
         Mapper<R, O[]> clearedFunc = Utils.clear(flatMapper);
-        return new FlatMapOperator<>(this, clearedFunc);
+        return new FlatMapOperator<>(this, it -> Iterators.of(clearedFunc.map(it)), false);
     }
 
     @Override
@@ -329,7 +323,7 @@ public abstract class Operator<R>
     {
         requireNonNull(flatMapper, "flatMapper is null");
         Mapper<R, Iterator<O>> clearedFunc = Utils.clear(flatMapper);
-        return new FlatMapIteratorOperator<>(this, clearedFunc);
+        return new FlatMapOperator<>(this, clearedFunc, false);
     }
 
     @Override
@@ -353,10 +347,7 @@ public abstract class Operator<R>
     {
         requireNonNull(filter, "filter is null");
         Filter<R> clearedFunc = Utils.clear(filter);
-        return new MapPartitionOperator<>(
-                this,
-                it -> Iterators.filter(it, clearedFunc::filter),
-                false);
+        return new FilterOperator<>(this, clearedFunc);
     }
 
     @Override
@@ -384,8 +375,7 @@ public abstract class Operator<R>
     @Override
     public List<R> collect()
     {
-        //todo: 使用其他比ImmutableList复杂度更低的操作
-        return context.runJob(unboxing(this), MutableList::copy)
+        return context.runJob(unboxing(this), ImmutableList::copy)
                 .stream()
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList());
@@ -452,7 +442,7 @@ public abstract class Operator<R>
     public String toString()
     {
         return toStringHelper(this)
-                .add("operatorId", id)
+                .add("operatorId", dataSetId)
                 .toString();
     }
 }

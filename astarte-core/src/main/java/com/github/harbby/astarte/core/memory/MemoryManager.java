@@ -15,6 +15,8 @@
  */
 package com.github.harbby.astarte.core.memory;
 
+import com.github.harbby.gadtry.base.Platform;
+
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,8 +33,7 @@ public class MemoryManager
 
     public static ByteBuffer allocateMemory(int capacity)
     {
-        //ByteBuffer page = Platform.allocateDirectBuffer(capacity);
-        ByteBuffer page = ByteBuffer.allocate(capacity);
+        ByteBuffer page = Platform.allocateDirectBuffer(capacity);
         allocatedMemory.addAndGet(page.capacity());
         return page;
     }

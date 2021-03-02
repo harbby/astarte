@@ -15,13 +15,9 @@
  */
 package com.github.harbby.astarte.core.api;
 
-public class Constant
+import java.io.Serializable;
+
+public interface Split
+        extends Serializable
 {
-    private Constant() {}
-
-    public static final String DRIVER_SCHEDULER_PORT = "driver.manager.port";
-
-    public static final String EXECUTOR_MEMORY_CONF = "executor.memory.mb";
-
-    public static final String SHUFFLE_MAP_COMBINE_ENABLE = "shuffle.map.combine.enable";
 }

@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.net.SocketAddress;
-import java.util.Set;
+import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -70,7 +70,7 @@ public class Executor
                 TaskEvent event;
                 Stage stage = task.getStage();
                 try {
-                    Set<SocketAddress> shuffleServices = stage.getShuffleServices();
+                    Collection<SocketAddress> shuffleServices = stage.getShuffleServices();
                     ShuffleClient shuffleClient = ShuffleClient.getClusterShuffleClient(shuffleServices);
                     TaskContext taskContext = TaskContext.of(stage.getJobId(), stage.getStageId(), stage.getDeps(), shuffleClient, executorUUID);
                     Object result = task.runTask(taskContext);

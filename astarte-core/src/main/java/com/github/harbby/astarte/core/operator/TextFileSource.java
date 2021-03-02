@@ -15,15 +15,14 @@
  */
 package com.github.harbby.astarte.core.operator;
 
-import com.github.harbby.astarte.core.BatchContext;
-import com.github.harbby.astarte.core.TaskContext;
-import com.github.harbby.astarte.core.api.Partition;
+import com.github.harbby.astarte.core.api.Collector;
+import com.github.harbby.astarte.core.api.DataSetSource;
+import com.github.harbby.astarte.core.api.Split;
 import com.github.harbby.gadtry.base.Files;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Serializable;
@@ -37,66 +36,108 @@ import java.util.Optional;
 import static com.github.harbby.gadtry.base.Throwables.throwsThrowable;
 
 public class TextFileSource
-        extends Operator<String>
+        implements DataSetSource<String>
 {
-    private final transient Partition[] partitions;
+    private final URI fileUri;
+    private volatile boolean stop = false;
 
-    public TextFileSource(BatchContext batchContext, URI dataUri)
+    public TextFileSource(URI fileUri)
     {
-        super(batchContext);
-        String schema = Optional.ofNullable(dataUri.getScheme()).orElse("file");
+        this.fileUri = fileUri;
+    }
+
+    @Override
+    public Split[] trySplit(int tryParallelism)
+    {
+        String schema = Optional.ofNullable(fileUri.getScheme()).orElse("file");
         switch (schema.toLowerCase()) {
             case "file":
-                this.partitions = prepareLocalFileSplit(dataUri);
-                break;
+                return prepareLocalFileSplit(fileUri);
             case "hdfs":
                 throw new UnsupportedOperationException();
             default:
-                throw new UnsupportedOperationException("schema " + schema + " not support URI " + dataUri);
+                throw new UnsupportedOperationException("schema " + schema + " not support URI " + fileUri);
         }
     }
 
-    private static Partition[] prepareLocalFileSplit(URI uri)
+    @Override
+    public Iterator<String> phyPlan(Split split)
+    {
+        TextFileSplit fileSplit = (TextFileSplit) split;
+        try {
+            return new FileIteratorReader(fileSplit);
+        }
+        catch (IOException e) {
+            throw throwsThrowable(e);
+        }
+    }
+
+    @Override
+    public void pushModePhyPlan(Collector<String> collector, Split split)
+    {
+        TextFileSplit fileSplit = (TextFileSplit) split;
+        try (FileInputStream inputStream = new FileInputStream(fileSplit.file);
+                InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+                BufferedReader reader = new BufferedReader(inputStreamReader)) {
+            inputStream.getChannel().position(fileSplit.startOffset);
+            String line;
+            while (!stop && (line = reader.readLine()) != null) {
+                collector.collect(line);
+            }
+        }
+        catch (IOException e) {
+            throw throwsThrowable(e);
+        }
+    }
+
+    @Override
+    public void close()
+    {
+        this.stop = true;
+    }
+
+    private static Split[] prepareLocalFileSplit(URI uri)
     {
         File rootFile = new File(uri.getPath());
         if (!rootFile.exists()) {
             throw throwsThrowable(new NoSuchFileException(rootFile.getPath()));
         }
         List<File> files = Files.listFiles(rootFile, false, file -> file.length() > 0);
-        Partition[] partitions = new Partition[files.size()];
+        Split[] splits = new Split[files.size()];
         for (int i = 0; i < files.size(); i++) {
-            partitions[i] = new TextFileSplit(i, files.get(i));
+            splits[i] = new TextFileSplit(files.get(i));
         }
-        return partitions;
-    }
-
-    @Override
-    public Partition[] getPartitions()
-    {
-        return partitions;
+        return splits;
     }
 
     private static class TextFileSplit
-            extends Partition
+            implements Split
     {
         private final File file;
+        private final long startOffset;
+        private final long length;
 
-        public TextFileSplit(int index, File file)
+        public TextFileSplit(File file)
         {
-            super(index);
             this.file = file;
+            //todo: file split
+            this.startOffset = 0;
+            this.length = file.length();
         }
-    }
 
-    @Override
-    public Iterator<String> compute(Partition partition, TaskContext taskContext)
-    {
-        TextFileSplit filePartition = (TextFileSplit) partition;
-        try {
-            return new FileIteratorReader(filePartition.file);
+        public File getFile()
+        {
+            return file;
         }
-        catch (FileNotFoundException e) {
-            throw throwsThrowable(e);
+
+        public long getLength()
+        {
+            return length;
+        }
+
+        public long getStartOffset()
+        {
+            return startOffset;
         }
     }
 
@@ -107,11 +148,13 @@ public class TextFileSource
 
         private String line;
 
-        private FileIteratorReader(File file)
-                throws FileNotFoundException
+        private FileIteratorReader(TextFileSplit fileSplit)
+                throws IOException
         {
             //todo: close
-            FileInputStream inputStream = new FileInputStream(file);
+            FileInputStream inputStream = new FileInputStream(fileSplit.file);
+            inputStream.getChannel().position(fileSplit.startOffset);
+
             InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
             this.reader = new BufferedReader(inputStreamReader);
         }

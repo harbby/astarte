@@ -20,10 +20,10 @@ import com.github.harbby.astarte.core.operator.Operator;
 
 import java.io.Serializable;
 import java.net.SocketAddress;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 import static com.github.harbby.gadtry.base.MoreObjects.toStringHelper;
 
@@ -35,7 +35,7 @@ public abstract class Stage
     private final int jobId;
 
     private Map<Integer, Integer> deps = new HashMap<>();
-    private Set<SocketAddress> shuffleServices;
+    private Collection<SocketAddress> shuffleServices;
 
     protected Stage(final Operator<?> operator, int jobId, int stageId)
     {
@@ -49,12 +49,12 @@ public abstract class Stage
         this.deps.putAll(deps);
     }
 
-    public void setShuffleServices(Set<SocketAddress> shuffleServices)
+    public void setShuffleServices(Collection<SocketAddress> shuffleServices)
     {
         this.shuffleServices = shuffleServices;
     }
 
-    public Set<SocketAddress> getShuffleServices()
+    public Collection<SocketAddress> getShuffleServices()
     {
         return shuffleServices;
     }

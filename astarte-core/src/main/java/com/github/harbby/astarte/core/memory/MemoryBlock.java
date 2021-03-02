@@ -82,11 +82,14 @@ public class MemoryBlock
 
     public void free()
     {
+        currentPage = null;
+        blockSize = 0;
         for (ByteBuffer currentPage : pages) {
             if (currentPage.isDirect()) {
                 Platform.freeDirectBuffer(currentPage);
             }
         }
+        pages.clear();
     }
 
     public long getBlockSize()

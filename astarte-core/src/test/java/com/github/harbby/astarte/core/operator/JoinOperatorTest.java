@@ -22,6 +22,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 public class JoinOperatorTest
@@ -149,5 +150,115 @@ public class JoinOperatorTest
                 Arrays.asList(Tuple2.of("hp", Tuple2.of(18, 18)),
                         Tuple2.of("hp1", Tuple2.of(19, 19)),
                         Tuple2.of("hp2", Tuple2.of(20, 20))));
+    }
+
+    @Test
+    public void sameEqualLocalJoinTest()
+    {
+        KvDataSet<String, Integer> ds = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 8),
+                Tuple2.of("hp", 10),
+                Tuple2.of("hp1", 19),
+                Tuple2.of("hp2", 20)
+        ));
+        List<Tuple2<String, Tuple2<Integer, Integer>>> data = ds.join(ds).collect();
+        Assert.assertEquals(Arrays.asList(
+                Tuple2.of("hp", Tuple2.of(8, 8)),
+                Tuple2.of("hp", Tuple2.of(8, 10)),
+                Tuple2.of("hp", Tuple2.of(10, 8)),
+                Tuple2.of("hp", Tuple2.of(10, 10)),
+                Tuple2.of("hp1", Tuple2.of(19, 19)),
+                Tuple2.of("hp2", Tuple2.of(20, 20))),
+                data);
+    }
+
+    /**
+     * todo: 更智能的优化器 应该具备将该例子优化为
+     */
+    @Test
+    public void should3StageUseShuffleJoinTest2()
+    {
+        KvDataSet<String, Integer> ds = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 8),
+                Tuple2.of("hp", 10),
+                Tuple2.of("hp1", 19),
+                Tuple2.of("hp2", 20)
+        ), 2);
+
+        List<Tuple2<String, Tuple2<Integer, Integer>>> data = ds.mapValues(x -> x).join(ds.mapValues(x -> x)).collect();
+        data.sort(Comparator.comparing(it -> it.f1));
+        Assert.assertEquals(Arrays.asList(
+                Tuple2.of("hp", Tuple2.of(8, 8)),
+                Tuple2.of("hp", Tuple2.of(10, 8)),
+                Tuple2.of("hp", Tuple2.of(8, 10)),
+                Tuple2.of("hp", Tuple2.of(10, 10)),
+                Tuple2.of("hp1", Tuple2.of(19, 19)),
+                Tuple2.of("hp2", Tuple2.of(20, 20))),
+                data);
+    }
+
+    /**
+     * 同source源 join可以尝试使用如下方式进行`pre shuffle local join`
+     * 这里优化后只有两个stage，比上面方法{@link JoinOperatorTest#should3StageUseShuffleJoinTest2}少一个stage。
+     */
+    @Test
+    public void should2StageUseLocalJoinTest3()
+    {
+        KvDataSet<String, Integer> ds = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 8),
+                Tuple2.of("hp", 10),
+                Tuple2.of("hp1", 19),
+                Tuple2.of("hp2", 20)
+        ), 2).rePartitionByKey();
+        List<Tuple2<String, Tuple2<Integer, Integer>>> data = ds.mapValues(x -> x).mapValues(x -> x)
+                .join(ds.mapValues(x -> x)).collect();
+        data.sort(Comparator.comparing(it -> it.f1));
+        Assert.assertEquals(Arrays.asList(
+                Tuple2.of("hp", Tuple2.of(8, 8)),
+                Tuple2.of("hp", Tuple2.of(8, 10)),
+                Tuple2.of("hp", Tuple2.of(10, 8)),
+                Tuple2.of("hp", Tuple2.of(10, 10)),
+                Tuple2.of("hp1", Tuple2.of(19, 19)),
+                Tuple2.of("hp2", Tuple2.of(20, 20))),
+                data);
+    }
+
+    @Test
+    public void cacheLocalJoinTest()
+    {
+        KvDataSet<String, int[]> ds = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 8),
+                Tuple2.of("hp", 10),
+                Tuple2.of("hp1", 19),
+                Tuple2.of("hp2", 20)
+        ), 1).groupByKey()
+                .mapValues(x -> ((List<Integer>) x).stream().mapToInt(y -> y).toArray())
+                .cache();
+        Assert.assertEquals(3, ds.mapValues(x -> 1).join(ds).count());
+        Assert.assertEquals(3, ds.mapValues(x -> 1).mapValues(x -> x).join(ds).count());
+        ds.unCache();
+    }
+
+    @Test
+    public void cacheLocalJoinTest2()
+    {
+        mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 8),
+                Tuple2.of("hp", 10)
+        ), 1).mapValues(x -> x + 1)
+                .mapKeys(x -> x + 1)
+                .filter(x -> true)
+                .map(x -> x)
+                .flatMap(x -> new Object[] {x, x})
+                //.map(x -> x)
+                .print();
+
+//        KvDataSet<String, Integer> ds = mppContext.makeKvDataSet(Arrays.asList(
+//                Tuple2.of("hp", 8),
+//                Tuple2.of("hp", 10)
+//        ), 2).cache();
+//
+//        ds.mapKeys(x -> x).join(ds).print();
+//        ds.unCache();
     }
 }

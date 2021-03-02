@@ -25,19 +25,23 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
- * CacheManager
+ * cache数据，支持对象和字节存储(支持3种cache模式)
+ * cache算子会使得Executor节点拥有状态，调度时应注意幂等
  */
 public class CacheManager
 {
     private CacheManager() {}
 
     private static final Logger logger = LoggerFactory.getLogger(CacheManager.class);
-    private static final Map<Integer, CacheMemory<?>[]> cacheMemMap = new ConcurrentHashMap<>();
+    private static final Map<Integer, DataSetCache<?>> cacheMemMap = new ConcurrentHashMap<>();
 
     public enum CacheMode
     {
@@ -62,14 +66,63 @@ public class CacheManager
         public abstract Iterator<E> prepareIterator();
     }
 
-    public static void unCacheExec(int jobId)
+    private static class DataSetCache<E>
     {
-        CacheMemory<?>[] cachedMemories = cacheMemMap.remove(jobId);
-        if (cachedMemories != null) {
-            for (CacheMemory byteCachedMemory : cachedMemories) {
-                byteCachedMemory.freeMemory();
+        private final int number;
+        private final AtomicInteger releasePartitions = new AtomicInteger();
+        private final CacheMemory<E>[] cacheMemories;
+
+        @SuppressWarnings("unchecked")
+        private DataSetCache(int dataSetId, int number)
+        {
+            this.number = number;
+            this.cacheMemories = new CacheMemory[number];
+        }
+
+        public CacheMemory<E> getCache(int partitionId)
+        {
+            return cacheMemories[partitionId];
+        }
+
+        public void putCache(int partitionId, CacheMemory<E> cacheMemory)
+        {
+            cacheMemories[partitionId] = cacheMemory;
+        }
+
+        public int freePartition(int partitionId)
+        {
+            requireNonNull(cacheMemories[partitionId], "unknown core error").freeMemory();
+            cacheMemories[partitionId] = null;
+            return releasePartitions.incrementAndGet();
+        }
+
+        public void freeAllPartition()
+        {
+            for (CacheMemory<?> byteCachedMemory : cacheMemories) {
+                requireNonNull(byteCachedMemory, "unknown core error").freeMemory();
             }
-            logger.info("cleared cache data {}", jobId);
+        }
+    }
+
+    public static void unCacheExec(int dataSetId)
+    {
+        DataSetCache<?> cachedMemories = cacheMemMap.remove(dataSetId);
+        if (cachedMemories != null) {
+            cachedMemories.freeAllPartition();
+            logger.info("cleared dataSet[{}] cache data", dataSetId);
+        }
+    }
+
+    public static void unCacheExec(int dataSetId, int partitionId)
+    {
+        DataSetCache<?> dataSetCache = cacheMemMap.get(dataSetId);
+        int released = dataSetCache.freePartition(partitionId);
+        logger.info("cleared dataSet[{}] partition[{}] cache data", dataSetId, partitionId);
+
+        if (released >= dataSetCache.number) {
+            if (cacheMemMap.remove(dataSetId) != null) {
+                logger.info("Dataset[{}] all partition cache data cleared", dataSetId);
+            }
         }
     }
 
@@ -97,7 +150,7 @@ public class CacheManager
         @Override
         public Iterator<E> prepareIterator()
         {
-            checkState(isFinal, "only reader mode");
+            checkState(isFinal, "must be in read mode");
             return data.iterator();
         }
     }
@@ -105,29 +158,35 @@ public class CacheManager
     /**
      * todo: fix bugs
      */
-    public static <E> Iterator<E> compute(Operator<E> dataSet, int jobId, Partition split, TaskContext taskContext)
+    public static <E> Iterator<E> compute(Operator<E> dataSet, int dataSetId, Partition partition, TaskContext taskContext)
     {
+        int partitionId = partition.getId();
         @SuppressWarnings("unchecked")
-        CacheMemory<E>[] jobCachePartitions = (CacheMemory<E>[]) cacheMemMap.computeIfAbsent(jobId, key -> new CacheMemory[dataSet.numPartitions()]);
-        if (jobCachePartitions[split.getId()] != null) {
-            logger.debug("dataSet{}[{}] cache hit, tree: {}", dataSet, split.getId(), taskContext.getDependStages());
-            return jobCachePartitions[split.getId()].prepareIterator();
-        }
-        logger.debug("dataSet{}[{}] cache miss, tree: {}", dataSet, split.getId(), taskContext.getDependStages());
+        DataSetCache<E> dataSetCache = (DataSetCache<E>) cacheMemMap
+                .computeIfAbsent(dataSetId, key -> new DataSetCache<E>(dataSetId, dataSet.numPartitions()));
 
-        Iterator<E> iterator = dataSet.compute(split, taskContext);
+        if (dataSetCache.getCache(partitionId) != null) {
+            logger.debug("dataSet{}[{}] cache hit, tree: {}", dataSet, partitionId, taskContext.getDependStages());
+            return dataSetCache.getCache(partitionId).prepareIterator();
+        }
+        logger.debug("dataSet{}[{}] cache miss, tree: {}", dataSet, partitionId, taskContext.getDependStages());
+
+        Iterator<E> iterator = dataSet.compute(partition, taskContext);
         CacheMemory<E> partitionCacheMemory = dataSet.getRowEncoder() != null
                 ? new ByteCachedMemory<>(dataSet.getRowEncoder())
                 : new ObjectCacheMemory<>();
+        dataSetCache.putCache(partitionId, partitionCacheMemory);
         return new Iterator<E>()
         {
+            private boolean done = false;
+
             @Override
             public boolean hasNext()
             {
                 boolean hasNext = iterator.hasNext();
-                if (!hasNext) {
-                    partitionCacheMemory.finalCache();
-                    jobCachePartitions[split.getId()] = partitionCacheMemory;
+                if (!hasNext && !done) {
+                    done = true;
+                    partitionCacheMemory.finalCache(); //后面跟随limit时存在缺陷，无法进行final
                     logger.debug("-----{} cached dep stage: {} data succeed", dataSet, taskContext.getDependStages());
                 }
                 return hasNext;
@@ -136,6 +195,9 @@ public class CacheManager
             @Override
             public E next()
             {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
                 E row = iterator.next();
                 partitionCacheMemory.append(row);
                 return row;

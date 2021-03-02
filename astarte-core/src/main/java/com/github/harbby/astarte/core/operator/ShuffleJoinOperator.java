@@ -19,77 +19,47 @@ import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.coders.Encoder;
-import com.github.harbby.astarte.core.deprecated.JoinExperiment;
 import com.github.harbby.astarte.core.runtime.ShuffleClient;
+import com.github.harbby.astarte.core.utils.JoinUtil;
 import com.github.harbby.gadtry.collection.ImmutableList;
-import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
-/**
- * 每个stage只需包含自己相关算子的引用。这样序列化dag时将只会包含自己相关引用
- * 以此目前Stage仅有的两个firstOperator是[ShuffledOperator, ShuffleJoinOperator]
- * 我们在[ShuffledOperator, ShuffleJoinOperator]算子里不能包含任何Operator的引用。
- * see: clearOperatorDependencies
- * <p>
- * shuffle join
- */
-public class ShuffleJoinOperator<K>
-        extends Operator<Tuple2<K, Object[]>>
+public class ShuffleJoinOperator<K, V1, V2>
+        extends Operator<Tuple2<K, Tuple2<V1, V2>>>
 {
     private final Partitioner partitioner;
-    private final int[] shuffleMapIds;
-    private final JoinExperiment.JoinMode joinMode;
+    private final JoinUtil.JoinMode joinMode;
+    private final int leftShuffleMapId;
+    private final Encoder<Tuple2<K, V1>> leftEncoder;
+    private final int rightShuffleMapId;
+    private final Encoder<Tuple2<K, V2>> rightEncoder;
 
-    private final transient List<ShuffleMapOperator<K, Object>> dependencies;
+    private final transient List<ShuffleMapOperator<K, ?>> dependencies;
 
-    private final Map<Integer, Encoder<Tuple2<K, Object>>> encoders = new HashMap<>();
-
-    @SafeVarargs
-    protected ShuffleJoinOperator(Partitioner partitioner, JoinExperiment.JoinMode joinMode,
-            Operator<? extends Tuple2<K, ?>> leftDataSet,
-            Operator<? extends Tuple2<K, ?>>... otherDataSets)
+    protected ShuffleJoinOperator(Partitioner partitioner,
+            JoinUtil.JoinMode joinMode,
+            Operator<Tuple2<K, V1>> leftDataSet,
+            Operator<Tuple2<K, V2>> rightDataSet)
     {
-        super(leftDataSet.getContext()); //不再传递依赖
+        super(leftDataSet.getContext());
         this.partitioner = requireNonNull(partitioner, "requireNonNull");
         this.joinMode = requireNonNull(joinMode, "joinMode is null");
-        this.dependencies = ImmutableList.copy(createShuffleMapOps(partitioner, leftDataSet, otherDataSets));
-        this.shuffleMapIds = dependencies.stream().mapToInt(Operator::getId).toArray();
-        for (int i = 0; i < otherDataSets.length + 1; i++) {
-            ShuffleMapOperator<K, Object> shuffleMapOperator = dependencies.get(i);
-            encoders.put(shuffleMapOperator.getId(), shuffleMapOperator.getShuffleMapRowEncoder());
-        }
-    }
 
-    @SafeVarargs
-    private static <K> List<ShuffleMapOperator<K, Object>> createShuffleMapOps(
-            Partitioner partitioner,
-            Operator<? extends Tuple2<K, ?>> leftDataSet,
-            Operator<? extends Tuple2<K, ?>>... otherDataSets)
-    {
-        requireNonNull(partitioner, "partitioner is null");
-        requireNonNull(leftDataSet, "leftDataSet is null");
-        checkState(otherDataSets.length > 0, "must otherDataSets.length > 0");
-
-        return MutableList.<Operator<? extends Tuple2<K, ?>>>builder()
-                .add(leftDataSet)
-                .addAll(otherDataSets)
-                .build()
-                .stream()
-                .map(x -> {
-                    @SuppressWarnings("unchecked")
-                    Operator<Tuple2<K, Object>> operator = (Operator<Tuple2<K, Object>>) unboxing(x);
-                    return new ShuffleMapOperator<>(operator, partitioner);
-                }).collect(Collectors.toList());
+        ShuffleMapOperator<K, V1> leftShuffleMapOperator = new ShuffleMapOperator<>(unboxing(leftDataSet), partitioner);
+        ShuffleMapOperator<K, V2> rightShuffleMapOperator = new ShuffleMapOperator<>(unboxing(rightDataSet), partitioner);
+        this.dependencies = ImmutableList.of(leftShuffleMapOperator, rightShuffleMapOperator);
+        this.leftShuffleMapId = leftShuffleMapOperator.getId();
+        this.rightShuffleMapId = rightShuffleMapOperator.getId();
+        this.leftEncoder = leftShuffleMapOperator.getShuffleMapRowEncoder();
+        this.rightEncoder = rightShuffleMapOperator.getShuffleMapRowEncoder();
     }
 
     @Override
@@ -118,21 +88,15 @@ public class ShuffleJoinOperator<K>
     }
 
     @Override
-    public Iterator<Tuple2<K, Object[]>> compute(Partition split, TaskContext taskContext)
+    public Iterator<Tuple2<K, Tuple2<V1, V2>>> compute(Partition split, TaskContext taskContext)
     {
         Map<Integer, Integer> deps = taskContext.getDependStages();
         for (Integer shuffleId : deps.values()) {
             checkState(shuffleId != null, "shuffleId is null");
         }
         ShuffleClient shuffleClient = taskContext.getShuffleClient();
-        @SuppressWarnings("unchecked")
-        Iterator<Tuple2<K, ?>>[] iterators = IntStream.of(shuffleMapIds)
-                .mapToObj(operator -> {
-                    int shuffleId = deps.get(operator);
-                    Encoder<Tuple2<K, Object>> encoder = encoders.get(operator);
-                    return shuffleClient.readShuffleData(encoder, shuffleId, split.getId());
-                }).toArray(Iterator[]::new);
-
-        return JoinExperiment.join(joinMode, iterators);
+        Iterator<Tuple2<K, V1>> left = shuffleClient.readShuffleData(leftEncoder, deps.get(leftShuffleMapId), split.getId());
+        Iterator<Tuple2<K, V2>> right = shuffleClient.readShuffleData(rightEncoder, deps.get(rightShuffleMapId), split.getId());
+        return JoinUtil.join(joinMode, left, right);
     }
 }

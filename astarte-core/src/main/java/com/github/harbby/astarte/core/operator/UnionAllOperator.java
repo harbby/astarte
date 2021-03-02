@@ -17,23 +17,73 @@ package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
+import com.github.harbby.gadtry.collection.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static java.util.Objects.requireNonNull;
 
 public class UnionAllOperator<E>
         extends Operator<E>
 {
-    private final Operator<E>[] kvDataSets;
+    private final Map<Integer, Operator<E>> dataSets;
+    private final Partition[] partitions;
+
+    @SafeVarargs
+    protected UnionAllOperator(Operator<E>... inputs)
+    {
+        super(inputs[0].getContext());
+        this.dataSets = Stream.of(inputs).map(Operator::unboxing).collect(Collectors.toMap(Operator::getId, v -> v));
+
+        List<Partition> partitions = new ArrayList<>();
+        for (Operator<? extends E> operator : this.dataSets.values()) {
+            for (Partition partition : operator.getPartitions()) {
+                Partition unionAllPartition = new UnionAllPartition(partitions.size(), operator.getId(), partition);
+                partitions.add(unionAllPartition);
+            }
+        }
+        this.partitions = partitions.toArray(new Partition[0]);
+    }
+
+    @Override
+    public List<? extends Operator<?>> getDependencies()
+    {
+        return ImmutableList.copy(dataSets.values());
+    }
+
+    @Override
+    public Partition[] getPartitions()
+    {
+        return partitions;
+    }
+
+    @Override
+    public int numPartitions()
+    {
+        return partitions.length;
+    }
+
+    @Override
+    protected Iterator<E> compute(Partition split, TaskContext taskContext)
+    {
+        UnionAllPartition unionAllPartition = (UnionAllPartition) split;
+        Operator<E> operator = requireNonNull(dataSets.get(unionAllPartition.operatorId));
+        return operator.computeOrCache(unionAllPartition.partition, taskContext);
+    }
 
     @SuppressWarnings("unchecked")
-    @SafeVarargs
-    protected UnionAllOperator(Operator<E>... kvDataSets)
+    private static <E> Operator<E>[] unboxing(Operator<E>[] operators)
     {
-        super(kvDataSets);
-        this.kvDataSets = (Operator<E>[]) unboxing(kvDataSets);
+        Operator<E>[] outArray = new Operator[operators.length];
+        for (int i = 0; i < operators.length; i++) {
+            outArray[i] = unboxing(operators[i]);
+        }
+        return outArray;
     }
 
     public static class UnionAllPartition
@@ -48,40 +98,5 @@ public class UnionAllOperator<E>
             this.operatorId = operatorId;
             this.partition = partition;
         }
-    }
-
-    @Override
-    public Partition[] getPartitions()
-    {
-        int i = 0;
-        List<Partition> partitions = new ArrayList<>();
-        for (Operator<? extends E> operator : kvDataSets) {
-            for (Partition partition : operator.getPartitions()) {
-                Partition unionAllPartition = new UnionAllPartition(i, operator.getId(), partition);
-                partitions.add(unionAllPartition);
-                i++;
-            }
-        }
-        return partitions.toArray(new Partition[0]);
-    }
-
-    @Override
-    public int numPartitions()
-    {
-        return Stream.of(kvDataSets)
-                .mapToInt(x -> x.numPartitions())
-                .sum();
-    }
-
-    @Override
-    protected Iterator<E> compute(Partition split, TaskContext taskContext)
-    {
-        UnionAllPartition unionAllPartition = (UnionAllPartition) split;
-        for (Operator<E> operator : kvDataSets) {
-            if (unionAllPartition.operatorId == operator.getId()) {
-                return operator.computeOrCache(unionAllPartition.partition, taskContext);
-            }
-        }
-        throw new IllegalStateException();
     }
 }

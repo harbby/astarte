@@ -69,7 +69,7 @@ public interface DataSet<R>
 
     DataSet<R> cache();
 
-    DataSet<R> unCache();
+    void unCache();
 
     DataSet<R> partitionLimit(int limit);
 
