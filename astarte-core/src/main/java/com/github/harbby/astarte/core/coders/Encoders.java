@@ -15,6 +15,13 @@
  */
 package com.github.harbby.astarte.core.coders;
 
+import com.github.harbby.astarte.core.coders.array.BooleanArrayEncoder;
+import com.github.harbby.astarte.core.coders.array.ByteArrayEncoder;
+import com.github.harbby.astarte.core.coders.array.CharArrayEncoder;
+import com.github.harbby.astarte.core.coders.array.DoubleArrayEncoder;
+import com.github.harbby.astarte.core.coders.array.FloatArrayEncoder;
+import com.github.harbby.astarte.core.coders.array.ShortArrayEncoder;
+import com.github.harbby.astarte.core.coders.array.StringArrayEncoder;
 import com.github.harbby.gadtry.base.Lazys;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.base.Throwables;
@@ -57,6 +64,13 @@ public final class Encoders
     private static final Encoder<Integer> intEncoder = new IntEncoder();
     private static final Encoder<int[]> intArrEncoder = new IntArrayEncoder();
     private static final int[] zeroIntArr = new int[0];
+    private static final Encoder<boolean[]> booleanArrayEncoder = new BooleanArrayEncoder();
+    private static final Encoder<byte[]> byteArrayEncoder = new ByteArrayEncoder();
+    private static final Encoder<char[]> charArrayEncoder = new CharArrayEncoder();
+    private static final Encoder<double[]> doubleArrayEncoder = new DoubleArrayEncoder();
+    private static final Encoder<float[]> floatArrayEncoder = new FloatArrayEncoder();
+    private static final Encoder<short[]> shortArrayEncoder = new ShortArrayEncoder();
+    private static final Encoder<String[]> stringArrayEncoder = new StringArrayEncoder();
 
     private static final Encoder<Double> doubleEncoder = new DoubleEncoder();
     private static final Encoder<String> charStringEncoder = new CharStringEncoder();
@@ -176,6 +190,41 @@ public final class Encoders
     public static Encoder<long[]> jLongArray()
     {
         return longArrEncoder;
+    }
+
+    public static Encoder<boolean[]> jBooleanArray()
+    {
+        return booleanArrayEncoder;
+    }
+
+    public static Encoder<byte[]> jByteArray()
+    {
+        return byteArrayEncoder;
+    }
+
+    public static Encoder<char[]> jCharArray()
+    {
+        return charArrayEncoder;
+    }
+
+    public static Encoder<double[]> jDoubleArray()
+    {
+        return doubleArrayEncoder;
+    }
+
+    public static Encoder<float[]> jFloatArray()
+    {
+        return floatArrayEncoder;
+    }
+
+    public static Encoder<short[]> jShortArray()
+    {
+        return shortArrayEncoder;
+    }
+
+    public static Encoder<String[]> jStringArray()
+    {
+        return stringArrayEncoder;
     }
 
     public static Encoder<Integer> jInt()

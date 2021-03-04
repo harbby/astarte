@@ -32,15 +32,10 @@ public class CharStringEncoder
     @Override
     public void encoder(String value, DataOutput output) throws IOException
     {
-        if (value != null) {
+        if (value != null && value.length() > 0) {
             final int length = value.length();
             output.writeInt(length);
             output.writeUTF(value);
-//            for (int i = 0; i < length; i++) {
-//                char c = value.charAt(i);
-//                output.write(c);
-//                output.writeUTF(c);
-//            }
         }
         else {
             output.writeInt(0);
@@ -53,11 +48,6 @@ public class CharStringEncoder
         if (length == 0) {
             return null;
         }
-//        final char[] data = new char[length];
-//        for (int i = 0; i < length; i++) {
-//            int c = input.readUnsignedByte();
-//            data[i] = (char) c;
-//        }
         return input.readUTF();
     }
 }
