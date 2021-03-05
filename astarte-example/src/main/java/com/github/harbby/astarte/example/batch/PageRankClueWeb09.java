@@ -18,10 +18,10 @@ package com.github.harbby.astarte.example.batch;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
-import com.github.harbby.astarte.core.api.ShuffleWriter;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.github.harbby.gadtry.io.BufferedNioOutputStream;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -130,8 +130,7 @@ public class PageRankClueWeb09
         Encoder<Tuple2<Integer, int[]>> encoder = Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray());
         try (FileOutputStream fileOutputStream = new FileOutputStream("/tmp/shuffle_test")) {
             FileChannel fileChannel = fileOutputStream.getChannel();
-            ShuffleWriter.HashShuffleWriter.NioOutputStream nioOutputStream =
-                    new ShuffleWriter.HashShuffleWriter.NioOutputStream(fileChannel, 819200);
+            BufferedNioOutputStream nioOutputStream = new BufferedNioOutputStream(fileChannel, 819200);
             DataOutput dataOutput = new DataOutputStream(nioOutputStream);
             for (Tuple2<Integer, int[]> integerTuple2 : (Iterable<Tuple2<Integer, int[]>>) () -> new FileIteratorReader(file)) {
                 dataOutput.writeInt(integerTuple2.f1);

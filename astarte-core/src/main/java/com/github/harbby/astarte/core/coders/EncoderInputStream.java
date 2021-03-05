@@ -17,9 +17,8 @@ package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.StateOption;
-import net.jpountz.lz4.LZ4BlockInputStream;
 
-import java.io.BufferedInputStream;
+import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,7 +29,7 @@ import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class EncoderInputStream<E>
-        implements Iterator<E>
+        implements Iterator<E>, Closeable
 {
     private final StateOption<E> option = StateOption.empty();
     private final DataInputStream dataInput;
@@ -40,8 +39,7 @@ public class EncoderInputStream<E>
     public EncoderInputStream(InputStream inputStream, Encoder<E> encoder)
     {
         this.encoder = requireNonNull(encoder, "encoder is null");
-        LZ4BlockInputStream lz4BlockInputStream = new LZ4BlockInputStream(inputStream);
-        this.dataInput = new DataInputStream(new BufferedInputStream(lz4BlockInputStream));
+        this.dataInput = new DataInputStream(requireNonNull(inputStream));
         checkState(dataInput.markSupported(), "dataInput not support mark()");
     }
 
@@ -79,5 +77,12 @@ public class EncoderInputStream<E>
             throw new NoSuchElementException();
         }
         return option.remove();
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        dataInput.close();
     }
 }

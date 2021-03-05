@@ -19,12 +19,10 @@ import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.operator.SortShuffleWriter;
-import com.github.harbby.gadtry.base.Platform;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
-import net.jpountz.lz4.LZ4BlockOutputStream;
+import com.github.harbby.gadtry.io.BufferedNioOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.nio.ch.DirectBuffer;
 
 import java.io.Closeable;
 import java.io.DataOutputStream;
@@ -32,33 +30,30 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.util.Iterator;
 
-import static com.github.harbby.astarte.core.runtime.ShuffleManagerService.getShuffleWorkDir;
 import static java.util.Objects.requireNonNull;
 
 public interface ShuffleWriter<K, V>
         extends Closeable
 {
+    public static String MERGE_FILE_NAME = "shuffle_merged_%s_%s.data";
+
     public void write(Iterator<? extends Tuple2<K, V>> iterator)
             throws IOException;
 
     public static <K, V> ShuffleWriter<K, V> createShuffleWriter(
-            String executorUUID,
+            File shuffleBaseDir,
             int jobId,
             int shuffleId,
             int mapId,
             Partitioner partitioner,
-            Encoder<Tuple2<K, V>> encoder,
-            Comparator<K> ordering)
+            Encoder<Tuple2<K, V>> encoder)
     {
-        if (ordering != null) {
-            return new SortShuffleWriter<>(executorUUID, jobId, shuffleId, mapId, ordering, partitioner, encoder);
-        }
-        return new HashShuffleWriter<>(executorUUID, jobId, shuffleId, mapId, partitioner, encoder);
+        String filePrefix = String.format("shuffle_%s_%s_", shuffleId, mapId);
+        File shuffleWorkDir = new File(shuffleBaseDir, String.valueOf(jobId));
+        return new SortShuffleWriter<>(shuffleWorkDir, filePrefix, String.format(MERGE_FILE_NAME, shuffleId, mapId), partitioner, encoder);
+        //return new HashShuffleWriter<>(shuffleWorkDir, filePrefix, partitioner, encoder);
     }
 
     public static class HashShuffleWriter<K, V>
@@ -66,29 +61,23 @@ public interface ShuffleWriter<K, V>
     {
         private static final Logger logger = LoggerFactory.getLogger(HashShuffleWriter.class);
 
-        private final String executorUUID;
-        private final int shuffleId;
-        private final int mapId;
-        private final int jobId;
+        private final File shuffleWorkDir;
+        private final String prefix;
         private final Partitioner partitioner;
         //todo: use array index, not hash
-        private final NioDataOutputStream[] outputStreams;
+        private final DataOutputStream[] outputStreams;
         private final Encoder<Tuple2<K, V>> encoder;
 
         public HashShuffleWriter(
-                String executorUUID,
-                int jobId,
-                int shuffleId,
-                int mapId,
+                File shuffleWorkDir,
+                String filePrefix,
                 Partitioner partitioner,
                 Encoder<Tuple2<K, V>> encoder)
         {
-            this.executorUUID = executorUUID;
-            this.jobId = jobId;
-            this.shuffleId = shuffleId;
-            this.mapId = mapId;
+            this.shuffleWorkDir = shuffleWorkDir;
+            this.prefix = filePrefix;
             this.partitioner = partitioner;
-            this.outputStreams = new NioDataOutputStream[partitioner.numPartitions()];
+            this.outputStreams = new DataOutputStream[partitioner.numPartitions()];
             this.encoder = requireNonNull(encoder, "encoder is null");
         }
 
@@ -99,129 +88,10 @@ public interface ShuffleWriter<K, V>
             while (iterator.hasNext()) {
                 Tuple2<K, V> kv = iterator.next();
                 int reduceId = partitioner.getPartition(kv.f1());
-                NioDataOutputStream dataOutputStream = getOutputChannel(reduceId);
+                DataOutputStream dataOutputStream = getOutputChannel(reduceId);
                 encoder.encoder(kv, dataOutputStream);
-                if (dataOutputStream.getPosition() > 81920) {
-                    dataOutputStream.flush();
-                }
-            }
-        }
-
-        private NioDataOutputStream getOutputChannel(int reduceId)
-                throws FileNotFoundException
-        {
-            NioDataOutputStream dataOutputStream = outputStreams[reduceId];
-            if (dataOutputStream == null) {
-                File file = this.getDataFile(shuffleId, mapId, reduceId);
-                if (!file.getParentFile().exists()) {
-                    file.getParentFile().mkdirs();
-                }
-                FileOutputStream fileOutputStream = new FileOutputStream(this.getDataFile(shuffleId, mapId, reduceId), false);
-                dataOutputStream = new NioDataOutputStream(new NioOutputStream(fileOutputStream.getChannel()));
-                //bio: dataOutputStream = new DataOutputStream(new LZ4BlockOutputStream(fileOutputStream));
-                outputStreams[reduceId] = dataOutputStream;
-            }
-            return dataOutputStream;
-        }
-
-        private static final class NioDataOutputStream
-                extends DataOutputStream
-        {
-            private final NioOutputStream outBuffer;
-
-            public NioDataOutputStream(NioOutputStream out)
-            {
-                super(new LZ4BlockOutputStream(out));
-                this.outBuffer = out;
             }
 
-            public int getPosition()
-            {
-                return outBuffer.position();
-            }
-        }
-
-        public static final class NioOutputStream
-                extends OutputStream
-        {
-            private final ByteBuffer buffer;
-            private final FileChannel channel;
-
-            public NioOutputStream(FileChannel channel, int buffSize)
-            {
-                this.buffer = ByteBuffer.allocateDirect(buffSize);
-                this.channel = channel;
-            }
-
-            private NioOutputStream(FileChannel channel)
-            {
-                this(channel, 1024 * 1024);
-            }
-
-            @Override
-            public void write(int b)
-            {
-                buffer.put((byte) b);
-            }
-
-            @Override
-            public void write(byte[] b)
-            {
-                buffer.put(b);
-            }
-
-            @Override
-            public void write(byte[] b, int off, int len)
-            {
-                buffer.put(b, off, len);
-            }
-
-            @Override
-            public void flush()
-                    throws IOException
-            {
-                buffer.flip();
-                channel.write(buffer);
-                buffer.clear();
-            }
-
-            public int position()
-            {
-                return buffer.position();
-            }
-
-            @Override
-            public void close()
-                    throws IOException
-            {
-                try (FileChannel ignored = this.channel) {
-                    this.flush();
-                }
-                finally {
-                    //todo: use Platform.freeDirectBuffer(buff)
-                    if (buffer.isDirect() && ((DirectBuffer) buffer).cleaner() != null) {
-                        //java8字节码版本为52
-                        if (Platform.getVmClassVersion() > 52) {
-                            Platform.addOpenJavaModules(((DirectBuffer) buffer).cleaner().getClass(), this.getClass());
-                        }
-                        ((DirectBuffer) buffer).cleaner().clean();
-                    }
-                }
-            }
-        }
-
-        private File getDataFile(int shuffleId, int mapId, int reduceId)
-        {
-            // spark path /tmp/blockmgr-0b4744ba-bffa-420d-accb-fbc475da7a9d/27/shuffle_101_201_0.data
-            String fileName = "shuffle_" + shuffleId + "_" + mapId + "_" + reduceId + ".data";
-            File shuffleWorkDir = getShuffleWorkDir(executorUUID);
-            return new File(shuffleWorkDir, String.format("%s/%s", jobId, fileName));
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
             for (DataOutputStream dataOutputStream : outputStreams) {
                 try {
                     if (dataOutputStream != null) {
@@ -232,6 +102,28 @@ public interface ShuffleWriter<K, V>
                     logger.error("close shuffle write file outputStream failed", e);
                 }
             }
+        }
+
+        private DataOutputStream getOutputChannel(int reduceId)
+                throws FileNotFoundException
+        {
+            DataOutputStream dataOutputStream = outputStreams[reduceId];
+            if (dataOutputStream == null) {
+                File file = new File(shuffleWorkDir, prefix + reduceId + ".data");
+                if (!file.getParentFile().exists()) {
+                    file.getParentFile().mkdirs();
+                }
+                FileOutputStream fileOutputStream = new FileOutputStream(file, false);
+                dataOutputStream = new DataOutputStream(new BufferedNioOutputStream(fileOutputStream.getChannel(), 10240));
+                outputStreams[reduceId] = dataOutputStream;
+            }
+            return dataOutputStream;
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
         }
     }
 }

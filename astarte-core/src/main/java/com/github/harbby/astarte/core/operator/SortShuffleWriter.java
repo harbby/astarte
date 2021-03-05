@@ -21,56 +21,83 @@ import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.ShuffleWriter;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
+import com.github.harbby.astarte.core.coders.EncoderInputStream;
+import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
-import com.github.harbby.gadtry.function.exception.Consumer;
+import com.github.harbby.gadtry.io.BufferedNioOutputStream;
+import com.github.harbby.gadtry.io.LimitInputStream;
+import net.jpountz.lz4.LZ4BlockOutputStream;
 
+import java.io.BufferedInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class SortShuffleWriter<K, V>
-        extends ShuffleWriter.HashShuffleWriter<K, V>
+        implements ShuffleWriter<K, V>
 {
     private final Partitioner partitioner;
-    private final Comparator<K> ordering;
+    private final Comparator<K> comparator;
     private final Encoder<Tuple2<K, V>> encoder;
+    private final File shuffleWorkDir;
+    private final String prefix;
+    private final File mergeName;
 
     //spillFile
     public SortShuffleWriter(
-            String executorUUID,
-            int jobId,
-            int shuffleId, int mapId,
-            Comparator<K> ordering,
+            File shuffleWorkDir,
+            String filePrefix,
+            String mergeName,
             Partitioner partitioner,
             Encoder<Tuple2<K, V>> encoder)
     {
-        super(executorUUID, jobId, shuffleId, mapId, partitioner, encoder);
-        this.ordering = ordering;
         this.partitioner = partitioner;
         this.encoder = encoder;
+        this.shuffleWorkDir = shuffleWorkDir;
+        this.prefix = filePrefix;
+        this.mergeName = new File(shuffleWorkDir, mergeName);
+
+        if (encoder instanceof Encoders.Tuple2Encoder) {
+            this.comparator = ((Encoders.Tuple2Encoder<K, V>) encoder).getKeyEncoder().comparator();
+        }
+        else {
+            //todo: obj对象排序...
+            this.comparator = (x, y) -> ((String) x).compareTo((String) y);
+        }
+
+        if (!shuffleWorkDir.exists()) {
+            checkState(shuffleWorkDir.mkdirs(), "create shuffle dir failed %s", shuffleWorkDir);
+        }
     }
 
     @Override
     public void write(Iterator<? extends Tuple2<K, V>> iterator)
             throws IOException
     {
-        SorterBuffer<K, V> sorter = new SorterBuffer<>(ordering, partitioner);
+        SorterBuffer sorter = new SorterBuffer(comparator, partitioner, encoder);
 
         sorter.insertAll(iterator);
 
-        sorter.saveTo(super::write);
+        sorter.mergeFile();
     }
 
     public static <K> Partitioner createPartitioner(
@@ -184,9 +211,16 @@ public class SortShuffleWriter<K, V>
         return results;
     }
 
+    @Override
+    public void close()
+            throws IOException
+    {
+    }
+
     static class SampleResult<E>
             implements Serializable
     {
+        private static final long serialVersionUID = -8964734519903514206L;
         private final long partitionCount;
         private final int partitionId;
         private final E[] data;
@@ -214,41 +248,151 @@ public class SortShuffleWriter<K, V>
         }
     }
 
-    public static class SorterBuffer<K, V>
+    private static class ReduceWriter<K, V>
     {
-        private final List<Tuple2<K, V>>[] writerBuffer;
+        private static final int BUFF_SIZE = 10;
+        private final Encoder<Tuple2<K, V>> encoder;
+        private final File spillsFile;
+        private DataOutputStream dataOutput;
+        private BufferedNioOutputStream bufferedNioOutput;
+        private final List<Long> segmentEnds = new ArrayList<>();
+        private final List<Tuple2<K, V>> buffer = new ArrayList<>(BUFF_SIZE);
+        private final Comparator<K> comparator;
+
+        public ReduceWriter(
+                File spillsFile,
+                Encoder<Tuple2<K, V>> encoder,
+                Comparator<K> comparator)
+        {
+            this.encoder = encoder;
+            this.comparator = comparator;
+            this.spillsFile = spillsFile;
+        }
+
+        private void flushSegment()
+                throws IOException
+        {
+            if (dataOutput == null) {
+                this.bufferedNioOutput = new BufferedNioOutputStream(new FileOutputStream(spillsFile, false).getChannel(), 10240);
+                dataOutput = new DataOutputStream(bufferedNioOutput);
+            }
+            buffer.sort((x, y) -> comparator.compare(x.f1(), y.f1()));
+            for (Tuple2<K, V> kv : buffer) {
+                encoder.encoder(kv, dataOutput);
+            }
+            buffer.clear();
+            segmentEnds.add(bufferedNioOutput.position());
+        }
+
+        public void insert(Tuple2<K, V> kv)
+                throws IOException
+        {
+            if (buffer.size() >= BUFF_SIZE) {
+                this.flushSegment();
+            }
+            buffer.add(kv);
+        }
+
+        public Iterator<Tuple2<K, V>> merger()
+                throws IOException
+        {
+            EncoderInputStream<Tuple2<K, V>>[] encoderInputStreams = new EncoderInputStream[segmentEnds.size()];
+            long start = 0;
+            for (int i = 0; i < segmentEnds.size(); i++) {
+                long end = segmentEnds.get(i);
+                long length = end - start;
+                FileInputStream fileInputStream = new FileInputStream(spillsFile);
+                fileInputStream.getChannel().position(start);
+                EncoderInputStream<Tuple2<K, V>> encoderInputStream = new EncoderInputStream<>(new BufferedInputStream(new LimitInputStream(fileInputStream, length)), encoder);
+                encoderInputStreams[i] = encoderInputStream;
+                start = end;
+            }
+            //merger
+            return Iterators.mergeSorted((x, y) -> comparator.compare(x.f1, y.f1), encoderInputStreams);
+        }
+
+        public void writeFinish()
+                throws IOException
+        {
+            if (dataOutput != null) {
+                dataOutput.close();
+            }
+        }
+    }
+
+    public class SorterBuffer
+    {
         private final Comparator<K> ordering;
         private final Partitioner partitioner;
+        private final Encoder<Tuple2<K, V>> encoder;
+        private final ReduceWriter<K, V>[] reduceWriters;
 
-        public SorterBuffer(Comparator<K> ordering, Partitioner partitioner)
+        @SuppressWarnings("unchecked")
+        public SorterBuffer(Comparator<K> ordering, Partitioner partitioner, Encoder<Tuple2<K, V>> encoder)
         {
             this.ordering = ordering;
             this.partitioner = partitioner;
-            writerBuffer = (List<Tuple2<K, V>>[]) new List<?>[partitioner.numPartitions()];
+            this.encoder = encoder;
+            this.reduceWriters = new ReduceWriter[partitioner.numPartitions()];
+        }
+
+        private ReduceWriter<K, V> getReduceWriter(int reduceId)
+        {
+            ReduceWriter<K, V> reduceWriter = reduceWriters[reduceId];
+            if (reduceWriter != null) {
+                return reduceWriter;
+            }
+            File spillsFile = new File(shuffleWorkDir, prefix + reduceId + ".data");
+            reduceWriter = new ReduceWriter<>(spillsFile, encoder, ordering);
+            reduceWriters[reduceId] = reduceWriter;
+            return reduceWriter;
         }
 
         public void insertAll(Iterator<? extends Tuple2<K, V>> iterator)
+                throws IOException
         {
             while (iterator.hasNext()) {
                 Tuple2<K, V> kv = iterator.next();
                 int reduceId = this.partitioner.getPartition(kv.f1());
-                List<Tuple2<K, V>> buffer = writerBuffer[reduceId];
-                if (buffer == null) {
-                    buffer = new LinkedList<>();
-                    writerBuffer[reduceId] = buffer;
-                }
-                buffer.add(kv);
+                ReduceWriter<K, V> reduceWriter = getReduceWriter(reduceId);
+                reduceWriter.insert(kv);
+            }
+            //close all writer
+            for (ReduceWriter<K, V> reduceWriter : reduceWriters) {
+                reduceWriter.flushSegment();
+                reduceWriter.writeFinish();
             }
         }
 
-        public void saveTo(Consumer<Iterator<? extends Tuple2<K, V>>, IOException> shuffleWriter)
+        public void mergeFile()
                 throws IOException
         {
-            for (List<Tuple2<K, V>> buffer : writerBuffer) {
-                if (buffer != null) {
-                    buffer.sort((x, y) -> ordering.compare(x.f1(), y.f1()));
-                    shuffleWriter.apply(buffer.iterator());
+            ByteBuffer header = ByteBuffer.allocate(Integer.BYTES + reduceWriters.length * Long.BYTES);
+            header.putInt(reduceWriters.length);
+            try (FileChannel fileChannel = new FileOutputStream(mergeName, false).getChannel()) {
+                //skip header = int + len * long
+                fileChannel.position(header.capacity());
+                BufferedNioOutputStream bufferedNioOutputStream = new BufferedNioOutputStream(fileChannel);
+                for (ReduceWriter<K, V> reduceWriter : reduceWriters) {
+                    LZ4BlockOutputStream lz4OutputStream = new LZ4BlockOutputStream(bufferedNioOutputStream);
+                    DataOutputStream dataOutputStream = new DataOutputStream(lz4OutputStream);
+                    //merger
+                    Iterator<Tuple2<K, V>> merger = reduceWriter.merger();
+                    while (merger.hasNext()) {
+                        encoder.encoder(merger.next(), dataOutputStream);
+                    }
+                    dataOutputStream.flush();
+                    lz4OutputStream.finish();
+                    //merge index
+                    header.putLong(bufferedNioOutputStream.position());
+                    if (reduceWriter.spillsFile.exists()) {
+                        checkState(reduceWriter.spillsFile.delete(), "clear shuffle tmp file failed " + reduceWriter.spillsFile.getCanonicalPath());
+                    }
                 }
+                //write header
+                fileChannel.position(0);
+                header.flip();
+                fileChannel.write(header);
             }
         }
     }
@@ -256,6 +400,7 @@ public class SortShuffleWriter<K, V>
     public static class SortShuffleRangePartitioner<K>
             extends Partitioner
     {
+        private static final long serialVersionUID = -7555664714265570790L;
         private final int reduceNumber;
         private final K[] points;
         private final Comparator<K> ordering;
@@ -293,6 +438,7 @@ public class SortShuffleWriter<K, V>
     public static class ShuffledMergeSortOperator<K, V>
             extends Operator<Tuple2<K, V>>
     {
+        private static final long serialVersionUID = -6647627096339721886L;
         private final Partitioner partitioner;
         private final int shuffleMapOperatorId;
         private final Comparator<K> ordering;
@@ -312,6 +458,25 @@ public class SortShuffleWriter<K, V>
         }
 
         @Override
+        public Partitioner getPartitioner()
+        {
+            return this.partitioner;
+        }
+
+        @Override
+        public int numPartitions()
+        {
+            return this.partitioner.numPartitions();
+        }
+
+        @Override
+        public Partition[] getPartitions()
+        {
+            return IntStream.range(0, partitioner.numPartitions())
+                    .mapToObj(Partition::new).toArray(Partition[]::new);
+        }
+
+        @Override
         public List<Operator<?>> getDependencies()
         {
             return ImmutableList.of(dependOperator);
@@ -320,16 +485,14 @@ public class SortShuffleWriter<K, V>
         @Override
         protected Iterator<Tuple2<K, V>> compute(Partition split, TaskContext taskContext)
         {
-            List<Tuple2<K, V>> buffer = new LinkedList<>();
             Integer shuffleId = taskContext.getDependStages().get(shuffleMapOperatorId);
             checkState(shuffleId != null);
-            Iterator<Tuple2<K, V>> reader = taskContext.getShuffleClient().readShuffleData(encoder, shuffleId, split.getId());
-            while (reader.hasNext()) {
-                buffer.add(reader.next());
+            try {
+                return taskContext.getShuffleClient().readShuffleData(encoder, shuffleId, split.getId());
             }
-
-            buffer.sort((x, y) -> ordering.compare(x.f1(), y.f1()));
-            return buffer.iterator();
+            catch (IOException e) {
+                throw Throwables.throwsThrowable(e);
+            }
         }
     }
 }

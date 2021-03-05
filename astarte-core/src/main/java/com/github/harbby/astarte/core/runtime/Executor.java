@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.io.File;
 import java.net.SocketAddress;
 import java.util.Collection;
 import java.util.UUID;
@@ -36,7 +37,7 @@ public class Executor
         implements Closeable
 {
     private static final Logger logger = LoggerFactory.getLogger(Executor.class);
-    private final String executorUUID = UUID.randomUUID().toString();
+    private final File shuffleBaseDir;
     private final ExecutorService pool;
     private final ConcurrentMap<Integer, TaskRunner> runningTasks = new ConcurrentHashMap<>();
     private final ExecutorBackend executorBackend;
@@ -46,8 +47,8 @@ public class Executor
             throws Exception
     {
         pool = Executors.newFixedThreadPool(vcores);
-
-        this.shuffleService = new ShuffleManagerService(executorUUID);
+        this.shuffleBaseDir = new File("/tmp/astarte-" + UUID.randomUUID().toString());
+        this.shuffleService = new ShuffleManagerService(shuffleBaseDir);
         SocketAddress shuffleServiceAddress = shuffleService.start();
 
         this.executorBackend = new ExecutorBackend(this);
@@ -65,14 +66,15 @@ public class Executor
         shuffleService.updateCurrentJobId(task.getStage().getJobId());
         Future<?> future = pool.submit(() -> {
             try {
-                Thread.currentThread().setName("ashtarte-task-" + task.getStage().getStageId() + "_" + task.getTaskId());
+                Thread.currentThread().setName("astarte-task-" + task.getStage().getStageId() + "_" + task.getTaskId());
                 logger.info("starting... task {}", task);
                 TaskEvent event;
                 Stage stage = task.getStage();
                 try {
                     Collection<SocketAddress> shuffleServices = stage.getShuffleServices();
                     ShuffleClient shuffleClient = ShuffleClient.getClusterShuffleClient(shuffleServices);
-                    TaskContext taskContext = TaskContext.of(stage.getJobId(), stage.getStageId(), stage.getDeps(), shuffleClient, executorUUID);
+                    TaskContext taskContext = TaskContext.of(stage.getJobId(), stage.getStageId(),
+                            stage.getDeps(), shuffleClient, shuffleBaseDir);
                     Object result = task.runTask(taskContext);
                     event = TaskEvent.success(task.getTaskId(), result);
                 }

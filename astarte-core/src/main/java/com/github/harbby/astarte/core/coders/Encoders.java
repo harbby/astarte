@@ -15,6 +15,7 @@
  */
 package com.github.harbby.astarte.core.coders;
 
+import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.gadtry.base.Lazys;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.base.Throwables;
@@ -87,7 +88,7 @@ public final class Encoders
         }
     }
 
-    public static <K, V> Encoder<Tuple2<K, V>> tuple2(Encoder<K> kEncoder, Encoder<V> vEncoder)
+    public static <K, V> Tuple2Encoder<K, V> tuple2(Encoder<K> kEncoder, Encoder<V> vEncoder)
     {
         requireNonNull(kEncoder, "key Encoder is null");
         requireNonNull(vEncoder, "value Encoder is null");
@@ -134,6 +135,12 @@ public final class Encoders
                 throws IOException
         {
             return input.readInt();
+        }
+
+        @Override
+        public Comparator<Integer> comparator()
+        {
+            return Integer::compare;
         }
     }
 

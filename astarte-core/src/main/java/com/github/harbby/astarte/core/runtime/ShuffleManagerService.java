@@ -15,11 +15,13 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
+import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.EncoderInputStream;
+import com.github.harbby.gadtry.base.Files;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.github.harbby.gadtry.io.LimitInputStream;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
@@ -33,42 +35,44 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.ReferenceCountUtil;
+import net.jpountz.lz4.LZ4BlockInputStream;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.github.harbby.gadtry.base.MoreObjects.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class ShuffleManagerService
 {
     private static final Logger logger = LoggerFactory.getLogger(ShuffleManagerService.class);
-    private final File shuffleWorkDir;
+    private final File shuffleBaseDir;
     private ChannelFuture future;
     private volatile int currentJobId;
 
-    public ShuffleManagerService(String executorUUID)
+    public ShuffleManagerService(File shuffleBaseDir)
     {
-        this.shuffleWorkDir = getShuffleWorkDir(executorUUID);
-
+        this.shuffleBaseDir = shuffleBaseDir;
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            File workDir = ShuffleManagerService.getShuffleWorkDir(executorUUID);
             try {
-                FileUtils.deleteDirectory(workDir);
-                logger.debug("clear shuffle data temp dir {}", workDir);
+                FileUtils.deleteDirectory(shuffleBaseDir);
+                logger.debug("clear shuffle data temp dir {}", shuffleBaseDir);
             }
             catch (IOException e) {
                 logger.error("clear shuffle data temp dir failed", e);
@@ -139,7 +143,7 @@ public final class ShuffleManagerService
             int shuffleId = in.readInt();
             int reduceId = in.readInt();
             ReferenceCountUtil.release(msg);
-            List<File> files = getShuffleDataInput(shuffleWorkDir, currentJobId, shuffleId, reduceId);  //获取多个带发送文件
+            List<File> files = getShuffleDataInput(shuffleBaseDir, currentJobId, shuffleId, reduceId);  //获取多个待发送文件
 
             if (files.isEmpty()) {
                 //not found any file
@@ -174,27 +178,47 @@ public final class ShuffleManagerService
         }
     }
 
-    public static File getShuffleWorkDir(String executorUUID)
-    {
-        return new File("/tmp/ashtarte-" + executorUUID);
-    }
-
     public <K, V> Iterator<Tuple2<K, V>> getShuffleDataIterator(Encoder<Tuple2<K, V>> encoder, int shuffleId, int reduceId)
+            throws IOException
     {
         requireNonNull(encoder, "encoder is null");
-        List<File> files = getShuffleDataInput(shuffleWorkDir, currentJobId, shuffleId, reduceId);
+        checkArgument(reduceId >= 0);
+        List<File> files = Files.listFiles(new File(shuffleBaseDir, String.valueOf(currentJobId)), false,
+                file -> file.getName().startsWith("shuffle_merged_" + shuffleId));
+        List<Iterator<Tuple2<K, V>>> iterators = new ArrayList<>(files.size());
+        for (File file : files) {
+            //read header
+            FileInputStream fileInputStream = new FileInputStream(file);
+            DataInputStream dataInputStream = new DataInputStream(fileInputStream);
+            long[] segmentEnds = new long[dataInputStream.readInt()];
+            for (int i = 0; i < segmentEnds.length; i++) {
+                segmentEnds[i] = dataInputStream.readLong();
+            }
+            long segmentEnd = segmentEnds[reduceId];
+            long length = segmentEnd;
+            if (reduceId > 0) {
+                int headerSize = Integer.BYTES + segmentEnds.length * Long.BYTES;
+                fileInputStream.getChannel().position(headerSize + segmentEnds[reduceId - 1]);
+                length = segmentEnd - segmentEnds[reduceId - 1];
+            }
+            if (length > 0) {
+                iterators.add(new EncoderInputStream<>(new BufferedInputStream(new LZ4BlockInputStream(new LimitInputStream(fileInputStream, length))), encoder));
+            }
+        }
 
-        return Iterators.concat(files.stream()
-                .map(file -> {
-                    try {
-                        return new EncoderInputStream<>(new FileInputStream(file), encoder);
-                    }
-                    catch (FileNotFoundException e) {
-                        throw Throwables.throwsThrowable(e);
-                    }
-                }).iterator());
+        Comparator<K> comparator = (x, y) -> ((String) x).compareTo((String) y);
+        return Iterators.mergeSorted((x, y) -> comparator.compare(x.f1, y.f1), iterators);
     }
 
+    /**
+     * hash shuffle temp file scan
+     *
+     * @param jobId          job id
+     * @param shuffleId      shuffle id(stage id)
+     * @param reduceId       reduce partition id
+     * @param shuffleWorkDir shuffle temp dir
+     * @return find files when reduceId
+     */
     private static List<File> getShuffleDataInput(File shuffleWorkDir, int jobId, int shuffleId, int reduceId)
     {
         File[] files = new File(shuffleWorkDir, String.valueOf(jobId)).listFiles();

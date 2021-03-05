@@ -21,9 +21,11 @@ import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.runtime.ShuffleClient;
 import com.github.harbby.astarte.core.utils.JoinUtil;
+import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -95,8 +97,13 @@ public class ShuffleJoinOperator<K, V1, V2>
             checkState(shuffleId != null, "shuffleId is null");
         }
         ShuffleClient shuffleClient = taskContext.getShuffleClient();
-        Iterator<Tuple2<K, V1>> left = shuffleClient.readShuffleData(leftEncoder, deps.get(leftShuffleMapId), split.getId());
-        Iterator<Tuple2<K, V2>> right = shuffleClient.readShuffleData(rightEncoder, deps.get(rightShuffleMapId), split.getId());
-        return JoinUtil.join(joinMode, left, right);
+        try {
+            Iterator<Tuple2<K, V1>> left = shuffleClient.readShuffleData(leftEncoder, deps.get(leftShuffleMapId), split.getId());
+            Iterator<Tuple2<K, V2>> right = shuffleClient.readShuffleData(rightEncoder, deps.get(rightShuffleMapId), split.getId());
+            return JoinUtil.join(joinMode, left, right);
+        }
+        catch (IOException e) {
+            throw Throwables.throwsThrowable(e);
+        }
     }
 }

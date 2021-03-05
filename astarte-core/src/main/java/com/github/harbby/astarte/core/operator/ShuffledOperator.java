@@ -20,9 +20,11 @@ import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.runtime.ShuffleClient;
+import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -102,6 +104,11 @@ public class ShuffledOperator<K, V>
         Integer shuffleId = taskContext.getDependStages().get(shuffleMapOperatorId);
         checkState(shuffleId != null);
         ShuffleClient shuffleClient = taskContext.getShuffleClient();
-        return shuffleClient.readShuffleData(encoder, shuffleId, split.getId());
+        try {
+            return shuffleClient.readShuffleData(encoder, shuffleId, split.getId());
+        }
+        catch (IOException e) {
+            throw Throwables.throwsThrowable(e);
+        }
     }
 }
