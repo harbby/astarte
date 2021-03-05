@@ -20,22 +20,34 @@ import com.github.harbby.astarte.core.api.function.Comparator;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.Serializable;
 
-public interface Encoder<E>
-        extends Serializable
+/**
+ * @author ivan
+ * @date 2021.02.09 10:01:00
+ * byte Serialize
+ */
+public class ByteEncoder
+        implements Encoder<Byte>
 {
-    public void encoder(E value, DataOutput output)
-            throws IOException;
+    protected ByteEncoder() {}
 
-    public E decoder(DataInput input)
-            throws IOException;
-
-    /**
-     * sortMerge shuffle need
-     */
-    public default Comparator<E> comparator()
+    @Override
+    public void encoder(Byte value, DataOutput output)
+            throws IOException
     {
-        throw new UnsupportedOperationException();
+        output.writeByte(value);
+    }
+
+    @Override
+    public Byte decoder(DataInput input)
+            throws IOException
+    {
+        return input.readByte();
+    }
+
+    @Override
+    public Comparator<Byte> comparator()
+    {
+        return Byte::compare;
     }
 }

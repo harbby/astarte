@@ -172,9 +172,6 @@ public class JoinOperatorTest
                 data);
     }
 
-    /**
-     * todo: 更智能的优化器 应该具备将该例子优化为
-     */
     @Test
     public void should3StageUseShuffleJoinTest2()
     {

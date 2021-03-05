@@ -21,7 +21,6 @@ import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.AstarteException;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.ShuffleWriter;
-import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.base.Iterators;
@@ -39,28 +38,19 @@ import static java.util.Objects.requireNonNull;
 public class ShuffleMapOperator<K, V>
         extends Operator<Void>
 {
+    private static final long serialVersionUID = 4055609687203936202L;
     private final Operator<Tuple2<K, V>> operator;
     private final Partitioner partitioner;
-    private final Comparator<K> sortShuffle;
     private final Encoder<Tuple2<K, V>> encoder;
 
     public ShuffleMapOperator(
             Operator<Tuple2<K, V>> operator,
             Partitioner partitioner)
     {
-        this(operator, partitioner, null);
-    }
-
-    public ShuffleMapOperator(
-            Operator<Tuple2<K, V>> operator,
-            Partitioner partitioner,
-            Comparator<K> sortShuffle)
-    {
         //use default HashPartitioner
         super(operator);
         this.partitioner = requireNonNull(partitioner, "partitioner is null");
         this.operator = unboxing(operator);
-        this.sortShuffle = sortShuffle;
         Encoder<Tuple2<K, V>> rowEncoder = operator.getRowEncoder();
         if (rowEncoder == null) {
             rowEncoder = Encoders.javaEncoder();
@@ -100,13 +90,12 @@ public class ShuffleMapOperator<K, V>
     public Iterator<Void> compute(Partition split, TaskContext taskContext)
     {
         try (ShuffleWriter<K, V> shuffleWriter = ShuffleWriter.createShuffleWriter(
-                taskContext.executorUUID(),
+                taskContext.shuffleWorkDir(),
                 taskContext.getJobId(),
                 taskContext.getStageId(),
                 split.getId(),
                 partitioner,
-                encoder,
-                sortShuffle)) {
+                encoder)) {
             Iterator<? extends Tuple2<K, V>> iterator = operator.computeOrCache(split, taskContext);
             shuffleWriter.write(iterator);
         }

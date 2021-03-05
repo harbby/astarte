@@ -18,6 +18,7 @@ package com.github.harbby.astarte.core.concurrent;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.collection.MutableMap;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
@@ -33,7 +34,7 @@ public class StabilityTest
 {
     private static final Logger logger = LoggerFactory.getLogger(StabilityTest.class);
     private final BatchContext mppContext = BatchContext.builder()
-            .netLocal(2)
+            .local(2)
             .getOrCreate();
 
     @Test
@@ -46,6 +47,7 @@ public class StabilityTest
                 "b",
                 "b"), 2);
         KvDataSet<String, String> ds2 = ds1.kvDataSet(x -> new Tuple2<>(x, x))
+                .encoder(Encoders.tuple2(Encoders.asciiString(), Encoders.asciiString()))
                 .reduceByKey((x, y) -> x + y, 2);
 
         for (int i = 0; i < 100; i++) {

@@ -27,7 +27,8 @@ import java.util.Iterator;
 public interface ShuffleClient
         extends Closeable
 {
-    public <K, V> Iterator<Tuple2<K, V>> readShuffleData(Encoder<Tuple2<K, V>> encoder, int shuffleId, int reduceId);
+    public <K, V> Iterator<Tuple2<K, V>> readShuffleData(Encoder<Tuple2<K, V>> encoder, int shuffleId, int reduceId)
+            throws IOException;
 
     public static ShuffleClient getLocalShuffleClient(ShuffleManagerService shuffleManagerService)
     {

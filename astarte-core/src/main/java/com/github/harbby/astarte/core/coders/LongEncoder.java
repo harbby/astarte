@@ -20,22 +20,27 @@ import com.github.harbby.astarte.core.api.function.Comparator;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.Serializable;
 
-public interface Encoder<E>
-        extends Serializable
+public class LongEncoder
+        implements Encoder<Long>
 {
-    public void encoder(E value, DataOutput output)
-            throws IOException;
-
-    public E decoder(DataInput input)
-            throws IOException;
-
-    /**
-     * sortMerge shuffle need
-     */
-    public default Comparator<E> comparator()
+    @Override
+    public void encoder(Long value, DataOutput output)
+            throws IOException
     {
-        throw new UnsupportedOperationException();
+        output.writeLong(value);
+    }
+
+    @Override
+    public Long decoder(DataInput input)
+            throws IOException
+    {
+        return input.readLong();
+    }
+
+    @Override
+    public Comparator<Long> comparator()
+    {
+        return Long::compare;
     }
 }

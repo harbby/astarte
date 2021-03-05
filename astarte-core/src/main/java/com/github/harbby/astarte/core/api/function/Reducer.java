@@ -18,7 +18,6 @@ package com.github.harbby.astarte.core.api.function;
 import java.io.Serializable;
 
 public interface Reducer<ROW>
-        extends Serializable
+        extends com.github.harbby.gadtry.function.Reducer<ROW>, Serializable
 {
-    ROW reduce(ROW input1, ROW input2);
 }

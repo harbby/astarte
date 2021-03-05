@@ -15,27 +15,39 @@
  */
 package com.github.harbby.astarte.core.coders;
 
-import com.github.harbby.astarte.core.api.function.Comparator;
+import com.github.harbby.gadtry.base.Serializables;
+import com.github.harbby.gadtry.base.Throwables;
 
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.Serializable;
 
-public interface Encoder<E>
-        extends Serializable
+public class JavaEncoder<E extends Serializable>
+        implements Encoder<E>
 {
+    private static final long serialVersionUID = -7686841423755982202L;
+
+    @Override
     public void encoder(E value, DataOutput output)
-            throws IOException;
-
-    public E decoder(DataInput input)
-            throws IOException;
-
-    /**
-     * sortMerge shuffle need
-     */
-    public default Comparator<E> comparator()
+            throws IOException
     {
-        throw new UnsupportedOperationException();
+        byte[] bytes = Serializables.serialize(value);
+        output.writeInt(bytes.length);
+        output.write(bytes);
+    }
+
+    @Override
+    public E decoder(DataInput input)
+            throws IOException
+    {
+        byte[] bytes = new byte[input.readInt()];
+        input.readFully(bytes);
+        try {
+            return Serializables.byteToObject(bytes);
+        }
+        catch (ClassNotFoundException e) {
+            throw Throwables.throwsThrowable(e);
+        }
     }
 }

@@ -33,7 +33,6 @@ import java.util.stream.IntStream;
  * pageRank 由google创始人 拉里·佩奇（Larry Page）发明.
  * <p>
  * 该算法为迭代型,且结果收敛
- * 迭代此时将影响收敛度
  */
 public class PageRankTest
 {

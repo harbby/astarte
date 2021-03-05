@@ -29,6 +29,7 @@ import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
+import com.github.harbby.astarte.core.coders.Tuple2Encoder;
 import com.github.harbby.astarte.core.utils.JoinUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -36,8 +37,6 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static com.github.harbby.astarte.core.api.Constant.SHUFFLE_MAP_COMBINE_ENABLE;
 
 public class KvOperator<K, V>
         extends Operator<Tuple2<K, V>>
@@ -47,7 +46,7 @@ public class KvOperator<K, V>
     /*
      * 启用map端combine功能
      */
-    private boolean combine = context.getConf().getBoolean(SHUFFLE_MAP_COMBINE_ENABLE, true);
+    private boolean combine = false; //context.getConf().getBoolean(SHUFFLE_MAP_COMBINE_ENABLE, true);
 
     public KvOperator(Operator<Tuple2<K, V>> dataSet)
     {
@@ -80,9 +79,9 @@ public class KvOperator<K, V>
     }
 
     @Override
-    protected Encoders.Tuple2Encoder<K, V> getRowEncoder()
+    protected Tuple2Encoder<K, V> getRowEncoder()
     {
-        return (Encoders.Tuple2Encoder<K, V>) dataSet.getRowEncoder();
+        return (Tuple2Encoder<K, V>) dataSet.getRowEncoder();
     }
 
     @Override
@@ -251,7 +250,7 @@ public class KvOperator<K, V>
     @Override
     public KvDataSet<K, V> reduceByKey(Reducer<V> reducer, int numPartition)
     {
-        return reduceByKey(reducer, new HashPartitioner(dataSet.numPartitions()));
+        return reduceByKey(reducer, new HashPartitioner(numPartition));
     }
 
     @Override
@@ -274,8 +273,10 @@ public class KvOperator<K, V>
 
             // 进行shuffle
             ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(combineOperator, partitioner);
-            ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
-            return new KvOperator<>(new AggOperator<>(shuffledOperator, clearedFunc));
+            //ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper, partitioner);
+            SortShuffleWriter.ShuffledMergeSortOperator<K, V> shuffledMergeSortOperator = new SortShuffleWriter
+                    .ShuffledMergeSortOperator<>(shuffleMapper, partitioner);
+            return new KvOperator<>(new AggOperator<>(shuffledMergeSortOperator, clearedFunc));
         }
     }
 
@@ -404,18 +405,19 @@ public class KvOperator<K, V>
     public KvDataSet<K, V> sortByKey(Comparator<K> comparator, int numPartitions)
     {
         Comparator<K> clearedFunc = Utils.clear(comparator);
-        Partitioner partitioner = SortShuffleWriter.createPartitioner(numPartitions, (Operator<K>) this.keys(), clearedFunc);
-        ShuffleMapOperator<K, V> sortShuffleMapOp = new ShuffleMapOperator<>(
-                dataSet,
-                partitioner,
-                clearedFunc);
-
-        SortShuffleWriter.ShuffledMergeSortOperator<K, V> shuffledOperator = new SortShuffleWriter
-                .ShuffledMergeSortOperator<>(
-                sortShuffleMapOp,
-                clearedFunc,
-                sortShuffleMapOp.getPartitioner());
-        return new KvOperator<>(shuffledOperator);
+        throw new UnsupportedOperationException();
+//        Partitioner partitioner = SortShuffleWriter.createPartitioner(numPartitions, (Operator<K>) this.keys(), clearedFunc);
+//        ShuffleMapOperator<K, V> sortShuffleMapOp = new ShuffleMapOperator<>(
+//                dataSet,
+//                partitioner,
+//                clearedFunc);
+//
+//        SortShuffleWriter.ShuffledMergeSortOperator<K, V> shuffledOperator = new SortShuffleWriter
+//                .ShuffledMergeSortOperator<>(
+//                sortShuffleMapOp,
+//                clearedFunc,
+//                sortShuffleMapOp.getPartitioner());
+//        return new KvOperator<>(shuffledOperator);
     }
 
     @Override

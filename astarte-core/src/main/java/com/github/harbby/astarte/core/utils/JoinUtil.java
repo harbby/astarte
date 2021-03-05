@@ -15,6 +15,7 @@
  */
 package com.github.harbby.astarte.core.utils;
 
+import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -133,9 +134,20 @@ public class JoinUtil
         return Iterators.concat(innerJoin, leftOnly);
     }
 
-    public static <K, V, V1, V2> Iterator<Tuple2<K, Tuple2<V1, V2>>> mergeJoin()
+    public static <K, V1, V2> Iterator<Tuple2<K, Tuple2<V1, V2>>> mergeJoin(
+            JoinMode joinMode,
+            Comparator<K> comparator,
+            Iterator<Tuple2<K, V1>> leftStream,
+            Iterator<Tuple2<K, V2>> rightStream)
     {
-        throw new UnsupportedOperationException();
+        switch (joinMode) {
+            case INNER_JOIN: {
+                return Iterators.mergeJoin(comparator, leftStream, rightStream);
+            }
+            default:
+                return join(joinMode, leftStream, rightStream);
+            //throw new UnsupportedOperationException();
+        }
     }
 
     public static <K, V1, V2> Iterator<Tuple2<K, Tuple2<V1, V2>>> sameJoin(
@@ -153,8 +165,8 @@ public class JoinUtil
         {
             private final List<Tuple2<K, ?>> sameKeyRows = new ArrayList<>();
             private Iterator<Tuple2<K, Tuple2<V1, V2>>> child = Iterators.empty();
-            private final MyIterator<K> leftIterator = new MyIterator<>(sameKeyRows);
-            private final MyIterator<K> rightIterator = new MyIterator<>(sameKeyRows);
+            private final Iterators.ResetIterator<Tuple2<K, ?>> leftIterator = Iterators.warp(sameKeyRows);
+            private final Iterators.ResetIterator<Tuple2<K, ?>> rightIterator = Iterators.warp(sameKeyRows);
             private Tuple2<K, ?> next;
 
             @Override
@@ -212,44 +224,5 @@ public class JoinUtil
                 return child.next();
             }
         };
-    }
-
-    private static class MyIterator<K>
-            implements Iterator<Tuple2<K, ?>>
-    {
-        private final List<Tuple2<K, ?>> sameKeyRows;
-        private int index = 0;
-        private Tuple2<K, ?> row;
-
-        private MyIterator(List<Tuple2<K, ?>> sameKeyRows)
-        {
-            this.sameKeyRows = sameKeyRows;
-        }
-
-        public void reset()
-        {
-            this.index = 0;
-        }
-
-        @Override
-        public boolean hasNext()
-        {
-            if (row != null) {
-                return true;
-            }
-            if (index >= sameKeyRows.size()) {
-                return false;
-            }
-            row = sameKeyRows.get(index++);
-            return true;
-        }
-
-        @Override
-        public Tuple2<K, ?> next()
-        {
-            Tuple2<K, ?> old = this.row;
-            this.row = null;
-            return old;
-        }
     }
 }

@@ -20,22 +20,44 @@ import com.github.harbby.astarte.core.api.function.Comparator;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.Serializable;
+import java.sql.Date;
 
-public interface Encoder<E>
-        extends Serializable
+/**
+ * @author ivan
+ * @date 2021.02.09 10:01:00
+ * sql date Serialize
+ */
+public class SqlDateEncoder
+        implements Encoder<Date>
 {
-    public void encoder(E value, DataOutput output)
-            throws IOException;
+    protected SqlDateEncoder() {}
 
-    public E decoder(DataInput input)
-            throws IOException;
-
-    /**
-     * sortMerge shuffle need
-     */
-    public default Comparator<E> comparator()
+    @Override
+    public void encoder(Date value, DataOutput output) throws IOException
     {
-        throw new UnsupportedOperationException();
+        if (value == null) {
+            output.writeLong(-1);
+        }
+        else {
+            output.writeLong(value.getTime());
+        }
+    }
+
+    @Override
+    public Date decoder(DataInput input) throws IOException
+    {
+        final long l = input.readLong();
+        if (l == -1) {
+            return null;
+        }
+        else {
+            return new Date(l);
+        }
+    }
+
+    @Override
+    public Comparator<Date> comparator()
+    {
+        return Date::compareTo;
     }
 }

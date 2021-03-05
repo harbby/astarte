@@ -20,22 +20,29 @@ import com.github.harbby.astarte.core.api.function.Comparator;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.Serializable;
 
-public interface Encoder<E>
-        extends Serializable
+public class UTF8StringEncoder
+        implements Encoder<String>
 {
-    public void encoder(E value, DataOutput output)
-            throws IOException;
+    private static final long serialVersionUID = -1448812244763725244L;
 
-    public E decoder(DataInput input)
-            throws IOException;
-
-    /**
-     * sortMerge shuffle need
-     */
-    public default Comparator<E> comparator()
+    @Override
+    public void encoder(String value, DataOutput output)
+            throws IOException
     {
-        throw new UnsupportedOperationException();
+        output.writeUTF(value);
+    }
+
+    @Override
+    public String decoder(DataInput input)
+            throws IOException
+    {
+        return input.readUTF();
+    }
+
+    @Override
+    public Comparator<String> comparator()
+    {
+        return String::compareTo;
     }
 }

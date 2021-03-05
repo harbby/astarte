@@ -64,4 +64,57 @@ public class JoinUtilTest
                 Tuple2.of("hp", Tuple2.of(10, 10))),
                 data);
     }
+
+    @Test
+    public void innerMergeJoin()
+    {
+        Iterator<Tuple2<Integer, String>> left = Iterators.of(
+                Tuple2.of(1, "v1_1"),
+                Tuple2.of(2, "v1_2_1"),
+                Tuple2.of(2, "v1_2_2"),
+                Tuple2.of(7, "v1_7"),
+                Tuple2.of(8, "v1_8"));
+        Iterator<Tuple2<Integer, String>> right = Iterators.of(
+                Tuple2.of(2, "v2_2"),
+                Tuple2.of(4, "v2_4"),
+                Tuple2.of(7, "v2_7_1"),
+                Tuple2.of(7, "v2_7_2"),
+                Tuple2.of(8, "v2_8"),
+                Tuple2.of(9, "v2_9"));
+        Iterator<Tuple2<Integer, Tuple2<String, String>>> rs = JoinUtil.mergeJoin(JoinUtil.JoinMode.INNER_JOIN, Integer::compare, left, right);
+        List<Tuple2<Integer, Tuple2<String, String>>> data = MutableList.copy(rs);
+        Assert.assertEquals(Arrays.asList(
+                Tuple2.of(2, Tuple2.of("v1_2_1", "v2_2")),
+                Tuple2.of(2, Tuple2.of("v1_2_2", "v2_2")),
+                Tuple2.of(7, Tuple2.of("v1_7", "v2_7_1")),
+                Tuple2.of(7, Tuple2.of("v1_7", "v2_7_2")),
+                Tuple2.of(8, Tuple2.of("v1_8", "v2_8"))
+        ), data);
+    }
+
+    @Test
+    public void innerMergeJoin2()
+    {
+        Iterator<Tuple2<Integer, String>> left = Iterators.of(
+                Tuple2.of(1, "v1_1"),
+                Tuple2.of(2, "v1_2_1"),
+                Tuple2.of(2, "v1_2_2"),
+                Tuple2.of(7, "v1_7"),
+                Tuple2.of(8, "v1_8"));
+        Iterator<Tuple2<Integer, String>> right = Iterators.of(
+                Tuple2.of(2, "v2_2"),
+                Tuple2.of(4, "v2_4"),
+                Tuple2.of(7, "v2_7_1"),
+                Tuple2.of(7, "v2_7_2"),
+                Tuple2.of(8, "v2_8"));
+        Iterator<Tuple2<Integer, Tuple2<String, String>>> rs = JoinUtil.mergeJoin(JoinUtil.JoinMode.INNER_JOIN, Integer::compare, left, right);
+        List<Tuple2<Integer, Tuple2<String, String>>> data = MutableList.copy(rs);
+        Assert.assertEquals(Arrays.asList(
+                Tuple2.of(2, Tuple2.of("v1_2_1", "v2_2")),
+                Tuple2.of(2, Tuple2.of("v1_2_2", "v2_2")),
+                Tuple2.of(7, Tuple2.of("v1_7", "v2_7_1")),
+                Tuple2.of(7, Tuple2.of("v1_7", "v2_7_2")),
+                Tuple2.of(8, Tuple2.of("v1_8", "v2_8"))
+        ), data);
+    }
 }

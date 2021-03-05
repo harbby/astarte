@@ -18,6 +18,7 @@ package com.github.harbby.astarte.core;
 import com.github.harbby.astarte.core.runtime.ShuffleClient;
 import com.google.common.collect.ImmutableMap;
 
+import java.io.File;
 import java.util.Map;
 
 public interface TaskContext
@@ -30,14 +31,14 @@ public interface TaskContext
 
     public ShuffleClient getShuffleClient();
 
-    public String executorUUID();
+    public File shuffleWorkDir();
 
     public static TaskContext of(
             int jobId,
             int stageId,
             Map<Integer, Integer> depStages,
             ShuffleClient shuffleClient,
-            String executorUUID)
+            File shuffleWorkDir)
     {
         Map<Integer, Integer> deps = ImmutableMap.copyOf(depStages);
         return new TaskContext()
@@ -67,9 +68,9 @@ public interface TaskContext
             }
 
             @Override
-            public String executorUUID()
+            public File shuffleWorkDir()
             {
-                return executorUUID;
+                return shuffleWorkDir;
             }
         };
     }

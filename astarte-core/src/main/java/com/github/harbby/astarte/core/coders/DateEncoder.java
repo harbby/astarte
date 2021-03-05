@@ -15,27 +15,42 @@
  */
 package com.github.harbby.astarte.core.coders;
 
-import com.github.harbby.astarte.core.api.function.Comparator;
-
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.Serializable;
+import java.util.Date;
 
-public interface Encoder<E>
-        extends Serializable
+/**
+ * @author ivan
+ * @date 2021.02.09 10:01:00
+ * date Serialize
+ */
+@Deprecated
+public class DateEncoder
+        implements Encoder<Date>
 {
-    public void encoder(E value, DataOutput output)
-            throws IOException;
+    protected DateEncoder() {}
 
-    public E decoder(DataInput input)
-            throws IOException;
-
-    /**
-     * sortMerge shuffle need
-     */
-    public default Comparator<E> comparator()
+    @Override
+    public void encoder(Date value, DataOutput output) throws IOException
     {
-        throw new UnsupportedOperationException();
+        if (value == null) {
+            output.writeLong(Long.MIN_VALUE);
+        }
+        else {
+            output.writeLong(value.getTime());
+        }
+    }
+
+    @Override
+    public Date decoder(DataInput input) throws IOException
+    {
+        final long l = input.readLong();
+        if (l == Long.MIN_VALUE) {
+            return null;
+        }
+        else {
+            return new Date(l);
+        }
     }
 }

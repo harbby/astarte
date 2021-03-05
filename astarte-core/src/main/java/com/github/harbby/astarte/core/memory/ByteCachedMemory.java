@@ -19,10 +19,12 @@ import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.EncoderInputStream;
 import com.github.harbby.astarte.core.operator.CacheManager;
 import com.github.harbby.gadtry.base.Throwables;
+import net.jpountz.lz4.LZ4BlockInputStream;
 import net.jpountz.lz4.LZ4BlockOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
@@ -57,7 +59,7 @@ public class ByteCachedMemory<E>
     public Iterator<E> prepareIterator()
     {
         checkState(isFinal, "only reader mode");
-        return new EncoderInputStream<>(block.prepareInputStream(), encoder);
+        return new EncoderInputStream<>(new BufferedInputStream(new LZ4BlockInputStream(block.prepareInputStream())), encoder);
     }
 
     @Override
