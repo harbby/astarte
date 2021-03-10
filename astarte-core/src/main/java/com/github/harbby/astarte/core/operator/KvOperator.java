@@ -47,7 +47,7 @@ public class KvOperator<K, V>
     /*
      * 启用map端combine功能
      */
-    private boolean combine = context.getConf().getBoolean(SHUFFLE_MAP_COMBINE_ENABLE, true);
+    private boolean combine = false; //context.getConf().getBoolean(SHUFFLE_MAP_COMBINE_ENABLE, true);
 
     public KvOperator(Operator<Tuple2<K, V>> dataSet)
     {
@@ -251,7 +251,7 @@ public class KvOperator<K, V>
     @Override
     public KvDataSet<K, V> reduceByKey(Reducer<V> reducer, int numPartition)
     {
-        return reduceByKey(reducer, new HashPartitioner(dataSet.numPartitions()));
+        return reduceByKey(reducer, new HashPartitioner(numPartition));
     }
 
     @Override
@@ -274,8 +274,10 @@ public class KvOperator<K, V>
 
             // 进行shuffle
             ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(combineOperator, partitioner);
-            ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
-            return new KvOperator<>(new AggOperator<>(shuffledOperator, clearedFunc));
+            //ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper, partitioner);
+            SortShuffleWriter.ShuffledMergeSortOperator<K, V> shuffledMergeSortOperator = new SortShuffleWriter
+                    .ShuffledMergeSortOperator<>(shuffleMapper, null , partitioner);
+            return new KvOperator<>(new AggOperator<>(shuffledMergeSortOperator, clearedFunc));
         }
     }
 
@@ -404,18 +406,19 @@ public class KvOperator<K, V>
     public KvDataSet<K, V> sortByKey(Comparator<K> comparator, int numPartitions)
     {
         Comparator<K> clearedFunc = Utils.clear(comparator);
-        Partitioner partitioner = SortShuffleWriter.createPartitioner(numPartitions, (Operator<K>) this.keys(), clearedFunc);
-        ShuffleMapOperator<K, V> sortShuffleMapOp = new ShuffleMapOperator<>(
-                dataSet,
-                partitioner,
-                clearedFunc);
-
-        SortShuffleWriter.ShuffledMergeSortOperator<K, V> shuffledOperator = new SortShuffleWriter
-                .ShuffledMergeSortOperator<>(
-                sortShuffleMapOp,
-                clearedFunc,
-                sortShuffleMapOp.getPartitioner());
-        return new KvOperator<>(shuffledOperator);
+        throw new UnsupportedOperationException();
+//        Partitioner partitioner = SortShuffleWriter.createPartitioner(numPartitions, (Operator<K>) this.keys(), clearedFunc);
+//        ShuffleMapOperator<K, V> sortShuffleMapOp = new ShuffleMapOperator<>(
+//                dataSet,
+//                partitioner,
+//                clearedFunc);
+//
+//        SortShuffleWriter.ShuffledMergeSortOperator<K, V> shuffledOperator = new SortShuffleWriter
+//                .ShuffledMergeSortOperator<>(
+//                sortShuffleMapOp,
+//                clearedFunc,
+//                sortShuffleMapOp.getPartitioner());
+//        return new KvOperator<>(shuffledOperator);
     }
 
     @Override

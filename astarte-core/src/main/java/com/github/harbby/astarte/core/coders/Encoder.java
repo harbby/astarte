@@ -15,6 +15,8 @@
  */
 package com.github.harbby.astarte.core.coders;
 
+import com.github.harbby.astarte.core.api.function.Comparator;
+
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -28,4 +30,12 @@ public interface Encoder<E>
 
     public E decoder(DataInput input)
             throws IOException;
+
+    /**
+     * sortMerge shuffle need
+     */
+    public default Comparator<E> comparator()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

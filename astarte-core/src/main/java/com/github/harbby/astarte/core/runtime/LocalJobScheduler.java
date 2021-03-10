@@ -29,6 +29,7 @@ import com.github.harbby.astarte.core.api.function.Mapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -67,8 +68,8 @@ public class LocalJobScheduler
         logger.info("starting... job: {}", jobId);
         //---------------------
         final ExecutorService executors = Executors.newFixedThreadPool(parallelism);
-        String localExecutorUUID = UUID.randomUUID().toString();
-        ShuffleManagerService shuffleManagerService = new ShuffleManagerService(localExecutorUUID);
+        File shuffleWorkDir = new File("/tmp/astarte-" + UUID.randomUUID().toString());
+        ShuffleManagerService shuffleManagerService = new ShuffleManagerService(shuffleWorkDir);
         shuffleManagerService.updateCurrentJobId(jobId);
 
         try {
@@ -76,7 +77,7 @@ public class LocalJobScheduler
                 int stageId = stage.getStageId();
                 Map<Integer, Integer> deps = stageMap.getOrDefault(stage, Collections.emptyMap());
                 ShuffleClient shuffleClient = ShuffleClient.getLocalShuffleClient(shuffleManagerService);
-                TaskContext taskContext = TaskContext.of(jobId, stageId, deps, shuffleClient, localExecutorUUID);
+                TaskContext taskContext = TaskContext.of(jobId, stageId, deps, shuffleClient, shuffleWorkDir);
 
                 if (stage instanceof ShuffleMapStage) {
                     logger.info("starting... shuffleMapStage: {}, id {}", stage, stage.getStageId());

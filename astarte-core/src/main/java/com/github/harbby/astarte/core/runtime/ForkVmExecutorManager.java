@@ -50,7 +50,7 @@ public class ForkVmExecutorManager
         //启动所有Executor
         for (int i = 0; i < executorNum; i++) {
             JVMLauncher<Integer> launcher = JVMLaunchers.<Integer>newJvm()
-                    .setName("ashtarte.Executor")
+                    .setName("astarte.Executor")
                     .addUserjars(Utils.getSystemClassLoaderJars())
                     .setConsole(System.out::print)
                     //.addVmOps("-Dio.netty.leakDetectionLevel=advanced")
