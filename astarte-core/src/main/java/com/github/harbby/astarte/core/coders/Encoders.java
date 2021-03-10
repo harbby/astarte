@@ -15,7 +15,15 @@
  */
 package com.github.harbby.astarte.core.coders;
 
+import com.github.harbby.astarte.core.coders.array.BooleanArrayEncoder;
+import com.github.harbby.astarte.core.coders.array.ByteArrayEncoder;
+import com.github.harbby.astarte.core.coders.array.CharArrayEncoder;
+import com.github.harbby.astarte.core.coders.array.DoubleArrayEncoder;
+import com.github.harbby.astarte.core.coders.array.FloatArrayEncoder;
+import com.github.harbby.astarte.core.coders.array.ShortArrayEncoder;
+import com.github.harbby.astarte.core.coders.array.StringArrayEncoder;
 import com.github.harbby.astarte.core.api.function.Comparator;
+
 import com.github.harbby.gadtry.base.Lazys;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.base.Throwables;
@@ -27,6 +35,9 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.Serializable;
+import java.sql.Timestamp;
+import java.util.Date;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -41,14 +52,31 @@ public final class Encoders
     private Encoders() {}
 
     private static final Encoder<Long> longEncoder = new LongEncoder();
+    private static final Encoder<Boolean> booleanEncoder = new BooleanEncoder();
+    private static final Encoder<Byte> byteEncoder = new ByteEncoder();
+    private static final Encoder<Character> charEncoder = new CharEncoder();
+    private static final Encoder<Date> dateEncoder = new DateEncoder();
+    private static final Encoder<Short> shortEncoder = new ShortEncoder();
+    private static final Encoder<Float> floatEncoder = new FloatEncoder();
+    private static final Encoder<java.sql.Date> sqlDateEncoder = new SqlDateEncoder();
+    private static final Encoder<Timestamp> timestampEncoder = new SqlTimestampEncoder();
     private static final Encoder<long[]> longArrEncoder = new LongArrayEncoder();
     private static final long[] zeroLongArr = new long[0];
 
     private static final Encoder<Integer> intEncoder = new IntEncoder();
     private static final Encoder<int[]> intArrEncoder = new IntArrayEncoder();
     private static final int[] zeroIntArr = new int[0];
+    private static final Encoder<boolean[]> booleanArrayEncoder = new BooleanArrayEncoder();
+    private static final Encoder<byte[]> byteArrayEncoder = new ByteArrayEncoder();
+    private static final Encoder<char[]> charArrayEncoder = new CharArrayEncoder();
+    private static final Encoder<double[]> doubleArrayEncoder = new DoubleArrayEncoder();
+    private static final Encoder<float[]> floatArrayEncoder = new FloatArrayEncoder();
+    private static final Encoder<short[]> shortArrayEncoder = new ShortArrayEncoder();
+    private static final Encoder<String[]> stringArrayEncoder = new StringArrayEncoder();
 
     private static final Encoder<Double> doubleEncoder = new DoubleEncoder();
+    private static final Encoder<String> charStringEncoder = new CharStringEncoder();
+    private static final Encoder<String> byteStringEncoder = new ByteStringEncoder();
 
     private static final Supplier<Encoder<?>> javaEncoder = Lazys.goLazy(() -> {
         logger.warn("Don't use java serialize encoder");
@@ -88,6 +116,23 @@ public final class Encoders
         }
     }
 
+
+    /**
+     * encode map
+     *
+     * @param kEncoder
+     * @param vEncoder
+     * @param <K>
+     * @param <V>
+     * @return
+     */
+    public static <K, V> Encoder<Map<K, V>> mapEncoder(Encoder<K> kEncoder, Encoder<V> vEncoder)
+    {
+        requireNonNull(kEncoder, "key Encoder is null");
+        requireNonNull(vEncoder, "value Encoder is null");
+        return new MapEncoder<>(kEncoder, vEncoder);
+    }
+
     public static <K, V> Tuple2Encoder<K, V> tuple2(Encoder<K> kEncoder, Encoder<V> vEncoder)
     {
         requireNonNull(kEncoder, "key Encoder is null");
@@ -95,6 +140,51 @@ public final class Encoders
         return new Tuple2Encoder<>(kEncoder, vEncoder);
     }
 
+    public static Encoder<String> jCharString()
+    {
+        return charStringEncoder;
+    }
+
+    public static Encoder<String> jByteString()
+    {
+        return byteStringEncoder;
+    }
+
+    public static Encoder<Boolean> jBoolean()
+    {
+        return booleanEncoder;
+    }
+
+    public static Encoder<Byte> jByte()
+    {
+        return byteEncoder;
+    }
+
+    public static Encoder<Float> jFloat()
+    {
+        return floatEncoder;
+    }
+    public static Encoder<Date> jDate()
+    {
+        return dateEncoder;
+    }
+    public static Encoder<Short> jShort()
+    {
+        return shortEncoder;
+    }
+    public static Encoder<java.sql.Date> sqlDate()
+    {
+        return sqlDateEncoder;
+    }
+    public static Encoder<Timestamp> sqlTimestamp()
+    {
+        return timestampEncoder;
+    }
+
+    public static Encoder<Character> jChar()
+    {
+        return charEncoder;
+    }
     public static Encoder<Long> jLong()
     {
         return longEncoder;
@@ -103,6 +193,41 @@ public final class Encoders
     public static Encoder<long[]> jLongArray()
     {
         return longArrEncoder;
+    }
+
+    public static Encoder<boolean[]> jBooleanArray()
+    {
+        return booleanArrayEncoder;
+    }
+
+    public static Encoder<byte[]> jByteArray()
+    {
+        return byteArrayEncoder;
+    }
+
+    public static Encoder<char[]> jCharArray()
+    {
+        return charArrayEncoder;
+    }
+
+    public static Encoder<double[]> jDoubleArray()
+    {
+        return doubleArrayEncoder;
+    }
+
+    public static Encoder<float[]> jFloatArray()
+    {
+        return floatArrayEncoder;
+    }
+
+    public static Encoder<short[]> jShortArray()
+    {
+        return shortArrayEncoder;
+    }
+
+    public static Encoder<String[]> jStringArray()
+    {
+        return stringArrayEncoder;
     }
 
     public static Encoder<Integer> jInt()

@@ -37,6 +37,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.github.harbby.astarte.core.api.Constant.SHUFFLE_MAP_COMBINE_ENABLE;
+
 public class KvOperator<K, V>
         extends Operator<Tuple2<K, V>>
         implements KvDataSet<K, V>
