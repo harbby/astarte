@@ -16,27 +16,48 @@
 package com.github.harbby.astarte.core;
 
 import com.github.harbby.astarte.core.api.Partition;
-import com.github.harbby.astarte.core.api.Stage;
 import com.github.harbby.astarte.core.api.Task;
+import com.github.harbby.astarte.core.operator.ShuffleMapOperator;
 
-public class ShuffleMapTask<E>
+import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.util.Map;
+
+public class ShuffleMapTask
         implements Task<MapTaskState>
 {
-    private final Stage stage;
+    private final int jobId;
+    private final int stageId;
     private final Partition partition;
+    private final ShuffleMapOperator<?, ?> shuffleMapOperator;
+    private final Map<Integer, Map<Integer, SocketAddress>> dependMapTasks;
+    private final Map<Integer, Integer> dependStages;
 
-    public ShuffleMapTask(
-            Stage stage,
-            Partition partition)
+    public ShuffleMapTask(int jobId,
+            int stageId,
+            Partition partition,
+            ShuffleMapOperator<?, ?> shuffleMapOperator,
+            Map<Integer, Map<Integer, SocketAddress>> dependMapTasks,
+            Map<Integer, Integer> dependStages)
     {
-        this.stage = stage;
+        this.jobId = jobId;
+        this.stageId = stageId;
         this.partition = partition;
+        this.shuffleMapOperator = shuffleMapOperator;
+        this.dependMapTasks = dependMapTasks;
+        this.dependStages = dependStages;
     }
 
     @Override
-    public Stage getStage()
+    public Map<Integer, Map<Integer, SocketAddress>> getDependMapTasks()
     {
-        return stage;
+        return dependMapTasks;
+    }
+
+    @Override
+    public Map<Integer, Integer> getDependStages()
+    {
+        return dependStages;
     }
 
     @Override
@@ -48,7 +69,19 @@ public class ShuffleMapTask<E>
     @Override
     public MapTaskState runTask(TaskContext taskContext)
     {
-        stage.compute(partition, taskContext);
-        return null;
+        ByteBuffer header = shuffleMapOperator.doMapTask(partition, taskContext);
+        return new MapTaskState(header, partition.getId());
+    }
+
+    @Override
+    public int getJobId()
+    {
+        return jobId;
+    }
+
+    @Override
+    public int getStageId()
+    {
+        return stageId;
     }
 }

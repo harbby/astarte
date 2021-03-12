@@ -18,6 +18,7 @@ package com.github.harbby.astarte.core.runtime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.SocketAddress;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -26,18 +27,20 @@ public class LocalNettyExecutorManager
 {
     private static final Logger logger = LoggerFactory.getLogger(LocalNettyExecutorManager.class);
     private final ExecutorService pool;
+    private final SocketAddress driverManagerAddress;
 
-    public LocalNettyExecutorManager(int vcores, int executorMem, int executorNum)
+    public LocalNettyExecutorManager(int vcores, int executorMem, int executorNum, SocketAddress driverManagerAddress)
     {
         super(vcores, executorMem, executorNum);
         this.pool = Executors.newFixedThreadPool(executorNum);
+        this.driverManagerAddress = driverManagerAddress;
     }
 
     @Override
     public void start()
     {
         pool.submit(() -> {
-            try (Executor executor = new Executor(getVcores())) {
+            try (Executor executor = new Executor(getVcores(), driverManagerAddress)) {
                 executor.join();
             }
             catch (InterruptedException e) {

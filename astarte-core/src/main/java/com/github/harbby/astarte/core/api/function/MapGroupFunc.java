@@ -15,10 +15,11 @@
  */
 package com.github.harbby.astarte.core.api.function;
 
-import java.io.Serializable;
+import com.github.harbby.gadtry.function.Function2;
 
-public interface MapGroupFunc<K, ROW, OUT>
-        extends Serializable
+import java.util.Iterator;
+
+public interface MapGroupFunc<K, V, O>
+        extends Function2<K, Iterator<V>, O>
 {
-    OUT apply(K k, Iterable<ROW> iterable);
 }

@@ -16,10 +16,11 @@
 package com.github.harbby.astarte.core;
 
 import com.github.harbby.astarte.core.runtime.ShuffleClient;
-import com.google.common.collect.ImmutableMap;
 
 import java.io.File;
 import java.util.Map;
+
+import static java.util.Objects.requireNonNull;
 
 public interface TaskContext
 {
@@ -27,11 +28,11 @@ public interface TaskContext
 
     int getStageId();
 
-    Map<Integer, Integer> getDependStages();
-
     public ShuffleClient getShuffleClient();
 
     public File shuffleWorkDir();
+
+    public int getDependShuffleId(int dependShuffleMapId);
 
     public static TaskContext of(
             int jobId,
@@ -40,7 +41,6 @@ public interface TaskContext
             ShuffleClient shuffleClient,
             File shuffleWorkDir)
     {
-        Map<Integer, Integer> deps = ImmutableMap.copyOf(depStages);
         return new TaskContext()
         {
             @Override
@@ -56,12 +56,6 @@ public interface TaskContext
             }
 
             @Override
-            public Map<Integer, Integer> getDependStages()
-            {
-                return deps;
-            }
-
-            @Override
             public ShuffleClient getShuffleClient()
             {
                 return shuffleClient;
@@ -71,6 +65,12 @@ public interface TaskContext
             public File shuffleWorkDir()
             {
                 return shuffleWorkDir;
+            }
+
+            @Override
+            public int getDependShuffleId(int dependShuffleMapId)
+            {
+                return requireNonNull(depStages.get(dependShuffleMapId), "not found shuffleMapId" + dependShuffleMapId + " stage");
             }
         };
     }

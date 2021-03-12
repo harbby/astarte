@@ -16,15 +16,15 @@
 package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.BatchContext;
+import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.lang.reflect.Field;
 import java.util.Arrays;
-import java.util.Map;
+import java.util.List;
 
 public class CacheManagerTest
 {
@@ -32,7 +32,6 @@ public class CacheManagerTest
 
     @Test
     public void cacheUnCacheTest()
-            throws NoSuchFieldException, IllegalAccessException
     {
         KvDataSet<String, Integer> ds1 = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", 8),
@@ -41,20 +40,15 @@ public class CacheManagerTest
                 .reduceByKey(Integer::sum)
                 .kvDataSet(x -> x);
         ds1.cache();
-        int opId = Operator.unboxing((Operator) ds1).getId();
-
-        Field field = CacheManager.class.getDeclaredField("cacheMemMap");
-        field.setAccessible(true);
-
+        int opId = Operator.unboxing((Operator<?>) ds1).getId();
         ds1.print();
-        Assert.assertTrue(((Map<?, ?>) field.get(null)).containsKey(opId));
+        Assert.assertTrue(CacheManager.cacheDone(opId));
         ds1.unCache();
-        Assert.assertFalse(((Map<?, ?>) field.get(null)).containsKey(opId));
+        Assert.assertFalse(CacheManager.cacheDone(opId));
     }
 
     @Test
     public void cacheLoopTest()
-            throws NoSuchFieldException, IllegalAccessException
     {
         KvDataSet<String, Integer> ds1 = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp", 8),
@@ -64,5 +58,46 @@ public class CacheManagerTest
         //local join loop dep cacheDataSet.  see: pagerank
         ds1.join(ds1.mapValues(x -> x)).collect().forEach(x -> System.out.println(x));
         ds1.unCache();
+    }
+
+    @Test
+    public void cacheTest()
+    {
+        DataSet<String> dataSet = mppContext.makeDataSet(Arrays.asList("1", "2", "3"), 4);
+        DataSet<String> rdd = dataSet.cache();
+        List<String> r1 = rdd.collect();
+        Assert.assertEquals(r1, Arrays.asList("1", "2", "3"));
+        Assert.assertTrue(CacheManager.cacheDone(dataSet.getId()));
+        dataSet.unCache();
+        Assert.assertFalse(CacheManager.cacheDone(dataSet.getId()));
+    }
+
+    @Test
+    public void cacheTest1()
+    {
+        DataSet<String> lines = mppContext.makeDataSet(new String[] {"1", "2", "3"});
+        KvDataSet<String, Integer> links = lines.kvDataSet(x -> new Tuple2<>(x, x.length()))
+                .encoder(Encoders.tuple2(Encoders.asciiString(), Encoders.jInt()))
+                .rePartitionByKey(2)
+                .cache();
+        links.foreach(line -> System.out.println(line));
+    }
+
+    @Test
+    public void cacheTest2()
+    {
+        KvDataSet<String, Integer> ageDs = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 18),
+                Tuple2.of("hp1", 19),
+                Tuple2.of("hp2", 20)
+        ), 2);
+
+        KvDataSet<String, Integer> ageDs2 = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 18),
+                Tuple2.of("hp1", 19),
+                Tuple2.of("hp2", 20)
+        ), 1);
+        ageDs.join(ageDs2).cache()
+                .foreach(line -> System.out.println(line));
     }
 }

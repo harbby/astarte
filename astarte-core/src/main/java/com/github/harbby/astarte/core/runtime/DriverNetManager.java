@@ -15,10 +15,9 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
-import com.github.harbby.astarte.core.api.AstarteConf;
-import com.github.harbby.astarte.core.api.Constant;
 import com.github.harbby.astarte.core.api.Task;
 import com.github.harbby.gadtry.base.Serializables;
+import com.github.harbby.gadtry.base.Throwables;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
@@ -36,7 +35,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -51,24 +53,20 @@ public class DriverNetManager
 
 {
     private static final Logger logger = LoggerFactory.getLogger(DriverNetManager.class);
-    private ChannelFuture future;
+    private final ChannelFuture future;
 
     private final ConcurrentMap<SocketAddress, DriverNetManagerHandler> executorHandlers = new ConcurrentHashMap<>();
     private final BlockingQueue<TaskEvent> queue = new LinkedBlockingQueue<>(65536);
     private final int executorNum;
 
     //todo: read conf
-    private final int port;
+    private final InetSocketAddress bindAddress;
 
-    public DriverNetManager(AstarteConf astarteConf, int executorNum)
+    public DriverNetManager(int executorNum)
     {
-        this.port = astarteConf.getInt(Constant.DRIVER_SCHEDULER_PORT, 7079);
         this.executorNum = executorNum;
-    }
 
-    public void start()
-    {
-        NioEventLoopGroup boosGroup = new NioEventLoopGroup();
+        NioEventLoopGroup boosGroup = new NioEventLoopGroup(1);
         NioEventLoopGroup workerGroup = new NioEventLoopGroup();
         ServerBootstrap serverBootstrap = new ServerBootstrap();
         serverBootstrap.group(boosGroup, workerGroup)
@@ -86,12 +84,24 @@ public class DriverNetManager
                         ch.pipeline().addLast(new DriverNetManagerHandler());
                     }
                 });
-        this.future = serverBootstrap.bind(port);
-        logger.info("started... driver manager service port is {}", port);
-        future.channel().closeFuture().addListener((ChannelFutureListener) channelFuture -> {
-            boosGroup.shutdownGracefully();
-            workerGroup.shutdownGracefully();
-        });
+        try {
+            this.future = serverBootstrap.bind(0).sync();
+            int bindPort = ((InetSocketAddress) future.channel().localAddress()).getPort();
+            this.bindAddress = InetSocketAddress.createUnresolved(InetAddress.getLocalHost().getHostName(), bindPort);
+            logger.info("started driver manager service, bind address is {}", future.channel().localAddress());
+            future.channel().closeFuture().addListener((ChannelFutureListener) channelFuture -> {
+                boosGroup.shutdownGracefully();
+                workerGroup.shutdownGracefully();
+            });
+        }
+        catch (InterruptedException | UnknownHostException e) {
+            throw Throwables.throwsThrowable(e);
+        }
+    }
+
+    public InetSocketAddress getBindAddress()
+    {
+        return bindAddress;
     }
 
     public void awaitAllExecutorRegistered()
@@ -110,9 +120,13 @@ public class DriverNetManager
     }
 
     public TaskEvent awaitTaskEvent()
-            throws InterruptedException
     {
-        return queue.take();
+        try {
+            return queue.take();
+        }
+        catch (InterruptedException e) {
+            throw new UnsupportedOperationException("kill task?"); //todo: job kill
+        }
     }
 
     public void initState()
@@ -120,13 +134,13 @@ public class DriverNetManager
         queue.clear();
     }
 
-    public void submitTask(Task<?> task)
+    public SocketAddress submitTask(Task<?> task)
     {
         List<SocketAddress> addresses = new ArrayList<>(executorHandlers.keySet());
-        task.getStage().setShuffleServices(addresses);
         //cache算子会使得Executor节点拥有状态，调度时应注意幂等
         SocketAddress address = addresses.get(task.getTaskId() % executorNum);
         executorHandlers.get(address).submitTask(task);
+        return address;
     }
 
     private class DriverNetManagerHandler
@@ -166,7 +180,7 @@ public class DriverNetManager
                 executorHandlers.put(shuffleService, this);
             }
             else if (event instanceof TaskEvent) {
-                logger.info("task {} is finished", event);
+                logger.info("task {} finished", ((TaskEvent) event).getTaskId());
                 queue.offer((TaskEvent) event);
             }
             else {

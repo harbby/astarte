@@ -28,12 +28,14 @@ import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.Stage;
 import com.github.harbby.astarte.core.api.Task;
 import com.github.harbby.astarte.core.api.function.Mapper;
+import com.github.harbby.astarte.core.operator.Operator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -50,13 +52,11 @@ public class ClusterScheduler
     public ClusterScheduler(AstarteConf astarteConf, int vcores, int executorNum)
     {
         // start driver manager port
-        this.driverNetManager = new DriverNetManager(astarteConf, executorNum);
-        driverNetManager.start();
-
+        this.driverNetManager = new DriverNetManager(executorNum);
         int executorMemMb = astarteConf.getInt(Constant.EXECUTOR_MEMORY_CONF, 1024);
 
         //启动所有Executor
-        this.executorManager = ExecutorManager.createExecutorManager(vcores, executorMemMb, executorNum);
+        this.executorManager = ExecutorManager.createExecutorManager(vcores, executorMemMb, executorNum, driverNetManager.getBindAddress());
         executorManager.start();
 
         //wait 等待所有exector上线
@@ -85,8 +85,14 @@ public class ClusterScheduler
         driverNetManager.initState();
 
         Object[] result = null;
+        //stageID, mapId,dataLength
+        Map<Integer, Map<Integer, long[]>> stageMapState = new HashMap<>();
+        Map<Integer, Map<Integer, SocketAddress>> mapTaskNotes = new HashMap<>();
         for (Stage stage : jobStages) {
-            submitStage(stage, action, stageMap);
+            Map<Integer, long[]> currentStageState = new HashMap<>();
+            stageMapState.put(stage.getStageId(), currentStageState);
+            Map<Integer, SocketAddress> mapTaskRunningExecutor = submitStage(stage, action, mapTaskNotes, stageMap.get(stage));
+            mapTaskNotes.put(stage.getStageId(), mapTaskRunningExecutor);
             if (stage instanceof ResultStage) {
                 result = new Object[stage.getNumPartitions()];
             }
@@ -95,25 +101,25 @@ public class ClusterScheduler
             //todo: 失败分为： executor挂掉, task单独失败但executor正常
             //这里采用简单的方式，先不考虑executor挂掉
             for (int taskDone = 0; taskDone < stage.getNumPartitions(); ) {
-                TaskEvent taskEvent;
-                try {
-                    taskEvent = driverNetManager.awaitTaskEvent();
+                TaskEvent taskEvent = driverNetManager.awaitTaskEvent();
+                if (taskEvent.getJobId() != jobId) {
+                    continue;
                 }
-                catch (InterruptedException e) {
-                    throw new UnsupportedOperationException(); //todo: job kill
-                }
+                taskDone++;
                 if (taskEvent instanceof TaskEvent.TaskFailed) {
                     TaskEvent.TaskFailed taskFailed = (TaskEvent.TaskFailed) taskEvent;
-                    if (taskFailed.getJobId() != jobId) {
-                        continue;
-                    }
-                    throw new AstarteException(((TaskEvent.TaskFailed) taskEvent).getError());
+                    throw new AstarteException("task" + taskEvent.getTaskId() + " failed: " + taskFailed.getError());
                 }
-                else if (taskEvent instanceof TaskEvent.TaskSuccess && stage instanceof ResultStage) {
+                checkState(taskEvent instanceof TaskEvent.TaskSuccess);
+                if (stage instanceof ShuffleMapStage) {
+                    TaskEvent.TaskSuccess taskSuccess = (TaskEvent.TaskSuccess) taskEvent;
+                    MapTaskState mapTaskState = (MapTaskState) taskSuccess.getTaskResult();
+                    currentStageState.put(mapTaskState.getMapId(), mapTaskState.getSegmentEnds());
+                }
+                else if (stage instanceof ResultStage) {
                     TaskEvent.TaskSuccess taskSuccess = (TaskEvent.TaskSuccess) taskEvent;
                     result[taskSuccess.getTaskId()] = taskSuccess.getTaskResult();
                 }
-                taskDone++;
             }
             if (stage instanceof ResultStage) {
                 return Arrays.asList((R[]) result);
@@ -122,19 +128,21 @@ public class ClusterScheduler
         throw new UnsupportedOperationException("job " + jobId + " Not found ResultStage");
     }
 
-    private <E, R> void submitStage(Stage stage,
+    private <E, R> Map<Integer, SocketAddress> submitStage(Stage stage,
             Mapper<Iterator<E>, R> action,
-            Map<Stage, Map<Integer, Integer>> stageDeps)
+            Map<Integer, Map<Integer, SocketAddress>> dependMapTasks,
+            Map<Integer, Integer> dependStages)
     {
-        Map<Integer, Integer> deps = stageDeps.getOrDefault(stage, Collections.emptyMap());
-        stage.setDeps(deps);
-
         List<Task<?>> tasks = new ArrayList<>();
-
         if (stage instanceof ShuffleMapStage) {
             logger.info("starting... shuffleMapStage: {}, stageId {}", stage, stage.getStageId());
             for (Partition partition : stage.getPartitions()) {
-                Task<MapTaskState> task = new ShuffleMapTask<>(stage, partition);
+                Task<MapTaskState> task = new ShuffleMapTask(
+                        stage.getJobId(),
+                        stage.getStageId(),
+                        partition, ((ShuffleMapStage) stage).getFinalOperator(),
+                        dependMapTasks,
+                        dependStages);
                 tasks.add(task);
             }
         }
@@ -144,11 +152,22 @@ public class ClusterScheduler
             logger.info("starting... ResultStage: {}, stageId {}", stage, stage.getStageId());
 
             for (Partition partition : stage.getPartitions()) {
-                Task<R> task = new ResultTask<>(stage, action, partition);
+                Task<R> task = new ResultTask<>(
+                        stage.getJobId(),
+                        stage.getStageId(),
+                        (Operator<E>) stage.getFinalOperator(),
+                        action, partition,
+                        dependMapTasks,
+                        dependStages);
                 tasks.add(task);
             }
         }
 
-        tasks.forEach(driverNetManager::submitTask);
+        Map<Integer, SocketAddress> mapTaskRunningExecutor = new HashMap<>();
+        tasks.forEach(task -> {
+            SocketAddress address = driverNetManager.submitTask(task);
+            mapTaskRunningExecutor.put(task.getTaskId(), address);
+        });
+        return mapTaskRunningExecutor;
     }
 }

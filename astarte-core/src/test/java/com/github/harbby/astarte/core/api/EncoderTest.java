@@ -21,6 +21,7 @@ import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.collection.MutableMap;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.function.exception.Consumer;
+import com.github.harbby.gadtry.function.exception.Function2;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -50,6 +51,22 @@ public class EncoderTest
 
         Assert.assertEquals(outputStream.toByteArray().length, 16);
         Assert.assertTrue(bytes.length > 16 * 10);
+    }
+
+    @Test
+    public void Tuple2JavaSerializeThanJavaSerializeTest()
+            throws IOException
+    {
+        Function2<Tuple2<Long, Long>, Encoder<Tuple2<Long, Long>>, byte[], IOException> checker = (tuple2, encoder) -> {
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            encoder.encoder(tuple2, new DataOutputStream(outputStream));
+            Tuple2<Long, Long> checkObj = encoder.decoder(new DataInputStream(new ByteArrayInputStream(outputStream.toByteArray())));
+            Assert.assertEquals(tuple2, checkObj);
+            return outputStream.toByteArray();
+        };
+        byte[] bytes = checker.apply(Tuple2.of(1L, 2L), Encoders.javaEncoder());
+        byte[] bytes2 = checker.apply(Tuple2.of(1L, 2L), Encoders.tuple2(Encoders.javaEncoder(), Encoders.javaEncoder()));
+        Assert.assertTrue(bytes.length > bytes2.length);
     }
 
     @Test

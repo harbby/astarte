@@ -18,9 +18,10 @@ package com.github.harbby.astarte.example.batch;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 
 public class PageRank
@@ -35,7 +36,7 @@ public class PageRank
 
         DataSet<String> lines = mppContext.textFile(sparkHome + "/data/mllib/pagerank_data.txt");
 
-        KvDataSet<String, Iterable<String>> links = lines.kvDataSet(s -> {
+        KvDataSet<String, Iterator<String>> links = lines.kvDataSet(s -> {
             String[] parts = s.split("\\s+");
             return new Tuple2<>(parts[0], parts[1]);
         }).cache().union(mppContext.makeEmptyDataSet()).mapValues(x -> x).groupByKey().cache();
@@ -43,7 +44,7 @@ public class PageRank
         KvDataSet<String, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {
             DataSet<Tuple2<String, Double>> contribs = links.join(ranks).values().flatMapIterator(it -> {
-                Collection<String> urls = (Collection<String>) it.f1();
+                List<String> urls = MutableList.copy(it.f1);
                 Double rank = it.f2();
 
                 long size = urls.size();

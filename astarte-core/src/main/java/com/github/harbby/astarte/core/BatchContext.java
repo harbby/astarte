@@ -19,8 +19,8 @@ import com.github.harbby.astarte.core.api.AstarteConf;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.astarte.core.api.function.Mapper;
+import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.astarte.core.operator.DataSourceOperator;
-import com.github.harbby.astarte.core.operator.IteratorDataSource;
 import com.github.harbby.astarte.core.operator.KvOperator;
 import com.github.harbby.astarte.core.operator.ListDataSource;
 import com.github.harbby.astarte.core.operator.Operator;
@@ -31,8 +31,9 @@ import com.github.harbby.astarte.core.runtime.ForkVmExecutorManager;
 import com.github.harbby.astarte.core.runtime.LocalJobScheduler;
 import com.github.harbby.astarte.core.runtime.LocalNettyExecutorManager;
 import com.github.harbby.gadtry.base.Lazys;
+import com.github.harbby.gadtry.collection.ImmutableList;
+import com.github.harbby.gadtry.collection.IteratorPlus;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
-import com.github.harbby.gadtry.function.Creator;
 import com.github.harbby.gadtry.function.Function1;
 
 import java.net.URI;
@@ -53,17 +54,20 @@ public interface BatchContext
     public default <K, V> KvDataSet<K, V> makeKvDataSet(List<Tuple2<K, V>> collection, int parallelism)
     {
         checkState(parallelism > 0, "parallelism > 0");
-        return new KvOperator<>(new DataSourceOperator<>(this, new ListDataSource<>(collection), parallelism));
-    }
-
-    public default <V> DataSet<V> makeEmptyDataSet()
-    {
-        return makeDataSet(Collections.emptyList());
+        return new KvOperator<>(new DataSourceOperator<>(this,
+                new ListDataSource<>(collection),
+                parallelism,
+                Encoders.tuple2(Encoders.javaEncoder(), Encoders.javaEncoder())));
     }
 
     public default <K, V> KvDataSet<K, V> makeKvDataSet(List<Tuple2<K, V>> collection)
     {
         return makeKvDataSet(collection, 1);
+    }
+
+    public default <V> DataSet<V> makeEmptyDataSet()
+    {
+        return makeDataSet(Collections.emptyList());
     }
 
     public default <E> DataSet<E> makeDataSet(List<E> collection)
@@ -100,11 +104,11 @@ public interface BatchContext
         return new DataSourceOperator<>(this, new TextFileSource(URI.create(path)), parallelism);
     }
 
-    public default <E> DataSet<E> makeDataSet(Creator<Iterator<E>> source)
+    public default <E> DataSet<E> makeDataSet(IteratorPlus<E> source)
     {
         requireNonNull(source, "source is null");
-        Creator<Iterator<E>> clearSource = Utils.clear(source);
-        return new DataSourceOperator<>(this, new IteratorDataSource<>(clearSource), 1);
+        Iterator<E> clearSource = Utils.clear(source);
+        return makeDataSet(ImmutableList.of("1")).flatMapIterator(x -> clearSource);
     }
 
     public static Builder builder()
@@ -128,7 +132,7 @@ public interface BatchContext
          */
         public Builder local(int parallelism)
         {
-            this.factory = f -> new LocalJobScheduler(f, parallelism);
+            this.factory = f -> new LocalJobScheduler(parallelism);
             return this;
         }
 

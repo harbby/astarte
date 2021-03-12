@@ -220,7 +220,7 @@ public abstract class CalcOperator<I, O>
         classCode = classCode.replace("$className", className);
         classCode = classCode.replace("$packageName", PACKAGE_NAME);
 
-        JavaSourceObject javaFileObject = javaClassCompiler.doCompile(classFullName, classCode);
+        JavaSourceObject javaFileObject = javaClassCompiler.doCompile(classFullName, classCode, Collections.singletonList("-XDuseUnsharedTable"));
         byte[] bytes = javaFileObject.getClassByteCodes().get(classFullName);
         requireNonNull(bytes, "not found " + classFullName + ".class");
         return classLoader.loadClass(classFullName, bytes);

@@ -24,8 +24,6 @@ import java.io.IOException;
 public class UTF8StringEncoder
         implements Encoder<String>
 {
-    private static final long serialVersionUID = -1448812244763725244L;
-
     @Override
     public void encoder(String value, DataOutput output)
             throws IOException

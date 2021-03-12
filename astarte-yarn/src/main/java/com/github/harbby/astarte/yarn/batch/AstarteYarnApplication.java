@@ -83,7 +83,8 @@ public class AstarteYarnApplication
                     TimeUnit.SECONDS.sleep(10);
                 }
             });
-            ExecutorManager.setFactory((vcores, memMb, executorNum) -> new YarnExecutorManager(rmClient, vcores, memMb, executorNum));
+            ExecutorManager.setFactory((vcores, memMb, executorNum, driverManagerAddress) ->
+                    new YarnExecutorManager(rmClient, vcores, memMb, executorNum, driverManagerAddress));
             try {
                 logger.info("init... BatchContext");
                 JobScheduler.setFactory((conf) -> new ClusterScheduler(conf,

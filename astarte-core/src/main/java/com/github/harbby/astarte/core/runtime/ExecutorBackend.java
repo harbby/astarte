@@ -40,21 +40,22 @@ import java.net.SocketAddress;
  * 需要启用发送心跳能力
  */
 public class ExecutorBackend
-
 {
     private static final Logger logger = LoggerFactory.getLogger(ExecutorBackend.class);
     private final Executor executor;
+    private final SocketAddress driverManagerAddress;
     private Channel channel;
 
-    public ExecutorBackend(Executor executor)
+    public ExecutorBackend(Executor executor, SocketAddress driverManagerAddress)
     {
         this.executor = executor;
+        this.driverManagerAddress = driverManagerAddress;
     }
 
     public void start(SocketAddress shuffleServiceAddress)
             throws InterruptedException
     {
-        final ExecutorBackendHandler handler = new ExecutorBackendHandler();
+        final ExecutorNetHandler handler = new ExecutorNetHandler();
         NioEventLoopGroup workerGroup = new NioEventLoopGroup();
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(workerGroup)
@@ -71,7 +72,7 @@ public class ExecutorBackend
                         ch.pipeline().addLast(handler);
                     }
                 });
-        bootstrap.connect("localhost", 7079)
+        bootstrap.connect(driverManagerAddress)
                 .addListener((ChannelFutureListener) future -> {
                     this.channel = future.channel();
                     writeEvent(channel, new ExecutorEvent.ExecutorInitSuccessEvent(shuffleServiceAddress));
@@ -80,12 +81,13 @@ public class ExecutorBackend
                 .addListener((ChannelFutureListener) future -> {
                     workerGroup.shutdownGracefully();
                 });
+        logger.info("connecting... driver manager address {}", driverManagerAddress);
     }
 
-    private class ExecutorBackendHandler
+    private class ExecutorNetHandler
             extends LengthFieldBasedFrameDecoder
     {
-        public ExecutorBackendHandler()
+        public ExecutorNetHandler()
         {
             super(6553600, 0, 4);
         }

@@ -40,7 +40,7 @@ public class SparkGroupByDemo
                 .rePartition(4)
                 .mapKeys(k -> k.substring(0, 1))
                 .groupByKey()
-                .mapValues(input -> Iterators.size(input.iterator()));
+                .mapValues(Iterators::size);
 
         worldCounts2.foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
     }

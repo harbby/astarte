@@ -20,7 +20,6 @@ import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
-import com.github.harbby.astarte.core.coders.Tuple2Encoder;
 import com.github.harbby.astarte.core.runtime.ShuffleClient;
 import com.github.harbby.astarte.core.utils.JoinUtil;
 import com.github.harbby.gadtry.base.Throwables;
@@ -30,10 +29,8 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.IntStream;
 
-import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class ShuffleJoinOperator<K, V1, V2>
@@ -41,39 +38,32 @@ public class ShuffleJoinOperator<K, V1, V2>
 {
     private final Partitioner partitioner;
     private final JoinUtil.JoinMode joinMode;
-    private final int leftShuffleMapId;
     private final Encoder<Tuple2<K, V1>> leftEncoder;
-    private final int rightShuffleMapId;
     private final Encoder<Tuple2<K, V2>> rightEncoder;
     private final Comparator<K> comparator;
+    private final int leftShuffleMapId;
+    private final int rightShuffleMapId;
 
     private final transient List<ShuffleMapOperator<K, ?>> dependencies;
 
     protected ShuffleJoinOperator(Partitioner partitioner,
             JoinUtil.JoinMode joinMode,
             Operator<Tuple2<K, V1>> leftDataSet,
-            Operator<Tuple2<K, V2>> rightDataSet)
+            Operator<Tuple2<K, V2>> rightDataSet,
+            Comparator<K> comparator)
     {
         super(leftDataSet.getContext());
         this.partitioner = requireNonNull(partitioner, "requireNonNull");
         this.joinMode = requireNonNull(joinMode, "joinMode is null");
 
-        ShuffleMapOperator<K, V1> leftShuffleMapOperator = new ShuffleMapOperator<>(unboxing(leftDataSet), partitioner);
-        ShuffleMapOperator<K, V2> rightShuffleMapOperator = new ShuffleMapOperator<>(unboxing(rightDataSet), partitioner);
+        ShuffleMapOperator<K, V1> leftShuffleMapOperator = new ShuffleMapOperator<>(unboxing(leftDataSet), partitioner, comparator, null);
+        ShuffleMapOperator<K, V2> rightShuffleMapOperator = new ShuffleMapOperator<>(unboxing(rightDataSet), partitioner, comparator, null);
         this.dependencies = ImmutableList.of(leftShuffleMapOperator, rightShuffleMapOperator);
         this.leftShuffleMapId = leftShuffleMapOperator.getId();
         this.rightShuffleMapId = rightShuffleMapOperator.getId();
         this.leftEncoder = leftShuffleMapOperator.getShuffleMapRowEncoder();
         this.rightEncoder = rightShuffleMapOperator.getShuffleMapRowEncoder();
-        if (leftEncoder instanceof Tuple2Encoder) {
-            this.comparator = ((Tuple2Encoder<K, V1>) leftEncoder).getKeyEncoder().comparator();
-        }
-        else if (rightEncoder instanceof Tuple2Encoder) {
-            this.comparator = ((Tuple2Encoder<K, V2>) rightEncoder).getKeyEncoder().comparator();
-        }
-        else {
-            this.comparator = (Comparator<K>) SortShuffleWriter.OBJECT_COMPARATOR;
-        }
+        this.comparator = leftShuffleMapOperator.getComparator();
     }
 
     @Override
@@ -104,14 +94,12 @@ public class ShuffleJoinOperator<K, V1, V2>
     @Override
     public Iterator<Tuple2<K, Tuple2<V1, V2>>> compute(Partition split, TaskContext taskContext)
     {
-        Map<Integer, Integer> deps = taskContext.getDependStages();
-        for (Integer shuffleId : deps.values()) {
-            checkState(shuffleId != null, "shuffleId is null");
-        }
+        int leftShuffleId = taskContext.getDependShuffleId(leftShuffleMapId);
+        int rightShuffleId = taskContext.getDependShuffleId(rightShuffleMapId);
         ShuffleClient shuffleClient = taskContext.getShuffleClient();
         try {
-            Iterator<Tuple2<K, V1>> left = shuffleClient.readShuffleData(leftEncoder, deps.get(leftShuffleMapId), split.getId());
-            Iterator<Tuple2<K, V2>> right = shuffleClient.readShuffleData(rightEncoder, deps.get(rightShuffleMapId), split.getId());
+            Iterator<Tuple2<K, V1>> left = shuffleClient.createShuffleReader(comparator, leftEncoder, leftShuffleId, split.getId());
+            Iterator<Tuple2<K, V2>> right = shuffleClient.createShuffleReader(comparator, rightEncoder, rightShuffleId, split.getId());
             return JoinUtil.mergeJoin(joinMode, comparator, left, right);
         }
         catch (IOException e) {

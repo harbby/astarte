@@ -16,17 +16,12 @@
 package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.Partitioner;
-import com.github.harbby.astarte.core.TaskContext;
-import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.ShuffleWriter;
 import com.github.harbby.astarte.core.api.function.Comparator;
+import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.EncoderInputStream;
-import com.github.harbby.astarte.core.coders.Tuple2Encoder;
-import com.github.harbby.astarte.core.coders.array.AnyArrayEncoder;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.base.Throwables;
-import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.io.BufferedNioOutputStream;
 import com.github.harbby.gadtry.io.LimitInputStream;
@@ -48,7 +43,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
@@ -56,72 +50,15 @@ import static java.util.Objects.requireNonNull;
 public class SortShuffleWriter<K, V>
         implements ShuffleWriter<K, V>
 {
+    public static final String MERGE_FILE_NAME = "shuffle_merged_%s_%s.data";
+
     private final Partitioner partitioner;
     private final Comparator<K> comparator;
     private final Encoder<Tuple2<K, V>> encoder;
     private final File shuffleWorkDir;
     private final String prefix;
     private final File mergeName;
-
-    private static int objectComparator(Object v1, Object v2)
-    {
-        if (v1 == v2) {
-            return 0;
-        }
-        if (v1 == null) {
-            return -1;
-        }
-        if (v2 == null) {
-            return 1;
-        }
-
-        checkState(v1.getClass() == v2.getClass(), "only objects of the same class can be sorted [%s than %s]", v1, v2);
-        if (v1.getClass() == Tuple2.class) {
-            int than = objectComparator(((Tuple2<?, ?>) v1).f1, ((Tuple2<?, ?>) v2).f1);
-            if (than != 0) {
-                return than;
-            }
-            return objectComparator(((Tuple2<?, ?>) v1).f2, ((Tuple2<?, ?>) v2).f2);
-        }
-        else if (v1.getClass().isArray()) {
-            Object[] arr1 = (Object[]) v1;
-            Object[] arr2 = (Object[]) v2;
-            return AnyArrayEncoder.comparator(SortShuffleWriter::objectComparator).compare(arr1, arr2);
-        }
-
-        if (v1.getClass() == String.class) {
-            return ((String) v1).compareTo((String) v2);
-        }
-        else if (v1.getClass() == Integer.class) {
-            return ((Integer) v1).compareTo((Integer) v2);
-        }
-        else if (v1.getClass() == Long.class) {
-            return ((Long) v1).compareTo((Long) v2);
-        }
-        else if (v1.getClass() == Short.class) {
-            return ((Short) v1).compareTo((Short) v2);
-        }
-        else if (v1.getClass() == Float.class) {
-            return ((Float) v1).compareTo((Float) v2);
-        }
-        else if (v1.getClass() == Double.class) {
-            return ((Double) v1).compareTo((Double) v2);
-        }
-        else if (v1.getClass() == Byte.class) {
-            return ((Byte) v1).compareTo((Byte) v2);
-        }
-        else if (v1.getClass() == Character.class) {
-            return ((Character) v1).compareTo((Character) v2);
-        }
-        else if (v1.getClass() == Boolean.class) {
-            return ((Boolean) v1).compareTo((Boolean) v2);
-        }
-        else {
-            throw new UnsupportedOperationException("not support " + v1.getClass());
-        }
-    }
-
-    public static final Comparator<?> OBJECT_COMPARATOR = SortShuffleWriter::objectComparator;
+    private final Reducer<V> combine;
 
     //spillFile
     public SortShuffleWriter(
@@ -129,21 +66,17 @@ public class SortShuffleWriter<K, V>
             String filePrefix,
             String mergeName,
             Partitioner partitioner,
-            Encoder<Tuple2<K, V>> encoder)
+            Encoder<Tuple2<K, V>> encoder,
+            Comparator<K> comparator,
+            Reducer<V> combine)
     {
         this.partitioner = partitioner;
         this.encoder = encoder;
         this.shuffleWorkDir = shuffleWorkDir;
         this.prefix = filePrefix;
         this.mergeName = new File(shuffleWorkDir, mergeName);
-
-        if (encoder instanceof Tuple2Encoder) {
-            this.comparator = ((Tuple2Encoder<K, V>) encoder).getKeyEncoder().comparator();
-        }
-        else {
-            //any type 排序...
-            this.comparator = (Comparator<K>) OBJECT_COMPARATOR;
-        }
+        this.comparator = comparator;
+        this.combine = combine;
 
         if (!shuffleWorkDir.exists()) {
             checkState(shuffleWorkDir.mkdirs() || shuffleWorkDir.exists(), "create shuffle dir failed %s", shuffleWorkDir);
@@ -151,14 +84,14 @@ public class SortShuffleWriter<K, V>
     }
 
     @Override
-    public void write(Iterator<? extends Tuple2<K, V>> iterator)
+    public ByteBuffer write(Iterator<? extends Tuple2<K, V>> iterator)
             throws IOException
     {
         SorterBuffer sorter = new SorterBuffer(comparator, partitioner, encoder);
 
         sorter.insertAll(iterator);
 
-        sorter.mergeFile();
+        return sorter.mergeFile();
     }
 
     public static <K> Partitioner createPartitioner(
@@ -281,7 +214,6 @@ public class SortShuffleWriter<K, V>
     static class SampleResult<E>
             implements Serializable
     {
-        private static final long serialVersionUID = -8964734519903514206L;
         private final long partitionCount;
         private final int partitionId;
         private final E[] data;
@@ -311,7 +243,7 @@ public class SortShuffleWriter<K, V>
 
     private static class ReduceWriter<K, V>
     {
-        private static final int BUFF_SIZE = 10;
+        private static final int BUFF_SIZE = 8192;
         private final Encoder<Tuple2<K, V>> encoder;
         private final File spillsFile;
         private DataOutputStream dataOutput;
@@ -420,7 +352,7 @@ public class SortShuffleWriter<K, V>
             }
         }
 
-        public void mergeFile()
+        public ByteBuffer mergeFile()
                 throws IOException
         {
             ByteBuffer header = ByteBuffer.allocate(Integer.BYTES + reduceWriters.length * Long.BYTES);
@@ -431,7 +363,7 @@ public class SortShuffleWriter<K, V>
                 BufferedNioOutputStream bufferedNioOutputStream = new BufferedNioOutputStream(fileChannel);
                 for (ReduceWriter<K, V> reduceWriter : reduceWriters) {
                     if (reduceWriter == null) {
-                        header.putLong(0);
+                        header.putLong(bufferedNioOutputStream.position());
                         continue;
                     }
                     //flush last segment
@@ -443,6 +375,9 @@ public class SortShuffleWriter<K, V>
                     DataOutputStream dataOutputStream = new DataOutputStream(lz4OutputStream);
                     //merger
                     Iterator<Tuple2<K, V>> merger = reduceWriter.merger();
+                    if (combine != null) {
+                        merger = Iterators.reduceSorted(merger, combine);
+                    }
                     while (merger.hasNext()) {
                         encoder.encoder(merger.next(), dataOutputStream);
                     }
@@ -459,13 +394,14 @@ public class SortShuffleWriter<K, V>
                 header.flip();
                 fileChannel.write(header);
             }
+            header.position(0);
+            return header;
         }
     }
 
     public static class SortShuffleRangePartitioner<K>
             extends Partitioner
     {
-        private static final long serialVersionUID = -7555664714265570790L;
         private final int reduceNumber;
         private final K[] points;
         private final Comparator<K> ordering;
@@ -497,63 +433,6 @@ public class SortShuffleWriter<K, V>
                 }
             }
             return points.length;
-        }
-    }
-
-    public static class ShuffledMergeSortOperator<K, V>
-            extends Operator<Tuple2<K, V>>
-    {
-        private static final long serialVersionUID = -6647627096339721886L;
-        private final Partitioner partitioner;
-        private final int shuffleMapOperatorId;
-        private final transient Operator<?> dependOperator;
-        private final Encoder<Tuple2<K, V>> encoder;
-
-        public ShuffledMergeSortOperator(ShuffleMapOperator<K, V> operator, Partitioner partitioner)
-        {
-            super(operator);
-            this.shuffleMapOperatorId = operator.getId();
-            this.partitioner = partitioner;
-            this.dependOperator = operator;
-            this.encoder = operator.getShuffleMapRowEncoder();
-        }
-
-        @Override
-        public Partitioner getPartitioner()
-        {
-            return this.partitioner;
-        }
-
-        @Override
-        public int numPartitions()
-        {
-            return this.partitioner.numPartitions();
-        }
-
-        @Override
-        public Partition[] getPartitions()
-        {
-            return IntStream.range(0, partitioner.numPartitions())
-                    .mapToObj(Partition::new).toArray(Partition[]::new);
-        }
-
-        @Override
-        public List<Operator<?>> getDependencies()
-        {
-            return ImmutableList.of(dependOperator);
-        }
-
-        @Override
-        protected Iterator<Tuple2<K, V>> compute(Partition split, TaskContext taskContext)
-        {
-            Integer shuffleId = taskContext.getDependStages().get(shuffleMapOperatorId);
-            checkState(shuffleId != null);
-            try {
-                return taskContext.getShuffleClient().readShuffleData(encoder, shuffleId, split.getId());
-            }
-            catch (IOException e) {
-                throw Throwables.throwsThrowable(e);
-            }
         }
     }
 }

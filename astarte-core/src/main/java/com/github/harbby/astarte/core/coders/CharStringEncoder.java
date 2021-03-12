@@ -30,8 +30,6 @@ import java.io.IOException;
 public class CharStringEncoder
         implements Encoder<String>
 {
-    private static final long serialVersionUID = -5052913261044777887L;
-
     @Override
     public void encoder(String value, DataOutput output)
             throws IOException

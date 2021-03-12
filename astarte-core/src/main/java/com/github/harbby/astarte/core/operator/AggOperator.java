@@ -19,6 +19,7 @@ import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.function.Reducer;
+import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
@@ -45,6 +46,12 @@ public class AggOperator<K, V>
     {
         // Reducer<V> reducer 聚合不会发生Key的变化因此，我们可以传递Partitioner下去
         return operator.getPartitioner();
+    }
+
+    @Override
+    protected Encoder<Tuple2<K, V>> getRowEncoder()
+    {
+        return operator.getRowEncoder();
     }
 
     @Override

@@ -21,6 +21,7 @@ import com.github.harbby.astarte.core.api.Stage;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.operator.Operator;
 import com.github.harbby.astarte.core.operator.ShuffleMapOperator;
+import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.graph.Graph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,9 +38,9 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkArgument;
-import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 
 /**
  * Local achieve
@@ -78,102 +79,68 @@ class BatchContextImpl
         int jobId = nextJobId.getAndIncrement();
         logger.info("begin analysis job {} deps to stageDAG", jobId);
 
-        Map<Stage, Map<Integer, Integer>> stageMap = findShuffleMapOperator(jobId, finalOperator);
+        Map<Operator<?>, Set<Integer>> stageTree = parserTree(finalOperator);
+        Map<Stage, Map<Integer, Integer>> optimizedDag = optimizer(jobId, stageTree);
 
-        List<Stage> stages = new ArrayList<>(stageMap.keySet());
-        stages.sort((x, y) -> Integer.compare(y.getStageId(), x.getStageId()));
-
-        Graph<Stage, Void> graph = toGraph(stageMap);
-        if (stages.size() < 10) {
+        Graph<Stage, Void> graph = toGraph(optimizedDag);
+        if (optimizedDag.size() < 10) {
             logger.info("job graph tree:{}", String.join("\n", graph.printShow()));
         }
         //---------------------
-        return jobScheduler.runJob(jobId, stages, action, stageMap);
+        return jobScheduler.runJob(jobId, ImmutableList.copy(optimizedDag.keySet()), action, optimizedDag);
     }
 
-    /**
-     * V5
-     */
-    private Map<Stage, Map<Integer, Integer>> findShuffleMapOperator(int jobId, Operator<?> finalDataSet)
+    private static Map<Operator<?>, Set<Integer>> parserTree(Operator<?> finalDataSet)
     {
-        Map<Operator<?>, Stage> mapping = new HashMap<>();
-        //Map<thisStage, Map<shuffleMapId, shuffleMapStage>>
-        Map<Stage, Map<Integer, Integer>> map = new LinkedHashMap<>();
+        Map<Operator<?>, Operator<?>> mapping = new HashMap<>();
+        Map<Operator<?>, Set<Integer>> stageTree = new LinkedHashMap<>();
         Queue<Operator<?>> stack = new LinkedList<>();
 
-        Stage resultStage = new ResultStage<>(finalDataSet, jobId, 0);
         stack.add(finalDataSet);
-        mapping.put(resultStage.getFinalOperator(), resultStage);
-        map.put(resultStage, new LinkedHashMap<>());
+        mapping.put(finalDataSet, finalDataSet);
+        stageTree.put(finalDataSet, new HashSet<>());
 
-        Map<Operator<?>, Set<Stage>> markCached = new LinkedHashMap<>();
-        //广度优先
-        int i = resultStage.getStageId();
         while (!stack.isEmpty()) {
             Operator<?> o = stack.poll();
-            Stage thisStage = mapping.get(o);
+            Operator<?> currentStage = mapping.getOrDefault(o, o);
 
-            List<? extends Operator<?>> depOperators;
-            if (o.isMarkedCache()) {
-                //put(op, thisStage) , save thisStage dep markedOperator
-                markCached.computeIfAbsent(o, k -> new HashSet<>()).add(thisStage);
-                depOperators = Collections.emptyList();
-            }
-            else {
-                depOperators = o.getDependencies();
-            }
+            List<? extends Operator<?>> depOperators = o.getDependencies();
             for (Operator<?> operator : depOperators) {
                 if (operator instanceof ShuffleMapOperator) {
-                    Map<Integer, Integer> stageDeps = map.get(thisStage);
-                    Integer operatorDependStage = stageDeps.get(operator.getId());
-                    if (operatorDependStage != null && operatorDependStage != i + 1) {
-                        logger.info("find 当前相同的shuffleMapStage,将优化为只有一个");
-                        continue;
-                    }
-
-                    ShuffleMapStage newStage = new ShuffleMapStage((ShuffleMapOperator<?, ?>) operator, jobId, ++i);
-                    mapping.put(operator, newStage);
-                    map.put(newStage, new LinkedHashMap<>());
-                    stageDeps.put(operator.getId(), i);
+                    Set<Integer> stageDeps = stageTree.get(currentStage);
+                    stageDeps.add(operator.getId());
+                    Set<Integer> set = stageTree.remove(operator);
+                    stageTree.put(operator, set == null ? new HashSet<>() : set);
                 }
                 else {
-                    mapping.put(operator, thisStage);
+                    mapping.put(operator, currentStage);
                 }
                 stack.add(operator);
             }
-
-            // cached Operator Analysis ---
-            if (stack.isEmpty() && !markCached.isEmpty()) {
-                Iterator<Map.Entry<Operator<?>, Set<Stage>>> markCachedIterator = markCached.entrySet().iterator();
-                Map.Entry<Operator<?>, Set<Stage>> entry = markCachedIterator.next();
-                Operator<?> markCachedOperator = entry.getKey();
-                markCachedIterator.remove();
-                for (Operator<?> child : markCachedOperator.getDependencies()) {
-                    stack.add(child);
-                    //todo: waiting bug fix
-                    checkState(!(child instanceof ShuffleMapOperator), "推测失败");
-                    mapping.put(child, thisStage);  //这里不能是 ShuffleMapOperator
-
-                    //---------递归推测cached Operator的前置依赖
-                    //下面的推断不是必须的，但是推断后可以让dag show的时候更加清晰,好看.
-                    Map<Stage, Map<Integer, Integer>> markedDeps = findShuffleMapOperator(jobId, child);
-                    if (!markedDeps.isEmpty()) {
-                        for (Stage stage : entry.getValue()) {
-                            Map<Integer, Integer> mergedDeps = new LinkedHashMap<>();
-                            //这里next 我们只取地一个
-                            for (Map.Entry<Integer, Integer> entry1 : markedDeps.values().iterator().next().entrySet()) {
-                                mergedDeps.put(entry1.getKey(), i + entry1.getValue());
-                            }
-                            mergedDeps.putAll(map.get(stage));
-                            map.put(stage, mergedDeps);
-                        }
-                    }
-                }
-                logger.info("begin analysis markCachedOperator {}", markCachedOperator);
-            }
         }
+        return stageTree;
+    }
 
-        return map;
+    private static Map<Stage, Map<Integer, Integer>> optimizer(int jobId, Map<Operator<?>, Set<Integer>> stageTree)
+    {
+        List<Map.Entry<Operator<?>, Set<Integer>>> stages = new ArrayList<>(stageTree.entrySet());
+        Collections.reverse(stages);
+        Map<Stage, Map<Integer, Integer>> stageMap = new LinkedHashMap<>();
+        Map<Integer, Integer> mapping = new HashMap<>();
+        int stageId = 1;
+        for (Map.Entry<Operator<?>, Set<Integer>> entry : stages) {
+            Stage stage;
+            if (entry.getKey() instanceof ShuffleMapOperator) {
+                ((ShuffleMapOperator<?, ?>) entry.getKey()).setStageId(stageId);
+                stage = new ShuffleMapStage((ShuffleMapOperator<?, ?>) entry.getKey(), jobId, stageId++);
+                mapping.put(entry.getKey().getId(), stage.getStageId());
+            }
+            else {
+                stage = new ResultStage<>(entry.getKey(), jobId, stageId++);
+            }
+            stageMap.put(stage, entry.getValue().stream().collect(Collectors.toMap(k -> k, mapping::get)));
+        }
+        return stageMap;
     }
 
     public static Graph<Stage, Void> toGraph(Map<Stage, ? extends Map<Integer, Integer>> stages)

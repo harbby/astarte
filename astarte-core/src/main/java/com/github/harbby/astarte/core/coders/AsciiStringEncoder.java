@@ -30,8 +30,6 @@ import java.io.IOException;
 public class AsciiStringEncoder
         implements Encoder<String>
 {
-    private static final long serialVersionUID = 1708358820861618212L;
-
     @Override
     public void encoder(String value, DataOutput output)
             throws IOException

@@ -24,53 +24,106 @@ import java.io.IOException;
 
 import static java.util.Objects.requireNonNull;
 
-public class Tuple2Encoder<K, V>
-        implements Encoder<Tuple2<K, V>>
+public interface Tuple2Encoder<K, V>
+        extends Encoder<Tuple2<K, V>>
 {
-    private final Encoder<K> kEncoder;
-    private final Encoder<V> vEncoder;
+    public Encoder<K> getKeyEncoder();
 
-    public Encoder<K> getKeyEncoder()
+    public Encoder<V> getValueEncoder();
+
+    public static class Tuple2KVEncoder<K, V>
+            implements Tuple2Encoder<K, V>
     {
-        return kEncoder;
+        private final Encoder<K> kEncoder;
+        private final Encoder<V> vEncoder;
+
+        public Tuple2KVEncoder(Encoder<K> kEncoder, Encoder<V> vEncoder)
+        {
+            this.kEncoder = requireNonNull(kEncoder, "kEncoder is null");
+            this.vEncoder = requireNonNull(vEncoder, "vEncoder is null");
+        }
+
+        @Override
+        public Encoder<K> getKeyEncoder()
+        {
+            return kEncoder;
+        }
+
+        @Override
+        public Encoder<V> getValueEncoder()
+        {
+            return vEncoder;
+        }
+
+        @Override
+        public void encoder(Tuple2<K, V> value, DataOutput output)
+                throws IOException
+        {
+            requireNonNull(value, "Tuple2 value is null");
+            kEncoder.encoder(value.f1, output);
+            vEncoder.encoder(value.f2, output);
+        }
+
+        @Override
+        public Tuple2<K, V> decoder(DataInput input)
+                throws IOException
+        {
+            return new Tuple2<>(kEncoder.decoder(input), vEncoder.decoder(input));
+        }
+
+        @Override
+        public Comparator<Tuple2<K, V>> comparator()
+        {
+            return (kv1, kv2) -> {
+                int than = kEncoder.comparator().compare(kv1.f1, kv2.f1);
+                if (than != 0) {
+                    return than;
+                }
+                return vEncoder.comparator().compare(kv1.f2, kv2.f2);
+            };
+        }
     }
 
-    public Encoder<V> getValueEncoder()
+    public static class Tuple2OnlyKeyEncoder<K>
+            implements Tuple2Encoder<K, Void>
     {
-        return vEncoder;
-    }
+        private final Encoder<K> kEncoder;
 
-    public Tuple2Encoder(Encoder<K> kEncoder, Encoder<V> vEncoder)
-    {
-        this.kEncoder = kEncoder;
-        this.vEncoder = vEncoder;
-    }
+        public Tuple2OnlyKeyEncoder(Encoder<K> kEncoder)
+        {
+            this.kEncoder = requireNonNull(kEncoder, "kEncoder is null");
+        }
 
-    @Override
-    public void encoder(Tuple2<K, V> value, DataOutput output)
-            throws IOException
-    {
-        requireNonNull(value, "Tuple2 value is null");
-        kEncoder.encoder(value.f1, output);
-        vEncoder.encoder(value.f2, output);
-    }
+        @Override
+        public Encoder<K> getKeyEncoder()
+        {
+            return kEncoder;
+        }
 
-    @Override
-    public Tuple2<K, V> decoder(DataInput input)
-            throws IOException
-    {
-        return new Tuple2<>(kEncoder.decoder(input), vEncoder.decoder(input));
-    }
+        @Override
+        public Encoder<Void> getValueEncoder()
+        {
+            throw new UnsupportedOperationException();
+        }
 
-    @Override
-    public Comparator<Tuple2<K, V>> comparator()
-    {
-        return (kv1, kv2) -> {
-            int than = kEncoder.comparator().compare(kv1.f1, kv2.f1);
-            if (than != 0) {
-                return than;
-            }
-            return vEncoder.comparator().compare(kv1.f2, kv2.f2);
-        };
+        @Override
+        public void encoder(Tuple2<K, Void> value, DataOutput output)
+                throws IOException
+        {
+            kEncoder.encoder(value.f1, output);
+        }
+
+        @Override
+        public Tuple2<K, Void> decoder(DataInput input)
+                throws IOException
+        {
+            return new Tuple2<>(kEncoder.decoder(input), null);
+        }
+
+        @Override
+        public Comparator<Tuple2<K, Void>> comparator()
+        {
+            return (kv1, kv2) -> kEncoder.comparator().compare(kv1.f1, kv2.f1);
+        }
     }
 }

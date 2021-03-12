@@ -18,14 +18,13 @@ package com.github.harbby.astarte.core.operator;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.gadtry.collection.ImmutableList;
+import com.github.harbby.gadtry.collection.IteratorPlus;
 import com.github.harbby.gadtry.collection.MutableMap;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
-import com.github.harbby.gadtry.function.Creator;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Random;
@@ -58,10 +57,9 @@ public class OrderByOperatorTest
     {
         KvDataSet<String, Integer> ds = mppContext.makeKvDataSet(Arrays.asList(
                 Tuple2.of("hp1", 19),
-                Tuple2.of("hp", 8),
-                Tuple2.of("hp", 10),
+                Tuple2.of("hp", 18),
                 Tuple2.of("hp2", 20)
-        ), 2).reduceByKey(Integer::sum);
+        ), 1);
         Assert.assertEquals(ds.sortByValue((x, y) -> y.compareTo(x)).collect(),
                 ImmutableList.of(
                         Tuple2.of("hp2", 20),
@@ -69,7 +67,7 @@ public class OrderByOperatorTest
                         Tuple2.of("hp", 18)));
     }
 
-    private static final Creator<Iterator<Tuple2<String, Integer>>> it = () -> new Iterator<Tuple2<String, Integer>>()
+    private static final IteratorPlus<Tuple2<String, Integer>> it = new IteratorPlus<Tuple2<String, Integer>>()
     {
         private final Random random = new Random(1);
         private int i = 0;
@@ -94,8 +92,7 @@ public class OrderByOperatorTest
     public void sortMergeGroupBySumTest()
     {
         KvDataSet<String, Integer> ds = mppContext.makeDataSet(it).kvDataSet(x -> x)
-                //.encoder(Encoders.tuple2(Encoders.asciiString(), Encoders.jInt()))
-                .reduceByKey(Integer::sum, 2);
+                .reduceByKey(Integer::sum, 3);
         Map<String, Integer> result = ds.collectMap();
         Assert.assertEquals(result, MutableMap.of(
                 "a0", 14,

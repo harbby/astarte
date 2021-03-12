@@ -22,6 +22,8 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.io.Serializable;
 
+import static com.github.harbby.astarte.core.coders.JavaEncoder.OBJECT_COMPARATOR;
+
 public interface Encoder<E>
         extends Serializable
 {
@@ -36,6 +38,11 @@ public interface Encoder<E>
      */
     public default Comparator<E> comparator()
     {
-        throw new UnsupportedOperationException();
+        return anyComparator();
+    }
+
+    public static <E> Comparator<E> anyComparator()
+    {
+        return (Comparator<E>) OBJECT_COMPARATOR;
     }
 }

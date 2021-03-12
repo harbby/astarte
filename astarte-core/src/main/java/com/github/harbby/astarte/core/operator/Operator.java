@@ -29,6 +29,7 @@ import com.github.harbby.astarte.core.api.function.KvMapper;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
+import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -96,6 +97,9 @@ public abstract class Operator<R>
 
     protected Encoder<R> getRowEncoder()
     {
+        if (rowEncoder == null) {
+            return Encoders.javaEncoder();
+        }
         return rowEncoder;
     }
 
@@ -226,7 +230,7 @@ public abstract class Operator<R>
         int cachedDataSetId = cached.getId();
         //此处限制每个task都必须幂等调度。需要driver单独触发一次全局释放
         return cached.mapPartitionWithId((id, iterator) ->
-                Iterators.limit(iterator, partitionLimit[id], () -> CacheManager.unCacheExec(cachedDataSetId, id)));
+                Iterators.autoClose(Iterators.limit(iterator, partitionLimit[id]), () -> CacheManager.unCacheExec(cachedDataSetId, id)));
     }
 
     @Override
@@ -246,16 +250,17 @@ public abstract class Operator<R>
     {
         return this.kvDataSet(x -> new Tuple2<>(x, null))
                 .reduceByKey((x, y) -> x, partitioner)
-                .map(Tuple2::f1);  //使用map()更安全，因为我们不能将Partitioner传递下去
-        //.keys();  // 这里不推荐使用keys(),使用.map() 更加强调不会传递Partitioner;
+                .keys();
     }
 
     @Override
     public DataSet<R> rePartition(int numPartition)
     {
-        ShuffleMapOperator<R, R> shuffleMapOperator =
-                new ShuffleMapOperator<>(this.map(x -> new Tuple2<>(x, null)), numPartition);
-        ShuffledOperator<R, R> shuffleReducer = new ShuffledOperator<>(shuffleMapOperator, shuffleMapOperator.getPartitioner());
+        Operator<Tuple2<R, Void>> dataSet = this.map(x -> new Tuple2<>(x, null));
+        dataSet.encoder(Encoders.tuple2OnlyKey(this.getRowEncoder()));
+        ShuffleMapOperator<R, Void> shuffleMapOperator =
+                new ShuffleMapOperator<>(dataSet, new HashPartitioner(numPartition), this.getRowEncoder().comparator(), null);
+        ShuffledMergeSortOperator<R, Void> shuffleReducer = new ShuffledMergeSortOperator<>(shuffleMapOperator, shuffleMapOperator.getPartitioner());
         return shuffleReducer.map(Tuple2::f1);
     }
 

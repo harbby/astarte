@@ -17,6 +17,7 @@ package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
@@ -229,7 +230,7 @@ public class JoinOperatorTest
                 Tuple2.of("hp1", 19),
                 Tuple2.of("hp2", 20)
         ), 1).groupByKey()
-                .mapValues(x -> ((List<Integer>) x).stream().mapToInt(y -> y).toArray())
+                .mapValues(x -> Iterators.toStream(x).mapToInt(y -> y).toArray())
                 .cache();
         Assert.assertEquals(3, ds.mapValues(x -> 1).join(ds).count());
         Assert.assertEquals(3, ds.mapValues(x -> 1).mapValues(x -> x).join(ds).count());

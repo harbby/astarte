@@ -165,8 +165,8 @@ public class JoinUtil
         {
             private final List<Tuple2<K, ?>> sameKeyRows = new ArrayList<>();
             private Iterator<Tuple2<K, Tuple2<V1, V2>>> child = Iterators.empty();
-            private final Iterators.ResetIterator<Tuple2<K, ?>> leftIterator = Iterators.warp(sameKeyRows);
-            private final Iterators.ResetIterator<Tuple2<K, ?>> rightIterator = Iterators.warp(sameKeyRows);
+            private final Iterators.ResetIterator<Tuple2<K, ?>> leftIterator = Iterators.wrap(sameKeyRows);
+            private final Iterators.ResetIterator<Tuple2<K, ?>> rightIterator = Iterators.wrap(sameKeyRows);
             private Tuple2<K, ?> next;
 
             @Override

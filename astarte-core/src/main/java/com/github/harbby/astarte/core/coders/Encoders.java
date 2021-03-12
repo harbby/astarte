@@ -105,7 +105,13 @@ public final class Encoders
     {
         requireNonNull(kEncoder, "key Encoder is null");
         requireNonNull(vEncoder, "value Encoder is null");
-        return new Tuple2Encoder<>(kEncoder, vEncoder);
+        return new Tuple2Encoder.Tuple2KVEncoder<>(kEncoder, vEncoder);
+    }
+
+    public static <K> Tuple2Encoder<K, Void> tuple2OnlyKey(Encoder<K> kEncoder)
+    {
+        requireNonNull(kEncoder, "key Encoder is null");
+        return new Tuple2Encoder.Tuple2OnlyKeyEncoder<>(kEncoder);
     }
 
     public static Encoder<String> jCharString()
