@@ -15,6 +15,7 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
+import java.net.SocketAddress;
 import java.util.Optional;
 
 public abstract class ExecutorManager
@@ -47,10 +48,10 @@ public abstract class ExecutorManager
         return vcores;
     }
 
-    static ExecutorManager createExecutorManager(int vcores, int memMb, int executorNum)
+    static ExecutorManager createExecutorManager(int vcores, int memMb, int executorNum, SocketAddress driverManagerAddress)
     {
         return Optional.ofNullable(factory).orElse(ForkVmExecutorManager::new)
-                .createExecutorManager(vcores, memMb, executorNum);
+                .createExecutorManager(vcores, memMb, executorNum, driverManagerAddress);
     }
 
     public static void setFactory(Factory factory)
@@ -60,6 +61,6 @@ public abstract class ExecutorManager
 
     public static interface Factory
     {
-        public ExecutorManager createExecutorManager(int vcores, int memMb, int executorNum);
+        public ExecutorManager createExecutorManager(int vcores, int memMb, int executorNum, SocketAddress driverManagerAddress);
     }
 }

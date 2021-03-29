@@ -76,16 +76,6 @@ public class UnionAllOperator<E>
         return operator.computeOrCache(unionAllPartition.partition, taskContext);
     }
 
-    @SuppressWarnings("unchecked")
-    private static <E> Operator<E>[] unboxing(Operator<E>[] operators)
-    {
-        Operator<E>[] outArray = new Operator[operators.length];
-        for (int i = 0; i < operators.length; i++) {
-            outArray[i] = unboxing(operators[i]);
-        }
-        return outArray;
-    }
-
     public static class UnionAllPartition
             extends Partition
     {

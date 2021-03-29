@@ -15,21 +15,23 @@
  */
 package com.github.harbby.astarte.core;
 
-import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.Stage;
 import com.github.harbby.astarte.core.operator.ShuffleMapOperator;
 
 public class ShuffleMapStage
         extends Stage
 {
+    private final ShuffleMapOperator<?, ?> operator;
+
     public ShuffleMapStage(ShuffleMapOperator<?, ?> operator, int jobId, int stageId)
     {
         super(operator, jobId, stageId);
+        this.operator = operator;
     }
 
     @Override
-    public void compute(Partition split, TaskContext taskContext)
+    public ShuffleMapOperator<?, ?> getFinalOperator()
     {
-        getFinalOperator().computeOrCache(split, taskContext);
+        return operator;
     }
 }

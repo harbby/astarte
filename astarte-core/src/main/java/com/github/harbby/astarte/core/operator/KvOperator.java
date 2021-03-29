@@ -29,6 +29,7 @@ import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
+import com.github.harbby.astarte.core.coders.Tuple2Encoder;
 import com.github.harbby.astarte.core.utils.JoinUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -36,8 +37,6 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static com.github.harbby.astarte.core.api.Constant.SHUFFLE_MAP_COMBINE_ENABLE;
 
 public class KvOperator<K, V>
         extends Operator<Tuple2<K, V>>
@@ -47,7 +46,7 @@ public class KvOperator<K, V>
     /*
      * 启用map端combine功能
      */
-    private boolean combine = context.getConf().getBoolean(SHUFFLE_MAP_COMBINE_ENABLE, true);
+    private boolean combine = false; //context.getConf().getBoolean(SHUFFLE_MAP_COMBINE_ENABLE, true);
 
     public KvOperator(Operator<Tuple2<K, V>> dataSet)
     {
@@ -80,9 +79,31 @@ public class KvOperator<K, V>
     }
 
     @Override
-    protected Encoders.Tuple2Encoder<K, V> getRowEncoder()
+    protected Encoder<Tuple2<K, V>> getRowEncoder()
     {
-        return (Encoders.Tuple2Encoder<K, V>) dataSet.getRowEncoder();
+        return dataSet.getRowEncoder();
+    }
+
+    @Override
+    public Encoder<K> getKeyEncoder()
+    {
+        if (dataSet.getRowEncoder() instanceof Tuple2Encoder) {
+            return ((Tuple2Encoder<K, V>) dataSet.getRowEncoder()).getKeyEncoder();
+        }
+        else {
+            return Encoders.javaEncoder();
+        }
+    }
+
+    @Override
+    public Encoder<V> getValueEncoder()
+    {
+        if (dataSet.getRowEncoder() instanceof Tuple2Encoder) {
+            return ((Tuple2Encoder<K, V>) dataSet.getRowEncoder()).getValueEncoder();
+        }
+        else {
+            return Encoders.javaEncoder();
+        }
     }
 
     @Override
@@ -108,7 +129,7 @@ public class KvOperator<K, V>
     @Override
     public DataSet<K> keys()
     {
-        return new MapOperator<>(dataSet, it -> it.f1, true);
+        return new MapOperator<>(dataSet, it -> it.f1, false);
     }
 
     @Override
@@ -131,7 +152,7 @@ public class KvOperator<K, V>
     public <O> KvDataSet<K, O> mapValues(Mapper<V, O> mapper, Encoder<O> oEncoder)
     {
         KvDataSet<K, O> out = this.mapValues(mapper);
-        Encoder<Tuple2<K, O>> kvEncoder = Encoders.tuple2(this.getRowEncoder().getKeyEncoder(), oEncoder);
+        Encoder<Tuple2<K, O>> kvEncoder = Encoders.tuple2(this.getKeyEncoder(), oEncoder);
         out.encoder(kvEncoder);
         return out;
     }
@@ -213,7 +234,7 @@ public class KvOperator<K, V>
     }
 
     @Override
-    public KvDataSet<K, Iterable<V>> groupByKey()
+    public KvDataSet<K, Iterator<V>> groupByKey()
     {
         Partitioner partitioner = dataSet.getPartitioner();
         if (new HashPartitioner(dataSet.numPartitions()).equals(partitioner)) {
@@ -222,8 +243,10 @@ public class KvOperator<K, V>
         }
         else {
             // 进行shuffle
-            ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(dataSet, dataSet.numPartitions());
-            ShuffledOperator<K, V> shuffleReducer = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
+            ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(dataSet,
+                    new HashPartitioner(dataSet.numPartitions()), getKeyEncoder().comparator(),
+                    null);
+            ShuffledMergeSortOperator<K, V> shuffleReducer = new ShuffledMergeSortOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
             return new KvOperator<>(new FullAggOperator<>(shuffleReducer, x -> x));
         }
     }
@@ -231,8 +254,8 @@ public class KvOperator<K, V>
     @Override
     public KvDataSet<K, V> rePartitionByKey(Partitioner partitioner)
     {
-        ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(dataSet, partitioner);
-        ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
+        ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(dataSet, partitioner, this.getKeyEncoder().comparator(), null);
+        ShuffledMergeSortOperator<K, V> shuffledOperator = new ShuffledMergeSortOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
         return new KvOperator<>(shuffledOperator);
     }
 
@@ -251,7 +274,7 @@ public class KvOperator<K, V>
     @Override
     public KvDataSet<K, V> reduceByKey(Reducer<V> reducer, int numPartition)
     {
-        return reduceByKey(reducer, new HashPartitioner(dataSet.numPartitions()));
+        return reduceByKey(reducer, new HashPartitioner(numPartition));
     }
 
     @Override
@@ -263,19 +286,10 @@ public class KvOperator<K, V>
             return new KvOperator<>(new AggOperator<>(dataSet, clearedFunc));
         }
         else {
-            Operator<Tuple2<K, V>> combineOperator;
-            // combine
-            if (combine) {
-                combineOperator = new AggOperator<>(dataSet, clearedFunc);
-            }
-            else {
-                combineOperator = dataSet;
-            }
-
             // 进行shuffle
-            ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(combineOperator, partitioner);
-            ShuffledOperator<K, V> shuffledOperator = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
-            return new KvOperator<>(new AggOperator<>(shuffledOperator, clearedFunc));
+            ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(dataSet, partitioner, this.getKeyEncoder().comparator(), reducer);
+            ShuffledMergeSortOperator<K, V> shuffledMergeSortOperator = new ShuffledMergeSortOperator<>(shuffleMapper, partitioner);
+            return new KvOperator<>(new AggOperator<>(shuffledMergeSortOperator, clearedFunc));
         }
     }
 
@@ -350,21 +364,22 @@ public class KvOperator<K, V>
         Operator<Tuple2<K, Tuple2<V, W>>> joinOperator = null;
         Partitioner leftPartitioner = dataSet.getPartitioner();
         Partitioner rightPartitioner = rightOperator.getPartitioner();
+        Comparator<K> comparator = this.getKeyEncoder().comparator();
         if (leftPartitioner != null && leftPartitioner.equals(rightPartitioner)) {
             // 因为上一个stage已经按照相同的分区器, 将数据分好，因此这里我们无需shuffle
-            joinOperator = new LocalJoinOperator<>(joinMode, dataSet, rightOperator);
+            joinOperator = new LocalJoinOperator<>(joinMode, dataSet, rightOperator, comparator);
         }
         else if (dataSet.numPartitions() == 1 && rightOperator.numPartitions() == 1) {
-            joinOperator = new LocalJoinOperator.OnePartitionLocalJoin<>(joinMode, dataSet, rightOperator);
+            joinOperator = new LocalJoinOperator.OnePartitionLocalJoin<>(joinMode, dataSet, rightOperator, comparator);
         }
         else if ((Object) rightOperator == dataSet) {
             KvOperator keyBy = (KvOperator<K, V>) this.rePartitionByKey();
-            joinOperator = new LocalJoinOperator<>(joinMode, keyBy.dataSet, keyBy.dataSet);
+            joinOperator = new LocalJoinOperator<>(joinMode, keyBy.dataSet, keyBy.dataSet, comparator);
         }
         else {
             int reduceNum = Math.max(dataSet.numPartitions(), rightOperator.numPartitions());
             Partitioner partitioner = new HashPartitioner(reduceNum);
-            joinOperator = new ShuffleJoinOperator<>(partitioner, joinMode, dataSet, rightOperator);
+            joinOperator = new ShuffleJoinOperator<>(partitioner, joinMode, dataSet, rightOperator, comparator);
         }
         return new KvOperator<>(joinOperator);
     }
@@ -405,15 +420,10 @@ public class KvOperator<K, V>
     {
         Comparator<K> clearedFunc = Utils.clear(comparator);
         Partitioner partitioner = SortShuffleWriter.createPartitioner(numPartitions, (Operator<K>) this.keys(), clearedFunc);
-        ShuffleMapOperator<K, V> sortShuffleMapOp = new ShuffleMapOperator<>(
-                dataSet,
-                partitioner,
-                clearedFunc);
+        ShuffleMapOperator<K, V> sortShuffleMapOp = new ShuffleMapOperator<>(dataSet, partitioner, clearedFunc, null);
 
-        SortShuffleWriter.ShuffledMergeSortOperator<K, V> shuffledOperator = new SortShuffleWriter
-                .ShuffledMergeSortOperator<>(
+        ShuffledMergeSortOperator<K, V> shuffledOperator = new ShuffledMergeSortOperator<>(
                 sortShuffleMapOp,
-                clearedFunc,
                 sortShuffleMapOp.getPartitioner());
         return new KvOperator<>(shuffledOperator);
     }

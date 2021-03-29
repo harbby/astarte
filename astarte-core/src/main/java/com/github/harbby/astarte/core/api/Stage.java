@@ -15,14 +15,9 @@
  */
 package com.github.harbby.astarte.core.api;
 
-import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.operator.Operator;
 
 import java.io.Serializable;
-import java.net.SocketAddress;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 
 import static com.github.harbby.gadtry.base.MoreObjects.toStringHelper;
@@ -34,9 +29,6 @@ public abstract class Stage
     private final int stageId;
     private final int jobId;
 
-    private Map<Integer, Integer> deps = new HashMap<>();
-    private Collection<SocketAddress> shuffleServices;
-
     protected Stage(final Operator<?> operator, int jobId, int stageId)
     {
         this.operator = operator;
@@ -44,37 +36,12 @@ public abstract class Stage
         this.stageId = stageId;
     }
 
-    public void setDeps(Map<Integer, Integer> deps)
-    {
-        this.deps.putAll(deps);
-    }
-
-    public void setShuffleServices(Collection<SocketAddress> shuffleServices)
-    {
-        this.shuffleServices = shuffleServices;
-    }
-
-    public Collection<SocketAddress> getShuffleServices()
-    {
-        return shuffleServices;
-    }
-
-    public Map<Integer, Integer> getDeps()
-    {
-        return deps;
-    }
-
-    public Operator<?> getFinalOperator()
-    {
-        return operator;
-    }
+    public abstract Operator<?> getFinalOperator();
 
     public Partition[] getPartitions()
     {
         return operator.getPartitions();
     }
-
-    public abstract void compute(Partition split, TaskContext taskContext);
 
     public int getJobId()
     {

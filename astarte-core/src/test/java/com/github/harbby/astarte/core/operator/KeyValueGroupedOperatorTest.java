@@ -35,27 +35,6 @@ public class KeyValueGroupedOperatorTest
             .getOrCreate();
 
     @Test
-    public void keyGroupedTest()
-    {
-        DataSet<String> ds = mppContext.makeDataSet(Arrays.asList(
-                "a",
-                "a",
-                "b",
-                "b",
-                "b"), 2);
-
-        Map<Integer, String> result = ds.groupByKey(x -> x.charAt(0) % 2)
-                .<StringBuilder>partitionGroupsWithState(keyGroupState -> (record) -> {
-                    if (keyGroupState.getState() == null) {
-                        keyGroupState.update(new StringBuilder(keyGroupState.getKey()));
-                    }
-                    StringBuilder builder = keyGroupState.getState();
-                    builder.append(record);
-                }).collect().stream().collect(Collectors.toMap(k -> k.f1, v -> v.f2.toString()));
-        Assert.assertEquals(result, MutableMap.of(0, "bbb", 1, "aa"));
-    }
-
-    @Test
     public void keyByMapPartitionTest()
             throws IOException
     {

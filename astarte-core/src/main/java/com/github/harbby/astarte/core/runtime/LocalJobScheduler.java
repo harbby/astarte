@@ -16,19 +16,21 @@
 package com.github.harbby.astarte.core.runtime;
 
 import com.github.harbby.astarte.core.JobScheduler;
-import com.github.harbby.astarte.core.MapTaskState;
 import com.github.harbby.astarte.core.ResultStage;
 import com.github.harbby.astarte.core.ResultTask;
 import com.github.harbby.astarte.core.ShuffleMapStage;
 import com.github.harbby.astarte.core.ShuffleMapTask;
 import com.github.harbby.astarte.core.TaskContext;
-import com.github.harbby.astarte.core.api.AstarteConf;
 import com.github.harbby.astarte.core.api.AstarteException;
 import com.github.harbby.astarte.core.api.Stage;
 import com.github.harbby.astarte.core.api.function.Mapper;
+import com.github.harbby.astarte.core.operator.Operator;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -47,12 +49,10 @@ public class LocalJobScheduler
         extends JobScheduler
 {
     private static final Logger logger = LoggerFactory.getLogger(LocalJobScheduler.class);
-    private final AstarteConf astarteConf;
     private final int parallelism;
 
-    public LocalJobScheduler(AstarteConf astarteConf, int parallelism)
+    public LocalJobScheduler(int parallelism)
     {
-        this.astarteConf = astarteConf;
         this.parallelism = parallelism;
         checkState(parallelism > 0, "local mode parallelism must > 1");
     }
@@ -67,21 +67,17 @@ public class LocalJobScheduler
         logger.info("starting... job: {}", jobId);
         //---------------------
         final ExecutorService executors = Executors.newFixedThreadPool(parallelism);
-        String localExecutorUUID = UUID.randomUUID().toString();
-        ShuffleManagerService shuffleManagerService = new ShuffleManagerService(localExecutorUUID);
-        shuffleManagerService.updateCurrentJobId(jobId);
-
+        File shuffleWorkDir = new File("/tmp/astarte-" + UUID.randomUUID().toString());
         try {
             for (Stage stage : jobStages) {
                 int stageId = stage.getStageId();
-                Map<Integer, Integer> deps = stageMap.getOrDefault(stage, Collections.emptyMap());
-                ShuffleClient shuffleClient = ShuffleClient.getLocalShuffleClient(shuffleManagerService);
-                TaskContext taskContext = TaskContext.of(jobId, stageId, deps, shuffleClient, localExecutorUUID);
+                ShuffleClient shuffleClient = new ShuffleClient.LocalShuffleClient(shuffleWorkDir, jobId);
+                TaskContext taskContext = TaskContext.of(jobId, stageId, stageMap.get(stage), shuffleClient, shuffleWorkDir);
 
                 if (stage instanceof ShuffleMapStage) {
                     logger.info("starting... shuffleMapStage: {}, id {}", stage, stage.getStageId());
                     Stream.of(stage.getPartitions())
-                            .map(partition -> new ShuffleMapTask<MapTaskState>(stage, partition))
+                            .map(partition -> new ShuffleMapTask(jobId, stageId, partition, ((ShuffleMapStage) stage).getFinalOperator(), Collections.emptyMap(), stageMap.get(stage)))
                             .map(task -> CompletableFuture.runAsync(() -> task.runTask(taskContext), executors))
                             .collect(Collectors.toList())
                             .forEach(CompletableFuture::join);
@@ -91,7 +87,7 @@ public class LocalJobScheduler
                     checkState(stage instanceof ResultStage, "Unknown stage " + stage);
                     logger.info("starting... ResultStage: {}, id {}", stage, stage.getStageId());
                     return Stream.of(stage.getPartitions())
-                            .map(partition -> new ResultTask<>(stage, action, partition))
+                            .map(partition -> new ResultTask<>(jobId, stageId, (Operator<E>) stage.getFinalOperator(), action, partition, Collections.emptyMap(), stageMap.get(stage)))
                             .map(task -> CompletableFuture.supplyAsync(() -> task.runTask(taskContext), executors))
                             .collect(Collectors.toList()).stream()
                             .map(CompletableFuture::join)
@@ -104,6 +100,13 @@ public class LocalJobScheduler
         }
         finally {
             executors.shutdown();
+            try {
+                FileUtils.deleteDirectory(shuffleWorkDir);
+                logger.debug("clear shuffle data temp dir {}", shuffleWorkDir);
+            }
+            catch (IOException e) {
+                logger.error("clear shuffle data temp dir failed", e);
+            }
         }
         throw new UnsupportedOperationException("job " + jobId + " Not found ResultStage");
     }

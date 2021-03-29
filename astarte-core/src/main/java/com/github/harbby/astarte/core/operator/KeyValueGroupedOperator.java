@@ -15,13 +15,12 @@
  */
 package com.github.harbby.astarte.core.operator;
 
-import com.github.harbby.astarte.core.api.Collector;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
-import com.github.harbby.astarte.core.api.function.KeyGroupState;
 import com.github.harbby.astarte.core.api.function.MapGroupFunc;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
+import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.Serializable;
@@ -43,8 +42,8 @@ public class KeyValueGroupedOperator<K, R>
     {
         // 进行shuffle
         Operator<Tuple2<K, R>> kv = dataSet.kvDataSet(row -> new Tuple2<>(mapFunc.map(row), row));
-        ShuffleMapOperator<K, R> shuffleMapper = new ShuffleMapOperator<>(kv, kv.numPartitions());
-        ShuffledOperator<K, R> shuffleReducer = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
+        ShuffleMapOperator<K, R> shuffleMapper = new ShuffleMapOperator<>(kv, kv.numPartitions(), Encoder.anyComparator(), null);
+        ShuffledMergeSortOperator<K, R> shuffleReducer = new ShuffledMergeSortOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
         return new KvOperator<>(new FullAggOperator<>(shuffleReducer, mapGroupFunc)).values();
     }
 
@@ -54,19 +53,11 @@ public class KeyValueGroupedOperator<K, R>
                 .reduceByKey(reducer);
     }
 
-    public <O> KvDataSet<K, O> partitionGroupsWithState(Mapper<KeyGroupState<K, O>, Collector<R>> collector)
-    {
-        Operator<Tuple2<K, R>> kv = dataSet.kvDataSet(row -> new Tuple2<>(mapFunc.map(row), row));
-        ShuffleMapOperator<K, R> shuffleMapper = new ShuffleMapOperator<>(kv, kv.numPartitions());
-        ShuffledOperator<K, R> shuffleReducer = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
-        return new KvOperator<>(new PipeLineAggOperator<>(shuffleReducer, collector));
-    }
-
     public <O> DataSet<O> mapPartition(Mapper<Iterator<Tuple2<K, R>>, Iterator<O>> mapper)
     {
         Operator<Tuple2<K, R>> kv = dataSet.kvDataSet(row -> new Tuple2<>(mapFunc.map(row), row));
-        ShuffleMapOperator<K, R> shuffleMapper = new ShuffleMapOperator<>(kv, kv.numPartitions());
-        ShuffledOperator<K, R> shuffleReducer = new ShuffledOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
+        ShuffleMapOperator<K, R> shuffleMapper = new ShuffleMapOperator<>(kv, kv.numPartitions(), Encoder.anyComparator(), null);
+        ShuffledMergeSortOperator<K, R> shuffleReducer = new ShuffledMergeSortOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
         return shuffleReducer.mapPartition(mapper);
     }
 }

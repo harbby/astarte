@@ -15,6 +15,13 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
+import com.github.harbby.astarte.core.api.Constant;
+
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+
+import static java.util.Objects.requireNonNull;
+
 public class TaskExecutor
 {
     private TaskExecutor() {}
@@ -23,7 +30,11 @@ public class TaskExecutor
             throws Exception
     {
         int vcores = 2;
-        Executor executor = new Executor(vcores);
+        String driverManagerAddressString = requireNonNull(System.getenv(Constant.DRIVER_SCHEDULER_ADDRESS), "Cannot get DRIVER_SCHEDULER_ADDRESS from environment variable");
+        String[] split = driverManagerAddressString.split(":");
+        SocketAddress driverManagerAddress = InetSocketAddress.createUnresolved(split[0], Integer.parseInt(split[1]));
+
+        Executor executor = new Executor(vcores, driverManagerAddress);
         executor.join();
     }
 }

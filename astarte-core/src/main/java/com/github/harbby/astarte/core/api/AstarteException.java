@@ -18,7 +18,7 @@ package com.github.harbby.astarte.core.api;
 public class AstarteException
         extends RuntimeException
 {
-    private static final long serialVersionUID = -1L;
+    private static final long serialVersionUID = 2107331174680073061L;
 
     public AstarteException(String message)
     {

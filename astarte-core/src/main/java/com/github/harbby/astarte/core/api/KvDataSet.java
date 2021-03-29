@@ -90,7 +90,7 @@ public interface KvDataSet<K, V>
     @Override
     KvDataSet<K, V> distinct(Partitioner partitioner);
 
-    KvDataSet<K, Iterable<V>> groupByKey();
+    KvDataSet<K, Iterator<V>> groupByKey();
 
     public default KvDataSet<K, V> rePartitionByKey()
     {
@@ -146,4 +146,8 @@ public interface KvDataSet<K, V>
     public KvDataSet<K, V> sortByValue(Comparator<V> comparator);
 
     public KvDataSet<K, V> sortByValue(Comparator<V> comparator, int numPartitions);
+
+    public Encoder<K> getKeyEncoder();
+
+    public Encoder<V> getValueEncoder();
 }

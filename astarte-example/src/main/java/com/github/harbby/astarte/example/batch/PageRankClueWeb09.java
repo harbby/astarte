@@ -18,23 +18,16 @@ package com.github.harbby.astarte.example.batch;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
-import com.github.harbby.astarte.core.api.ShuffleWriter;
-import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.DataOutput;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Serializable;
-import java.nio.channels.FileChannel;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -52,19 +45,13 @@ public class PageRankClueWeb09
     public static void main(String[] args)
             throws Exception
     {
-        BatchContext mppContext = BatchContext.builder().local(2).getOrCreate();
+        BatchContext mppContext = BatchContext.builder().localCluster(2, 1).getOrCreate();
         int iters = 3;  //迭代次数
 
-//        testZeroCopy2();
-//        System.exit(0);
-//        bioTest1();
-//        nioTest2();
-
-        DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(() -> new FileIteratorReader(DATA_PATH))
-                .partitionLimit(100_0000);
+        DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(new String[] {DATA_PATH}).flatMapIterator(FileIteratorReader::new);
         KvDataSet<Integer, int[]> links = KvDataSet.toKvDataSet(lines)
                 .encoder(Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray()))
-                .rePartitionByKey(2).mapValues(x -> x, Encoders.jIntArray())
+                .rePartitionByKey(2)
                 .cache();
 
         KvDataSet<Integer, Double> ranks = links.mapValues(v -> 1.0);
@@ -77,100 +64,19 @@ public class PageRankClueWeb09
                 return IntStream.of(urls).mapToObj(url -> new Tuple2<>(url, rank / size)).iterator();
             });
 
-            ranks = KvDataSet.toKvDataSet(contribs).reduceByKey((x, y) -> x + y).mapValues(x -> 0.15 + 0.85 * x);
+            ranks = KvDataSet.toKvDataSet(contribs)
+                    .encoder(Encoders.tuple2(Encoders.jInt(), Encoders.jDouble()))
+                    .reduceByKey(Double::sum).mapValues(x -> 0.15 + 0.85 * x);
         }
         List<Tuple2<Integer, Double>> output = ranks.partitionLimit(10).collect();
-        output.forEach(tup -> System.out.println(String.format("%s has rank:  %s .", tup.f1(), tup.f2())));
+        output.forEach(tup -> System.out.printf("%s has rank:  %s .%n", tup.f1(), tup.f2()));
 
         mppContext.stop();
-    }
-
-    /**
-     * 123135ms
-     */
-    private static void bioTest1()
-            throws Exception
-    {
-        File file = new File(DATA_PATH);
-        long start = System.currentTimeMillis();
-        Encoder<Tuple2<Integer, int[]>> encoder = Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray());
-        try (InputStreamReader inputStreamReader = new InputStreamReader(new FileInputStream(file));
-                BufferedOutputStream fileOutputStream = new BufferedOutputStream(new FileOutputStream("/tmp/shuffle_test"))) {
-            DataOutput dataOutput = new DataOutputStream(fileOutputStream);
-            BufferedReader reader = new BufferedReader(inputStreamReader);
-
-            String line = null;
-            int number = 0;
-            int[] zeroIntArr = new int[0];
-            while ((line = reader.readLine()) != null) {
-                Tuple2<Integer, int[]> integerTuple2;
-                if (line.length() == 0) {
-                    integerTuple2 = Tuple2.of(number, zeroIntArr);
-                }
-                else {
-                    String[] targets = line.trim().split(" ");
-                    int[] targetIds = new int[targets.length];
-                    for (int i = 0; i < targets.length; i++) {
-                        targetIds[i] = Integer.parseInt(targets[i]);
-                    }
-                    integerTuple2 = new Tuple2<>(number, targetIds);
-                }
-                encoder.encoder(integerTuple2, dataOutput);
-                number++;
-            }
-        }
-        System.out.println("bioTest1 : " + (System.currentTimeMillis() - start) + "ms");
-    }
-
-    private static void nioTest2()
-            throws Exception
-    {
-        File file = new File(DATA_PATH);
-        long start = System.currentTimeMillis();
-        Encoder<Tuple2<Integer, int[]>> encoder = Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray());
-        try (FileOutputStream fileOutputStream = new FileOutputStream("/tmp/shuffle_test")) {
-            FileChannel fileChannel = fileOutputStream.getChannel();
-            ShuffleWriter.HashShuffleWriter.NioOutputStream nioOutputStream =
-                    new ShuffleWriter.HashShuffleWriter.NioOutputStream(fileChannel, 819200);
-            DataOutput dataOutput = new DataOutputStream(nioOutputStream);
-            for (Tuple2<Integer, int[]> integerTuple2 : (Iterable<Tuple2<Integer, int[]>>) () -> new FileIteratorReader(file)) {
-                dataOutput.writeInt(integerTuple2.f1);
-                int[] values = integerTuple2.f2;
-                dataOutput.writeInt(values.length);
-                for (int v : values) {
-                    dataOutput.writeInt(v);
-                }
-                encoder.encoder(integerTuple2, dataOutput);
-                if (nioOutputStream.position() > 81920) {
-                    nioOutputStream.flush();
-                }
-            }
-        }
-        System.out.println("nioTest2 : " + (System.currentTimeMillis() - start) + "ms");
-    }
-
-    private static void testZeroCopy2()
-            throws Exception
-    {
-        File file = new File(DATA_PATH);
-        long start = System.currentTimeMillis();
-        FileOutputStream outputStream = new FileOutputStream("/tmp/shuffle_test");
-        int i = 5;
-        while (i-- > 0) {
-            try (FileInputStream inputStream = new FileInputStream(file)) {
-                inputStream.getChannel().transferTo(0, file.length(), outputStream.getChannel());
-            }
-            try (FileInputStream inputStream = new FileInputStream(file)) {
-                inputStream.getChannel().transferTo(0, file.length(), outputStream.getChannel());
-            }
-        }
-        System.out.println("testZeroCopy2 : " + (System.currentTimeMillis() - start) + "ms");
     }
 
     private static class FileIteratorReader
             implements Iterator<Tuple2<Integer, int[]>>, Serializable
     {
-        private final File file;
         private final BufferedReader reader;
 
         private String line;
@@ -178,7 +84,6 @@ public class PageRankClueWeb09
 
         private FileIteratorReader(File file)
         {
-            this.file = file;
             try {
                 InputStreamReader inputStreamReader = new InputStreamReader(new FileInputStream(file));
                 this.reader = new BufferedReader(inputStreamReader);

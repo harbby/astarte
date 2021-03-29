@@ -104,6 +104,12 @@ public class CacheManager
         }
     }
 
+    public static boolean cacheDone(int operatorId)
+    {
+        DataSetCache<?> cache = cacheMemMap.get(operatorId);
+        return cache != null && cache.cacheMemories[0].isFinal;
+    }
+
     public static void unCacheExec(int dataSetId)
     {
         DataSetCache<?> cachedMemories = cacheMemMap.remove(dataSetId);
@@ -161,15 +167,16 @@ public class CacheManager
     public static <E> Iterator<E> compute(Operator<E> dataSet, int dataSetId, Partition partition, TaskContext taskContext)
     {
         int partitionId = partition.getId();
+        int numPartitions = dataSet.numPartitions();
         @SuppressWarnings("unchecked")
         DataSetCache<E> dataSetCache = (DataSetCache<E>) cacheMemMap
-                .computeIfAbsent(dataSetId, key -> new DataSetCache<E>(dataSetId, dataSet.numPartitions()));
+                .computeIfAbsent(dataSetId, key -> new DataSetCache<E>(dataSetId, numPartitions));
 
         if (dataSetCache.getCache(partitionId) != null) {
-            logger.debug("dataSet{}[{}] cache hit, tree: {}", dataSet, partitionId, taskContext.getDependStages());
+            logger.debug("dataSet{}[{}] cache hit, stage: {}", dataSet, partitionId, taskContext.getStageId());
             return dataSetCache.getCache(partitionId).prepareIterator();
         }
-        logger.debug("dataSet{}[{}] cache miss, tree: {}", dataSet, partitionId, taskContext.getDependStages());
+        logger.debug("dataSet{}[{}] cache miss, stage: {}", dataSet, partitionId, taskContext.getStageId());
 
         Iterator<E> iterator = dataSet.compute(partition, taskContext);
         CacheMemory<E> partitionCacheMemory = dataSet.getRowEncoder() != null
@@ -187,7 +194,7 @@ public class CacheManager
                 if (!hasNext && !done) {
                     done = true;
                     partitionCacheMemory.finalCache(); //后面跟随limit时存在缺陷，无法进行final
-                    logger.debug("-----{} cached dep stage: {} data succeed", dataSet, taskContext.getDependStages());
+                    logger.debug("dataSet {} partition {} cache data succeed", dataSet, partitionId);
                 }
                 return hasNext;
             }

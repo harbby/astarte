@@ -18,6 +18,7 @@ package com.github.harbby.astarte.core.operator;
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
+import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.utils.JoinUtil;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
@@ -43,16 +44,19 @@ public class LocalJoinOperator<K, V1, V2>
     protected final Operator<Tuple2<K, V1>> leftDataSet;
     protected final Operator<Tuple2<K, V2>> rightDataSet;
     protected final JoinUtil.JoinMode joinMode;
+    protected final Comparator<K> comparator;
 
     protected LocalJoinOperator(JoinUtil.JoinMode joinMode,
             Operator<Tuple2<K, V1>> leftDataSet,
-            Operator<Tuple2<K, V2>> rightDataSet)
+            Operator<Tuple2<K, V2>> rightDataSet,
+            Comparator<K> comparator)
     {
         super(requireNonNull(leftDataSet, "leftDataSet is null").getContext());
 
         this.joinMode = requireNonNull(joinMode, "joinMode is null");
         this.leftDataSet = unboxing(leftDataSet);
         this.rightDataSet = unboxing(rightDataSet);
+        this.comparator = requireNonNull(comparator, "comparator is null");
         checkState(Objects.equals(leftDataSet.getPartitioner(), rightDataSet.getPartitioner()));
     }
 
@@ -100,8 +104,7 @@ public class LocalJoinOperator<K, V1, V2>
         if (!sameOperator.isPresent()) {
             Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(partition, taskContext);
             Iterator<Tuple2<K, V2>> right = rightDataSet.computeOrCache(partition, taskContext);
-            //todo: use merge join JoinUtil.mergeJoin();
-            return JoinUtil.join(joinMode, left, right);
+            return JoinUtil.mergeJoin(joinMode, comparator, left, right);
         }
         List<CalcOperator<?, ?>> leftCalcOperators = leftOperators.subList(0, leftOperators.indexOf(sameOperator.get())).stream()
                 .map(x -> ((CalcOperator<?, ?>) x)).collect(Collectors.toList());
@@ -121,17 +124,19 @@ public class LocalJoinOperator<K, V1, V2>
     {
         List<Operator<?>> result = new ArrayList<>();
         result.add(operator);
+        if (operator instanceof ShuffledMergeSortOperator) {
+            return result;
+        }
         List<? extends Operator<?>> deps = operator.getDependencies();
         while (true) {
             if (deps.size() != 1) {
                 return result;
             }
             Operator<?> child = deps.get(0);
+            result.add(child);
             if (!(child instanceof CalcOperator) || !((CalcOperator<?, ?>) child).holdPartitioner()) {
-                result.add(child);
                 return result;
             }
-            result.add(child);
             deps = child.getDependencies();
         }
     }
@@ -165,9 +170,9 @@ public class LocalJoinOperator<K, V1, V2>
     {
         private final Partition[] partitions;
 
-        protected OnePartitionLocalJoin(JoinUtil.JoinMode joinMode, Operator<Tuple2<K, V1>> leftDataSet, Operator<Tuple2<K, V2>> rightDataSet)
+        protected OnePartitionLocalJoin(JoinUtil.JoinMode joinMode, Operator<Tuple2<K, V1>> leftDataSet, Operator<Tuple2<K, V2>> rightDataSet, Comparator<K> comparator)
         {
-            super(joinMode, leftDataSet, rightDataSet);
+            super(joinMode, leftDataSet, rightDataSet, comparator);
             this.partitions = new Partition[leftDataSet.numPartitions()];
             Partition[] leftPartitions = leftDataSet.getPartitions();
             Partition[] rightPartitions = rightDataSet.getPartitions();
@@ -199,8 +204,7 @@ public class LocalJoinOperator<K, V1, V2>
 
             Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(localJoinPartition.left, taskContext);
             Iterator<Tuple2<K, V2>> right = rightDataSet.computeOrCache(localJoinPartition.right, taskContext);
-            //todo: use merge join JoinUtil.mergeJoin();
-            return JoinUtil.join(joinMode, left, right);
+            return JoinUtil.mergeJoin(joinMode, comparator, left, right);
         }
     }
 

@@ -19,12 +19,11 @@ import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.function.Reducer;
-import com.github.harbby.gadtry.collection.tuple.Tuple1;
+import com.github.harbby.astarte.core.coders.Encoder;
+import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 
 /**
  * this pipiline agg Operator
@@ -50,26 +49,16 @@ public class AggOperator<K, V>
     }
 
     @Override
+    protected Encoder<Tuple2<K, V>> getRowEncoder()
+    {
+        return operator.getRowEncoder();
+    }
+
+    @Override
     public Iterator<Tuple2<K, V>> compute(Partition split, TaskContext taskContext)
     {
         Iterator<Tuple2<K, V>> input = operator.computeOrCache(split, taskContext);
-        // 这里是增量计算的 复杂度= O(1) + log(m)
-        Map<K, Tuple1<V>> aggState = new HashMap<>();
-        int count = 0;
-        while (input.hasNext()) {
-            Tuple2<K, V> tp = input.next();
-            Tuple1<V> value = aggState.get(tp.f1());
-            if (value == null) {
-                aggState.put(tp.f1, new Tuple1<>(tp.f2));
-            }
-            else {
-                value.set(reducer.reduce(value.get(), tp.f2));
-            }
-            count++;
-        }
-        logger.info("AggOperator `convergent validity` is {}% {}/{}", aggState.size() * 100.0 / count, aggState.size(), count);
-        return aggState.entrySet().stream()
-                .map(x -> new Tuple2<>(x.getKey(), x.getValue().get()))
-                .iterator();
+        //sort merge shuffle reducer
+        return Iterators.reduceSorted(input, reducer);
     }
 }

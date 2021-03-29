@@ -30,7 +30,7 @@ import java.util.List;
 public class OperatorTest
 {
     private final BatchContext mppContext = BatchContext.builder()
-            .netLocal(2)
+            .local(2)
             .getOrCreate();
 
     @Test
@@ -85,5 +85,20 @@ public class OperatorTest
                 Tuple2.of("hp2", 20)
         ), 2).reduceByKey(Integer::sum).limit(2);
         Assert.assertEquals(ds1.collectMap(), MutableMap.of("hp", 18, "hp2", 20));
+    }
+
+    @Test
+    public void groupByReduce()
+    {
+        KvDataSet<String, Integer> ds1 = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 2),
+                Tuple2.of("hp1", 19),
+                Tuple2.of("hp2", 21),
+                Tuple2.of("hp", 18)
+        ), 3).reduceByKey(Integer::sum, 3);
+        Assert.assertEquals(ds1.collectMap(), MutableMap.of(
+                "hp", 20,
+                "hp1", 19,
+                "hp2", 21));
     }
 }

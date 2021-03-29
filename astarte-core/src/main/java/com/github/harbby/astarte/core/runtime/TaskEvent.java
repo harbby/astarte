@@ -18,28 +18,35 @@ package com.github.harbby.astarte.core.runtime;
 public interface TaskEvent
         extends Event
 {
-    public static TaskEvent failed(int jobId, String error)
+    public static TaskEvent failed(int jobId, int taskId, String error)
     {
-        return new TaskFailed(jobId, error);
+        return new TaskFailed(jobId, taskId, error);
     }
 
-    public static TaskEvent success(int taskId, Object result)
+    public static TaskEvent success(int jobId, int taskId, Object result)
     {
-        return new TaskSuccess(taskId, result);
+        return new TaskSuccess(jobId, taskId, result);
     }
+
+    int getJobId();
+
+    public int getTaskId();
 
     public static class TaskFailed
             implements TaskEvent
     {
         private final int jobId;
+        private final int taskId;
         private final String error;
 
-        public TaskFailed(int jobId, String error)
+        public TaskFailed(int jobId, int taskId, String error)
         {
             this.jobId = jobId;
+            this.taskId = taskId;
             this.error = error;
         }
 
+        @Override
         public int getJobId()
         {
             return jobId;
@@ -49,21 +56,30 @@ public interface TaskEvent
         {
             return error;
         }
+
+        @Override
+        public int getTaskId()
+        {
+            return taskId;
+        }
     }
 
     public static class TaskSuccess
             implements TaskEvent
     {
+        private final int jobId;
         private final int taskId;
         private final Object result;
 
-        public TaskSuccess(int taskId, Object result)
+        public TaskSuccess(int jobId, int taskId, Object result)
         {
+            this.jobId = jobId;
             this.taskId = taskId;
             //check result serializable
             this.result = result;
         }
 
+        @Override
         public int getTaskId()
         {
             return taskId;
@@ -72,6 +88,12 @@ public interface TaskEvent
         public Object getTaskResult()
         {
             return result;
+        }
+
+        @Override
+        public int getJobId()
+        {
+            return jobId;
         }
     }
 }

@@ -15,6 +15,7 @@
  */
 package com.github.harbby.astarte.yarn.batch;
 
+import com.github.harbby.astarte.core.api.Constant;
 import com.github.harbby.astarte.core.runtime.ExecutorManager;
 import com.github.harbby.astarte.core.runtime.TaskExecutor;
 import com.github.harbby.gadtry.base.Throwables;
@@ -36,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.SocketAddress;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -54,14 +56,17 @@ public class YarnExecutorManager
     private static final Logger logger = LoggerFactory.getLogger(YarnExecutorManager.class);
     private final AMRMClient<AMRMClient.ContainerRequest> rmClient;
     private NMClient nmClient;
+    private final SocketAddress driverManagerAddress;
 
     public YarnExecutorManager(
             AMRMClient<AMRMClient.ContainerRequest> rmClient,
             int vcores,
             int memMb,
-            int executorNum)
+            int executorNum,
+            SocketAddress driverManagerAddress)
     {
         super(vcores, memMb, executorNum);
+        this.driverManagerAddress = driverManagerAddress;
         this.rmClient = rmClient;
     }
 
@@ -108,6 +113,7 @@ public class YarnExecutorManager
         amContainer.setCommands(Collections.singletonList(amCommand));
         final Map<String, String> executorEnv = new HashMap<>();
         executorEnv.put(APP_CLASSPATH, System.getProperty("java.class.path"));
+        executorEnv.put(Constant.DRIVER_SCHEDULER_ADDRESS, driverManagerAddress.toString());
         amContainer.setEnvironment(executorEnv);
         amContainer.setLocalResources(propreLocalResources());
 

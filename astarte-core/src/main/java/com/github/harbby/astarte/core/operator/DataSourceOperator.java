@@ -20,6 +20,8 @@ import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.DataSetSource;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.Split;
+import com.github.harbby.astarte.core.coders.Encoder;
+import com.github.harbby.astarte.core.coders.Encoders;
 
 import java.util.Collections;
 import java.util.Iterator;
@@ -33,10 +35,16 @@ public class DataSourceOperator<E>
 {
     private final DataSetSource<E> dataSetSource;
     private final transient Partition[] partitions;
+    private final Encoder<E> encoder;
+    private final int numPartitions;
 
-    public DataSourceOperator(BatchContext context, DataSetSource<E> dataSetSource, int parallelism)
+    public DataSourceOperator(BatchContext context,
+            DataSetSource<E> dataSetSource,
+            int parallelism,
+            Encoder<E> encoder)
     {
         super(context);
+        this.encoder = requireNonNull(encoder, "encoder is null");
         this.dataSetSource = requireNonNull(dataSetSource, "dataSetSource is null");
         Split[] splits = dataSetSource.trySplit(parallelism);
         checkState(parallelism == -1 || splits.length <= parallelism);
@@ -45,6 +53,14 @@ public class DataSourceOperator<E>
         for (int i = 0; i < splits.length; i++) {
             partitions[i] = new DataSourcePartition(i, splits[i]);
         }
+        this.numPartitions = partitions.length;
+    }
+
+    public DataSourceOperator(BatchContext context,
+            DataSetSource<E> dataSetSource,
+            int parallelism)
+    {
+        this(context, dataSetSource, parallelism, Encoders.javaEncoder());
     }
 
     @Override
@@ -62,7 +78,13 @@ public class DataSourceOperator<E>
     @Override
     public int numPartitions()
     {
-        return partitions.length;
+        return numPartitions;
+    }
+
+    @Override
+    protected Encoder<E> getRowEncoder()
+    {
+        return encoder;
     }
 
     @Override

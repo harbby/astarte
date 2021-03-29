@@ -15,6 +15,53 @@
  */
 package com.github.harbby.astarte.core;
 
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.nio.ByteBuffer;
+
 public class MapTaskState
+        implements Externalizable
 {
+    private ByteBuffer header;
+    private int mapId;
+    private long[] segmentEnds;
+
+    public MapTaskState(ByteBuffer header, int mapId)
+    {
+        this.header = header;
+        this.mapId = mapId;
+    }
+
+    public MapTaskState() {}
+
+    public int getMapId()
+    {
+        return mapId;
+    }
+
+    public long[] getSegmentEnds()
+    {
+        return segmentEnds;
+    }
+
+    @Override
+    public void writeExternal(ObjectOutput out)
+            throws IOException
+    {
+        out.writeInt(mapId);
+        out.write(header.array());
+    }
+
+    @Override
+    public void readExternal(ObjectInput in)
+            throws IOException
+    {
+        this.mapId = in.readInt();
+        this.segmentEnds = new long[in.readInt()];
+        for (int i = 0; i < segmentEnds.length; i++) {
+            segmentEnds[i] = in.readLong();
+        }
+    }
 }

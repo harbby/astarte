@@ -15,11 +15,6 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
-import com.github.harbby.astarte.core.coders.Encoder;
-import com.github.harbby.astarte.core.coders.EncoderInputStream;
-import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.base.Throwables;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
@@ -37,54 +32,37 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.net.UnknownHostException;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static java.util.Objects.requireNonNull;
 
 public final class ShuffleManagerService
 {
     private static final Logger logger = LoggerFactory.getLogger(ShuffleManagerService.class);
-    private final File shuffleWorkDir;
+    private final File shuffleBaseDir;
     private ChannelFuture future;
     private volatile int currentJobId;
+    private final InetSocketAddress shuffleServiceBindAddress;
 
-    public ShuffleManagerService(String executorUUID)
+    public ShuffleManagerService(File shuffleBaseDir)
+            throws UnknownHostException, InterruptedException
     {
-        this.shuffleWorkDir = getShuffleWorkDir(executorUUID);
-
+        this.shuffleBaseDir = shuffleBaseDir;
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            File workDir = ShuffleManagerService.getShuffleWorkDir(executorUUID);
             try {
-                FileUtils.deleteDirectory(workDir);
-                logger.debug("clear shuffle data temp dir {}", workDir);
+                FileUtils.deleteDirectory(shuffleBaseDir);
+                logger.debug("clear shuffle data temp dir {}", shuffleBaseDir);
             }
             catch (IOException e) {
                 logger.error("clear shuffle data temp dir failed", e);
             }
         }));
-    }
 
-    public void updateCurrentJobId(int jobId)
-    {
-        this.currentJobId = jobId;
-    }
-
-    public SocketAddress start()
-            throws UnknownHostException, InterruptedException
-    {
-        final NioEventLoopGroup boosGroup = new NioEventLoopGroup();
+        final NioEventLoopGroup boosGroup = new NioEventLoopGroup(1);
         final NioEventLoopGroup workerGroup = new NioEventLoopGroup();
         ServerBootstrap serverBootstrap = new ServerBootstrap();
         serverBootstrap.group(boosGroup, workerGroup)
@@ -101,13 +79,25 @@ public final class ShuffleManagerService
                         ch.pipeline().addLast(new ShuffleServiceHandler());
                     }
                 });
-        this.future = serverBootstrap.bind(new InetSocketAddress(InetAddress.getLocalHost(), 0)).sync();
+        this.future = serverBootstrap.bind(0).sync();
         logger.info("stared shuffle service ,the port is {}", future.channel().localAddress());
         future.channel().closeFuture().addListener((ChannelFutureListener) channelFuture -> {
             boosGroup.shutdownGracefully();
             workerGroup.shutdownGracefully();
         });
-        return future.channel().localAddress();
+
+        int bindPort = ((InetSocketAddress) future.channel().localAddress()).getPort();
+        this.shuffleServiceBindAddress = InetSocketAddress.createUnresolved(InetAddress.getLocalHost().getHostName(), bindPort);
+    }
+
+    public void updateCurrentJobId(int jobId)
+    {
+        this.currentJobId = jobId;
+    }
+
+    public InetSocketAddress getShuffleServiceBindAddress()
+    {
+        return shuffleServiceBindAddress;
     }
 
     public void join()
@@ -138,32 +128,39 @@ public final class ShuffleManagerService
             ByteBuf in = (ByteBuf) msg;
             int shuffleId = in.readInt();
             int reduceId = in.readInt();
+            int mapId = in.readInt();
             ReferenceCountUtil.release(msg);
-            List<File> files = getShuffleDataInput(shuffleWorkDir, currentJobId, shuffleId, reduceId);  //获取多个带发送文件
 
-            if (files.isEmpty()) {
-                //not found any file
-                ByteBuf finish = ctx.alloc().directBuffer(4, 4).writeInt(0);
-                ctx.writeAndFlush(finish);
-                return;
+            File shuffleFile = new File(new File(shuffleBaseDir, String.valueOf(currentJobId)), String.format("shuffle_merged_%s_%s.data", shuffleId, mapId));
+            //read shuffle file header
+            FileInputStream fileInputStream = new FileInputStream(shuffleFile);
+            DataInputStream dataInputStream = new DataInputStream(fileInputStream);
+            long[] segmentEnds = new long[dataInputStream.readInt()];
+            for (int i = 0; i < segmentEnds.length; i++) {
+                segmentEnds[i] = dataInputStream.readLong();
             }
-            //write header info
-            int headerSize = files.size() * 8 + 4;
-            ByteBuf header = ctx.alloc().directBuffer(headerSize);
-            header.writeInt(files.size());
-            for (File file : files) {
-                header.writeLong(file.length());
+
+            int fileHeaderSize = Integer.BYTES + segmentEnds.length * Long.BYTES;
+            final long length;
+            final long position;
+            if (reduceId > 0) {
+                position = fileHeaderSize + segmentEnds[reduceId - 1];
+                length = segmentEnds[reduceId] - segmentEnds[reduceId - 1];
             }
+            else {
+                position = fileHeaderSize;
+                length = segmentEnds[reduceId];
+            }
+            //write net header info
+            ByteBuf header = ctx.alloc().directBuffer(Long.BYTES);
+            header.writeLong(length);
             ctx.write(header);
             //write data by zero copy
-            for (File file : files) {
-                FileInputStream inputStream = new FileInputStream(file);
-                ctx.writeAndFlush(new DefaultFileRegion(inputStream.getChannel(), 0, file.length()), ctx.newProgressivePromise())
-                        .addListener((ChannelFutureListener) future -> {
-                            logger.debug("send file {} done, size = {}", file, file.length());
-                            inputStream.close();
-                        });
-            }
+            ctx.writeAndFlush(new DefaultFileRegion(fileInputStream.getChannel(), position, length), ctx.newProgressivePromise())
+                    .addListener((ChannelFutureListener) future -> {
+                        logger.debug("send file {} done, size = {}", shuffleFile, length);
+                        fileInputStream.close();
+                    });
         }
 
         @Override
@@ -172,38 +169,5 @@ public final class ShuffleManagerService
         {
             logger.error("", cause);
         }
-    }
-
-    public static File getShuffleWorkDir(String executorUUID)
-    {
-        return new File("/tmp/ashtarte-" + executorUUID);
-    }
-
-    public <K, V> Iterator<Tuple2<K, V>> getShuffleDataIterator(Encoder<Tuple2<K, V>> encoder, int shuffleId, int reduceId)
-    {
-        requireNonNull(encoder, "encoder is null");
-        List<File> files = getShuffleDataInput(shuffleWorkDir, currentJobId, shuffleId, reduceId);
-
-        return Iterators.concat(files.stream()
-                .map(file -> {
-                    try {
-                        return new EncoderInputStream<>(new FileInputStream(file), encoder);
-                    }
-                    catch (FileNotFoundException e) {
-                        throw Throwables.throwsThrowable(e);
-                    }
-                }).iterator());
-    }
-
-    private static List<File> getShuffleDataInput(File shuffleWorkDir, int jobId, int shuffleId, int reduceId)
-    {
-        File[] files = new File(shuffleWorkDir, String.valueOf(jobId)).listFiles();
-        if (files == null) {
-            return Collections.emptyList();
-        }
-        return Stream.of(files)
-                .filter(x -> x.getName().startsWith("shuffle_" + shuffleId + "_")
-                        && x.getName().endsWith("_" + reduceId + ".data"))
-                .collect(Collectors.toList());
     }
 }

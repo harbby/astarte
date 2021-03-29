@@ -18,6 +18,7 @@ package com.github.harbby.astarte.core.concurrent;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.collection.MutableMap;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
@@ -37,7 +38,7 @@ public class StabilityTest
             .getOrCreate();
 
     @Test
-    public void fork100Test()
+    public void for100ReduceByKeyTest()
     {
         DataSet<String> ds1 = mppContext.makeDataSet(Arrays.asList(
                 "a",
@@ -46,11 +47,30 @@ public class StabilityTest
                 "b",
                 "b"), 2);
         KvDataSet<String, String> ds2 = ds1.kvDataSet(x -> new Tuple2<>(x, x))
+                .encoder(Encoders.tuple2(Encoders.asciiString(), Encoders.asciiString()))
                 .reduceByKey((x, y) -> x + y, 2);
 
         for (int i = 0; i < 100; i++) {
             Map<String, String> rs = ds2.collectMap();
             Assert.assertEquals(MutableMap.of("b", "bbb", "a", "aa"), rs);
+        }
+    }
+
+    @Test
+    public void for100JoinTest()
+    {
+        KvDataSet<String, Integer> ageDs = mppContext.makeKvDataSet(Arrays.asList(
+                Tuple2.of("hp", 18),
+                Tuple2.of("hp1", 19),
+                Tuple2.of("hp2", 20)
+        ), 2);
+
+        for (int i = 0; i < 100; i++) {
+            List<Tuple2<String, Tuple2<Integer, Integer>>> data = ageDs.mapKeys(x -> x).join(ageDs).collect();
+            Assert.assertEquals(data,
+                    Arrays.asList(Tuple2.of("hp", Tuple2.of(18, 18)),
+                            Tuple2.of("hp2", Tuple2.of(20, 20)),
+                            Tuple2.of("hp1", Tuple2.of(19, 19))));
         }
     }
 

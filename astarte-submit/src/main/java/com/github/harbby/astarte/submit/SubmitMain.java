@@ -76,7 +76,7 @@ public class SubmitMain
         }
         checkState(matcher.groupCount() == 2, "");
         if (matcher.group(2) == null) {
-            return conf -> new LocalJobScheduler(conf, Integer.parseInt(matcher.group(1)));
+            return conf -> new LocalJobScheduler(Integer.parseInt(matcher.group(1)));
         }
         else {
             return conf -> new ClusterScheduler(conf, Integer.parseInt(matcher.group(1)),

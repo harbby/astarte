@@ -17,16 +17,14 @@ package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
+import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.function.MapGroupFunc;
 import com.github.harbby.astarte.core.api.function.Mapper;
+import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -41,7 +39,7 @@ public class FullAggOperator<K, V, O>
 
     protected FullAggOperator(
             Operator<Tuple2<K, V>> dataSet,
-            Mapper<Iterable<V>, O> agg)
+            Mapper<Iterator<V>, O> agg)
     {
         super(dataSet);
         this.dataSet = requireNonNull(unboxing(dataSet), "dataSet is null");
@@ -58,6 +56,12 @@ public class FullAggOperator<K, V, O>
     }
 
     @Override
+    public DataSet<Tuple2<K, O>> cache(CacheManager.CacheMode cacheMode)
+    {
+        throw new UnsupportedOperationException("groupByKey not't support cache");
+    }
+
+    @Override
     public Partitioner getPartitioner()
     {
         return dataSet.getPartitioner();
@@ -67,14 +71,6 @@ public class FullAggOperator<K, V, O>
     public Iterator<Tuple2<K, O>> compute(Partition split, TaskContext taskContext)
     {
         Iterator<Tuple2<K, V>> input = dataSet.computeOrCache(split, taskContext);
-        //todo: 非增量计算,需实现溢写功能
-        Map<K, Collection<V>> kGroup = new HashMap<>();
-        while (input.hasNext()) {
-            Tuple2<K, V> tp = input.next();
-            Collection<V> values = kGroup.computeIfAbsent(tp.f1(), k -> new LinkedList<>());
-            values.add(tp.f2());
-        }
-        return kGroup.entrySet().stream()
-                .map(x -> new Tuple2<>(x.getKey(), mapGroupFunc.apply(x.getKey(), x.getValue()))).iterator();
+        return Iterators.mapGroupSorted(input, mapGroupFunc);
     }
 }

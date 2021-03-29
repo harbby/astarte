@@ -19,17 +19,21 @@ import com.github.harbby.astarte.core.HashPartitioner;
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.AstarteException;
+import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.ShuffleWriter;
 import com.github.harbby.astarte.core.api.function.Comparator;
+import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
-import com.github.harbby.astarte.core.coders.Encoders;
-import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Iterator;
 
+import static com.github.harbby.astarte.core.operator.SortShuffleWriter.MERGE_FILE_NAME;
+import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -41,37 +45,44 @@ public class ShuffleMapOperator<K, V>
 {
     private final Operator<Tuple2<K, V>> operator;
     private final Partitioner partitioner;
-    private final Comparator<K> sortShuffle;
     private final Encoder<Tuple2<K, V>> encoder;
-
-    public ShuffleMapOperator(
-            Operator<Tuple2<K, V>> operator,
-            Partitioner partitioner)
-    {
-        this(operator, partitioner, null);
-    }
+    private final Comparator<K> comparator;
+    private final Reducer<V> combine;
+    private int stageId = -1;
 
     public ShuffleMapOperator(
             Operator<Tuple2<K, V>> operator,
             Partitioner partitioner,
-            Comparator<K> sortShuffle)
+            Comparator<K> comparator,
+            Reducer<V> combine)
     {
         //use default HashPartitioner
         super(operator);
         this.partitioner = requireNonNull(partitioner, "partitioner is null");
         this.operator = unboxing(operator);
-        this.sortShuffle = sortShuffle;
-        Encoder<Tuple2<K, V>> rowEncoder = operator.getRowEncoder();
-        if (rowEncoder == null) {
-            rowEncoder = Encoders.javaEncoder();
-        }
-        this.encoder = rowEncoder;
+        this.encoder = requireNonNull(operator.getRowEncoder(), "row Encoder is null");
+        this.comparator = requireNonNull(comparator, "k comparator is null");
+        this.combine = combine;
     }
 
-    public ShuffleMapOperator(Operator<Tuple2<K, V>> operator, int numReducePartitions)
+    public ShuffleMapOperator(
+            Operator<Tuple2<K, V>> operator,
+            int numPartitions,
+            Comparator<K> comparator,
+            Reducer<V> combine)
     {
-        //use default HashPartitioner
-        this(operator, new HashPartitioner(numReducePartitions));
+        this(operator, new HashPartitioner(numPartitions), comparator, combine);
+    }
+
+    public void setStageId(int stageId)
+    {
+        this.stageId = stageId;
+    }
+
+    public Integer getStageId()
+    {
+        checkState(stageId != -1, "ShuffleMapOperator " + this + " not set StageId");
+        return stageId;
     }
 
     @Override
@@ -83,6 +94,11 @@ public class ShuffleMapOperator<K, V>
     protected Encoder<Tuple2<K, V>> getShuffleMapRowEncoder()
     {
         return encoder;
+    }
+
+    public Comparator<K> getComparator()
+    {
+        return comparator;
     }
 
     @Override
@@ -97,22 +113,40 @@ public class ShuffleMapOperator<K, V>
     }
 
     @Override
-    public Iterator<Void> compute(Partition split, TaskContext taskContext)
+    public DataSet<Void> cache(CacheManager.CacheMode cacheMode)
     {
-        try (ShuffleWriter<K, V> shuffleWriter = ShuffleWriter.createShuffleWriter(
-                taskContext.executorUUID(),
-                taskContext.getJobId(),
-                taskContext.getStageId(),
-                split.getId(),
-                partitioner,
-                encoder,
-                sortShuffle)) {
-            Iterator<? extends Tuple2<K, V>> iterator = operator.computeOrCache(split, taskContext);
-            shuffleWriter.write(iterator);
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void unCache()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    public Operator<Tuple2<K, V>> getOperator()
+    {
+        return operator;
+    }
+
+    public ByteBuffer doMapTask(Partition partition, TaskContext taskContext)
+    {
+        String filePrefix = String.format("shuffle_%s_%s_", taskContext.getStageId(), partition.getId());
+        File shuffleWorkDir = new File(taskContext.shuffleWorkDir(), String.valueOf(taskContext.getJobId()));
+        try (ShuffleWriter<K, V> shuffleWriter = new SortShuffleWriter<>(shuffleWorkDir, filePrefix,
+                String.format(MERGE_FILE_NAME, taskContext.getStageId(), partition.getId()),
+                partitioner, encoder, comparator, combine)) {
+            Iterator<? extends Tuple2<K, V>> iterator = operator.computeOrCache(partition, taskContext);
+            return shuffleWriter.write(iterator);
         }
         catch (IOException e) {
             throw new AstarteException("shuffle map task failed", e);
         }
-        return Iterators.empty();
+    }
+
+    @Override
+    public Iterator<Void> compute(Partition split, TaskContext taskContext)
+    {
+        throw new UnsupportedOperationException();
     }
 }

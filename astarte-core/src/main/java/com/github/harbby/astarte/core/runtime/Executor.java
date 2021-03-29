@@ -16,15 +16,14 @@
 package com.github.harbby.astarte.core.runtime;
 
 import com.github.harbby.astarte.core.TaskContext;
-import com.github.harbby.astarte.core.api.Stage;
 import com.github.harbby.astarte.core.api.Task;
 import com.github.harbby.gadtry.base.Throwables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.io.File;
 import java.net.SocketAddress;
-import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -36,22 +35,20 @@ public class Executor
         implements Closeable
 {
     private static final Logger logger = LoggerFactory.getLogger(Executor.class);
-    private final String executorUUID = UUID.randomUUID().toString();
+    private final File shuffleBaseDir;
     private final ExecutorService pool;
     private final ConcurrentMap<Integer, TaskRunner> runningTasks = new ConcurrentHashMap<>();
     private final ExecutorBackend executorBackend;
     private final ShuffleManagerService shuffleService;
 
-    public Executor(int vcores)
+    public Executor(int vcores, SocketAddress driverManagerAddress)
             throws Exception
     {
         pool = Executors.newFixedThreadPool(vcores);
-
-        this.shuffleService = new ShuffleManagerService(executorUUID);
-        SocketAddress shuffleServiceAddress = shuffleService.start();
-
-        this.executorBackend = new ExecutorBackend(this);
-        executorBackend.start(shuffleServiceAddress);
+        this.shuffleBaseDir = new File("/tmp/astarte-" + UUID.randomUUID().toString());
+        this.shuffleService = new ShuffleManagerService(shuffleBaseDir);
+        this.executorBackend = new ExecutorBackend(this, driverManagerAddress);
+        executorBackend.start(shuffleService.getShuffleServiceBindAddress());
     }
 
     public void join()
@@ -62,24 +59,21 @@ public class Executor
 
     public void runTask(Task<?> task)
     {
-        shuffleService.updateCurrentJobId(task.getStage().getJobId());
+        shuffleService.updateCurrentJobId(task.getJobId());
         Future<?> future = pool.submit(() -> {
             try {
-                Thread.currentThread().setName("ashtarte-task-" + task.getStage().getStageId() + "_" + task.getTaskId());
+                Thread.currentThread().setName("astarte-task-" + task.getStageId() + "_" + task.getTaskId());
                 logger.info("starting... task {}", task);
                 TaskEvent event;
-                Stage stage = task.getStage();
-                try {
-                    Collection<SocketAddress> shuffleServices = stage.getShuffleServices();
-                    ShuffleClient shuffleClient = ShuffleClient.getClusterShuffleClient(shuffleServices);
-                    TaskContext taskContext = TaskContext.of(stage.getJobId(), stage.getStageId(), stage.getDeps(), shuffleClient, executorUUID);
+                try (ShuffleClient shuffleClient = ShuffleClient.getClusterShuffleClient(task.getDependMapTasks())) {
+                    TaskContext taskContext = TaskContext.of(task.getJobId(), task.getStageId(), task.getDependStages(), shuffleClient, shuffleBaseDir);
                     Object result = task.runTask(taskContext);
-                    event = TaskEvent.success(task.getTaskId(), result);
+                    event = TaskEvent.success(task.getJobId(), task.getTaskId(), result);
                 }
                 catch (Exception e) {
                     logger.error("task {} 执行失败", task, e);
                     String errorMsg = Throwables.getStackTraceAsString(e);
-                    event = TaskEvent.failed(stage.getJobId(), errorMsg);
+                    event = TaskEvent.failed(task.getJobId(), task.getTaskId(), errorMsg);
                 }
                 executorBackend.updateState(event);
                 logger.info("task {} success", task);

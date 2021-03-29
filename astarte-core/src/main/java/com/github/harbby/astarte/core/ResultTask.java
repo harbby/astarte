@@ -16,34 +16,65 @@
 package com.github.harbby.astarte.core;
 
 import com.github.harbby.astarte.core.api.Partition;
-import com.github.harbby.astarte.core.api.Stage;
 import com.github.harbby.astarte.core.api.Task;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.operator.Operator;
 
+import java.net.SocketAddress;
 import java.util.Iterator;
+import java.util.Map;
 
 public class ResultTask<E, R>
         implements Task<R>
 {
-    private final Stage stage;
+    private final int jobId;
+    private final int stageId;
+    private final Operator<E> operator;
     private final Mapper<Iterator<E>, R> func;
     private final Partition partition;
+    private final Map<Integer, Map<Integer, SocketAddress>> dependMapTasks;
+    private final Map<Integer, Integer> dependStages;
 
     public ResultTask(
-            Stage stage,
+            int jobId,
+            int stageId,
+            Operator<E> operator,
             Mapper<Iterator<E>, R> func,
-            Partition partition)
+            Partition partition,
+            Map<Integer, Map<Integer, SocketAddress>> dependMapTasks,
+            Map<Integer, Integer> dependStages)
     {
-        this.stage = stage;
+        this.jobId = jobId;
+        this.stageId = stageId;
         this.func = func;
         this.partition = partition;
+        this.dependMapTasks = dependMapTasks;
+        this.operator = operator;
+        this.dependStages = dependStages;
     }
 
     @Override
-    public Stage getStage()
+    public int getJobId()
     {
-        return stage;
+        return jobId;
+    }
+
+    @Override
+    public int getStageId()
+    {
+        return stageId;
+    }
+
+    @Override
+    public Map<Integer, Map<Integer, SocketAddress>> getDependMapTasks()
+    {
+        return dependMapTasks;
+    }
+
+    @Override
+    public Map<Integer, Integer> getDependStages()
+    {
+        return dependStages;
     }
 
     @Override
@@ -55,9 +86,6 @@ public class ResultTask<E, R>
     @Override
     public R runTask(TaskContext taskContext)
     {
-        @SuppressWarnings("unchecked")
-        ResultStage<E> resultStage = (ResultStage<E>) stage;
-        Operator<E> operator = resultStage.getFinalOperator();
         Iterator<E> iterator = operator.computeOrCache(partition, taskContext);
         R r = func.map(iterator);
         return r;
