@@ -157,12 +157,6 @@ public class JoinUtil
     }
 
     public static <K, V1, V2> Iterator<Tuple2<K, Tuple2<V1, V2>>> sameJoin(
-            Iterator<? extends Tuple2<K, ?>> iterator)
-    {
-        return sameJoin(iterator, i -> i, i -> i);
-    }
-
-    public static <K, V1, V2> Iterator<Tuple2<K, Tuple2<V1, V2>>> sameJoin(
             Iterator<? extends Tuple2<K, ?>> iterator,
             Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>> leftMapOperator,
             Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>> rightMapOperator)
