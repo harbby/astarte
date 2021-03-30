@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
@@ -69,7 +70,12 @@ public class SortShuffleClusterClient
     {
         Map<Integer, SocketAddress> mapTaskIds = dependMapTasks.get(shuffleId);
         List<ShuffleClientHandler<K, V>> handlers = new ArrayList<>();
-        NioEventLoopGroup workerGroup = new NioEventLoopGroup(mapTaskIds.size());
+        NioEventLoopGroup workerGroup = new NioEventLoopGroup(mapTaskIds.size(), r -> {
+            Thread thread = new Thread(r);
+            thread.setName(String.format("shuffle_client_stageId:%s_reduceId:%s", shuffleId, reduceId));
+            thread.setDaemon(true);
+            return thread;
+        });
         eventLoopGroups.add(workerGroup);
         for (Map.Entry<Integer, SocketAddress> entry : mapTaskIds.entrySet()) {
             ShuffleClientHandler<K, V> shuffleClientHandler = new ShuffleClientHandler<>(encoder, shuffleId, reduceId, entry.getKey());
@@ -128,6 +134,7 @@ public class SortShuffleClusterClient
                 this.awaitDownLoadSize = in1.readLong();
                 logger.debug("downloading shuffleId[{}] MapId[{}] reduce[{}] data size is {}", shuffleClientHandler.shuffleId, shuffleClientHandler.mapId, shuffleClientHandler.reduceId, this.awaitDownLoadSize);
                 if (this.awaitDownLoadSize == 0) {
+                    ReferenceCountUtil.release(in1);
                     ctx.fireChannelReadComplete();
                     shuffleClientHandler.finish();
                     return;
@@ -209,6 +216,9 @@ public class SortShuffleClusterClient
         @Override
         public Tuple2<K, V> next()
         {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
             try {
                 return encoder.decoder(dataInputStream);
             }
@@ -242,6 +252,7 @@ public class SortShuffleClusterClient
         @Override
         public int read()
         {
+            checkState(this.available() > 0);
             return byteBuf.readByte() & 0xFF;
         }
     }
