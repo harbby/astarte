@@ -45,7 +45,7 @@ public class PageRankClueWeb09
     public static void main(String[] args)
             throws Exception
     {
-        BatchContext mppContext = BatchContext.builder().localCluster(2, 1).getOrCreate();
+        BatchContext mppContext = BatchContext.builder().netLocal(2).getOrCreate();
         int iters = 3;  //迭代次数
 
         DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(new String[] {DATA_PATH}).flatMapIterator(FileIteratorReader::new);

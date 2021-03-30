@@ -300,11 +300,11 @@ public abstract class Operator<R>
     }
 
     @Override
-    public <K> KeyValueGroupedOperator<K, R> groupByKey(Mapper<R, K> mapFunc)
+    public <K> KeyValueGroupedOperator<K, R> groupByKey(Mapper<R, K> mapFunc, Encoder<K> kEncoder)
     {
         requireNonNull(mapFunc, "mapFunc is null");
         Mapper<R, K> clearedFunc = Utils.clear(mapFunc);
-        return new KeyValueGroupedOperator<>(this, clearedFunc);
+        return new KeyValueGroupedOperator<>(this, clearedFunc, kEncoder);
     }
 
     @Override

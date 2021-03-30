@@ -17,6 +17,7 @@ package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
+import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.collection.MutableMap;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
@@ -45,7 +46,7 @@ public class KeyValueGroupedOperatorTest
                 "b",
                 "b"), 2);
 
-        DataSet<Tuple2<Integer, StringBuilder>> dataSet = ds.groupByKey(x -> x.charAt(0) % 2)
+        DataSet<Tuple2<Integer, StringBuilder>> dataSet = ds.groupByKey(x -> x.charAt(0) % 2, Encoders.jInt())
                 .mapPartition(partition -> {
                     Map<Integer, StringBuilder> keyGroup = new HashMap<>();
                     while (partition.hasNext()) {

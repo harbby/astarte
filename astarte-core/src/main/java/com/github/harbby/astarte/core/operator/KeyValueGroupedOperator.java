@@ -21,30 +21,38 @@ import com.github.harbby.astarte.core.api.function.MapGroupFunc;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
+import com.github.harbby.astarte.core.coders.Encoders;
+import com.github.harbby.astarte.core.coders.Tuple2Encoder;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.Serializable;
 import java.util.Iterator;
+
+import static java.util.Objects.requireNonNull;
 
 public class KeyValueGroupedOperator<K, R>
         implements Serializable
 {
     private final Operator<R> dataSet;
     private final Mapper<R, K> mapFunc;
+    private final Encoder<K> kEncoder;
 
-    public KeyValueGroupedOperator(Operator<R> dataSet, Mapper<R, K> mapFunc)
+    public KeyValueGroupedOperator(Operator<R> dataSet, Mapper<R, K> mapFunc, Encoder<K> kEncoder)
     {
         this.dataSet = dataSet;
         this.mapFunc = mapFunc;
+        this.kEncoder = requireNonNull(kEncoder, "kEncoder is null");
     }
 
-    public <O> DataSet<O> mapGroups(MapGroupFunc<K, R, O> mapGroupFunc)
+    public <O> DataSet<O> mapGroups(MapGroupFunc<K, R, O> mapGroupFunc, Encoder<O> vEncoder)
     {
+        requireNonNull(mapGroupFunc, "mapGroupFunc is null");
+        Tuple2Encoder<K, O> encoder = Encoders.tuple2(kEncoder, requireNonNull(vEncoder, "vEncoder is null"));
         // 进行shuffle
         Operator<Tuple2<K, R>> kv = dataSet.kvDataSet(row -> new Tuple2<>(mapFunc.map(row), row));
         ShuffleMapOperator<K, R> shuffleMapper = new ShuffleMapOperator<>(kv, kv.numPartitions(), Encoder.anyComparator(), null);
         ShuffledMergeSortOperator<K, R> shuffleReducer = new ShuffledMergeSortOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
-        return new KvOperator<>(new FullAggOperator<>(shuffleReducer, mapGroupFunc)).values();
+        return new KvOperator<>(new FullAggOperator<>(shuffleReducer, mapGroupFunc, encoder, true)).values();
     }
 
     public KvDataSet<K, R> reduceGroups(Reducer<R> reducer)

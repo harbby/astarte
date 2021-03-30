@@ -23,10 +23,8 @@ import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -43,17 +41,18 @@ public class PageRankTest
             .local(2)
             .getOrCreate();
 
-    @Ignore
     @Test
     public void pageRank150ItersTest()
     {
         int iters = 150;  //迭代次数
 
         DataSet<String> lines = mppContext.textFile("../data/batch/pagerank_data.txt");
-        KvDataSet<String, Iterator<String>> links = lines.kvDataSet(s -> {
+        KvDataSet<String, List<String>> links = lines.kvDataSet(s -> {
             String[] parts = s.split("\\s+");
             return new Tuple2<>(parts[0], parts[1]);
-        }).distinct(2).groupByKey().cache();
+        }).distinct(2).groupByKey().mapValues(MutableList::copy)
+                .cache();
+
         links.collect();
         KvDataSet<String, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {

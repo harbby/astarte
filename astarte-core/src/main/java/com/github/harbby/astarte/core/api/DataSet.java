@@ -63,7 +63,7 @@ public interface DataSet<R>
 
     <K, V> KvDataSet<K, V> kvDataSet(Mapper<R, Tuple2<K, V>> kvMapper);
 
-    <K> KeyValueGroupedOperator<K, R> groupByKey(Mapper<R, K> mapFunc);
+    <K> KeyValueGroupedOperator<K, R> groupByKey(Mapper<R, K> mapFunc, Encoder<K> kEncoder);
 
     DataSet<R> cache(CacheManager.CacheMode cacheMode);
 
