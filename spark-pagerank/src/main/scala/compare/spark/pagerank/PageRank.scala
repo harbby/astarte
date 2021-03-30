@@ -15,7 +15,7 @@ object PageRank {
     val iters = 3
 
     val lines: RDD[(Integer, Array[Int])] = spark.sparkContext.makeRDD(Array("/data/data/ClueWeb09_WG_50m.graph-txt"), 1)
-      .flatMap(file => new FileIteratorReader(file))
+      .flatMap(file => new ClueWeb09IteratorReader(file))
 
     val links = lines.partitionBy(new HashPartitioner(2)).cache()
     var ranks = links.mapValues(v => 1.0)

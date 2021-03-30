@@ -1,6 +1,6 @@
-package compare.spark.pagerank;
+package test;
 
-import scala.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple2;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -13,11 +13,10 @@ import java.io.UncheckedIOException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import static com.google.common.base.Preconditions.checkState;
+import static org.apache.flink.util.Preconditions.checkState;
 
-public class FileIteratorReader
-        implements Iterator<Tuple2<Integer, int[]>>, Serializable,
-        scala.collection.Iterator<Tuple2<Integer, int[]>>
+public class ClueWeb09IteratorReader
+        implements Iterator<Tuple2<Integer, int[]>>, Serializable
 {
     private final File file;
     private final BufferedReader reader;
@@ -25,7 +24,7 @@ public class FileIteratorReader
     private String line;
     private int number = 0;
 
-    public FileIteratorReader(File file)
+    public ClueWeb09IteratorReader(File file)
             throws FileNotFoundException
     {
         this.file = file;
@@ -33,7 +32,7 @@ public class FileIteratorReader
         this.reader = new BufferedReader(inputStreamReader);
     }
 
-    public FileIteratorReader(String file)
+    public ClueWeb09IteratorReader(String file)
             throws FileNotFoundException
     {
         this(new File(file));
