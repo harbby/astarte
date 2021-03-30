@@ -32,6 +32,7 @@ import java.sql.Timestamp;
 import java.util.Date;
 import java.util.function.Supplier;
 
+import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -77,6 +78,44 @@ public final class Encoders
     public static <E> Encoder<E> javaEncoder()
     {
         return (Encoder<E>) javaEncoder.get();
+    }
+
+    public static <E> Encoder<E> createPrimitiveEncoder(Class<E> aClass)
+    {
+        requireNonNull(aClass, "aClass is null");
+        Encoder<?> encoder;
+        checkState(!aClass.isArray());
+        if (aClass == String.class) {
+            encoder = new UTF8StringEncoder();
+        }
+        else if (aClass == int.class || aClass == Integer.class) {  //Integer.TYPE
+            encoder = jInt();
+        }
+        else if (aClass == short.class || aClass == Short.class) {
+            encoder = jShort();
+        }
+        else if (aClass == long.class || aClass == Long.class) {
+            encoder = jLong();
+        }
+        else if (aClass == float.class || aClass == Float.class) {
+            encoder = jFloat();
+        }
+        else if (aClass == double.class || aClass == Double.class) {
+            encoder = jDouble();
+        }
+        else if (aClass == byte.class || aClass == Byte.class) {
+            encoder = jByte();
+        }
+        else if (aClass == boolean.class || aClass == Boolean.class) {
+            encoder = jBoolean();
+        }
+        else if (aClass == char.class || aClass == Character.class) {
+            encoder = jChar();
+        }
+        else {
+            encoder = javaEncoder();
+        }
+        return (Encoder<E>) encoder;
     }
 
     /**

@@ -19,6 +19,7 @@ import com.github.harbby.astarte.core.api.AstarteConf;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.astarte.core.api.function.Mapper;
+import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.astarte.core.operator.DataSourceOperator;
 import com.github.harbby.astarte.core.operator.KvOperator;
@@ -32,12 +33,10 @@ import com.github.harbby.astarte.core.runtime.LocalJobScheduler;
 import com.github.harbby.astarte.core.runtime.LocalNettyExecutorManager;
 import com.github.harbby.gadtry.base.Lazys;
 import com.github.harbby.gadtry.collection.ImmutableList;
-import com.github.harbby.gadtry.collection.IteratorPlus;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.function.Function1;
 
 import java.net.URI;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -75,40 +74,47 @@ public interface BatchContext
         return this.makeDataSet(collection, 1);
     }
 
+    public default <E> DataSet<E> makeDataSet(List<E> collection, Encoder<E> encoder)
+    {
+        return this.makeDataSet(collection, 1, encoder);
+    }
+
     public default <E> DataSet<E> makeDataSet(List<E> collection, int parallelism)
     {
+        return this.makeDataSet(collection, parallelism, Encoders.javaEncoder());
+    }
+
+    public default <E> DataSet<E> makeDataSet(List<E> collection, int parallelism, Encoder<E> encoder)
+    {
+        requireNonNull(collection, "collection is null");
         checkState(parallelism > 0, "parallelism > 0");
-        return new DataSourceOperator<>(this, new ListDataSource<>(collection), parallelism);
+        return new DataSourceOperator<>(this, new ListDataSource<>(collection), parallelism, encoder);
     }
 
-    public default <E> DataSet<E> makeDataSet(E[] e)
+    public default <E> DataSet<E> makeDataSet(E[] array)
     {
-        return makeDataSet(Arrays.asList(e));
+        return makeDataSet(array, 1);
     }
 
-    public default <E> DataSet<E> makeDataSet(E[] e, int parallelism)
+    public default <E> DataSet<E> makeDataSet(E[] array, int parallelism)
     {
-        return makeDataSet(Arrays.asList(e), parallelism);
+        requireNonNull(array, "array is null");
+        @SuppressWarnings("unchecked")
+        Encoder<E> encoder = Encoders.createPrimitiveEncoder((Class<E>) array.getClass().getComponentType());
+        return makeDataSet(ImmutableList.copy(array), parallelism, encoder);
     }
 
     public default DataSet<String> textFile(String path)
     {
         requireNonNull(path, "path is null");
-        return new DataSourceOperator<>(this, new TextFileSource(URI.create(path)), -1);
+        return new DataSourceOperator<>(this, new TextFileSource(URI.create(path)), -1, Encoders.UTF8String());
     }
 
     public default DataSet<String> textFile(String path, int parallelism)
     {
         checkState(parallelism > 0, "parallelism > 0");
         requireNonNull(path, "path is null");
-        return new DataSourceOperator<>(this, new TextFileSource(URI.create(path)), parallelism);
-    }
-
-    public default <E> DataSet<E> makeDataSet(IteratorPlus<E> source)
-    {
-        requireNonNull(source, "source is null");
-        Iterator<E> clearSource = Utils.clear(source);
-        return makeDataSet(ImmutableList.of("1")).flatMapIterator(x -> clearSource);
+        return new DataSourceOperator<>(this, new TextFileSource(URI.create(path)), parallelism, Encoders.UTF8String());
     }
 
     public static Builder builder()

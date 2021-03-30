@@ -21,7 +21,6 @@ import com.github.harbby.astarte.core.api.DataSetSource;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.Split;
 import com.github.harbby.astarte.core.coders.Encoder;
-import com.github.harbby.astarte.core.coders.Encoders;
 
 import java.util.Collections;
 import java.util.Iterator;
@@ -54,13 +53,6 @@ public class DataSourceOperator<E>
             partitions[i] = new DataSourcePartition(i, splits[i]);
         }
         this.numPartitions = partitions.length;
-    }
-
-    public DataSourceOperator(BatchContext context,
-            DataSetSource<E> dataSetSource,
-            int parallelism)
-    {
-        this(context, dataSetSource, parallelism, Encoders.javaEncoder());
     }
 
     @Override

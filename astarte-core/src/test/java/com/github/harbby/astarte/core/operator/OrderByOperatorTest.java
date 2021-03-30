@@ -91,7 +91,9 @@ public class OrderByOperatorTest
     @Test
     public void sortMergeGroupBySumTest()
     {
-        KvDataSet<String, Integer> ds = mppContext.makeDataSet(it).kvDataSet(x -> x)
+        KvDataSet<String, Integer> ds = mppContext.makeDataSet(new String[] {"1"})
+                .flatMapIterator(x -> it)
+                .kvDataSet(x -> x)
                 .reduceByKey(Integer::sum, 3);
         Map<String, Integer> result = ds.collectMap();
         Assert.assertEquals(result, MutableMap.of(

@@ -73,9 +73,8 @@ public class LocalJobScheduler
                 int stageId = stage.getStageId();
                 ShuffleClient shuffleClient = new ShuffleClient.LocalShuffleClient(shuffleWorkDir, jobId);
                 TaskContext taskContext = TaskContext.of(jobId, stageId, stageMap.get(stage), shuffleClient, shuffleWorkDir);
-
+                logger.info("starting stage {}/{} {}", stage.getStageId(), jobStages.size(), stage);
                 if (stage instanceof ShuffleMapStage) {
-                    logger.info("starting... shuffleMapStage: {}, id {}", stage, stage.getStageId());
                     Stream.of(stage.getPartitions())
                             .map(partition -> new ShuffleMapTask(jobId, stageId, partition, ((ShuffleMapStage) stage).getFinalOperator(), Collections.emptyMap(), stageMap.get(stage)))
                             .map(task -> CompletableFuture.runAsync(() -> task.runTask(taskContext), executors))
@@ -85,7 +84,6 @@ public class LocalJobScheduler
                 else {
                     //result stage ------
                     checkState(stage instanceof ResultStage, "Unknown stage " + stage);
-                    logger.info("starting... ResultStage: {}, id {}", stage, stage.getStageId());
                     return Stream.of(stage.getPartitions())
                             .map(partition -> new ResultTask<>(jobId, stageId, (Operator<E>) stage.getFinalOperator(), action, partition, Collections.emptyMap(), stageMap.get(stage)))
                             .map(task -> CompletableFuture.supplyAsync(() -> task.runTask(taskContext), executors))
