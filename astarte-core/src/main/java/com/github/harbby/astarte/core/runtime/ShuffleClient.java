@@ -36,6 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import static com.github.harbby.astarte.core.operator.SortShuffleWriter.getSortMergedFileHarderSize;
 import static com.github.harbby.gadtry.base.MoreObjects.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -82,18 +83,20 @@ public interface ShuffleClient
                 FileInputStream fileInputStream = new FileInputStream(file);
                 DataInputStream dataInputStream = new DataInputStream(fileInputStream);
                 long[] segmentEnds = new long[dataInputStream.readInt()];
+                long[] segmentRowSizes = new long[segmentEnds.length];
                 for (int i = 0; i < segmentEnds.length; i++) {
                     segmentEnds[i] = dataInputStream.readLong();
+                    segmentRowSizes[i] = dataInputStream.readLong();
                 }
                 long segmentEnd = segmentEnds[reduceId];
                 long length = segmentEnd;
                 if (reduceId > 0) {
-                    int headerSize = Integer.BYTES + segmentEnds.length * Long.BYTES;
+                    int headerSize = getSortMergedFileHarderSize(segmentEnds.length);
                     fileInputStream.getChannel().position(headerSize + segmentEnds[reduceId - 1]);
                     length = segmentEnd - segmentEnds[reduceId - 1];
                 }
                 if (length > 0) {
-                    iterators.add(new EncoderInputStream<>(new BufferedInputStream(new LZ4BlockInputStream(new LimitInputStream(fileInputStream, length))), encoder));
+                    iterators.add(new EncoderInputStream<>(segmentRowSizes[reduceId], encoder, new LZ4BlockInputStream(new BufferedInputStream(new LimitInputStream(fileInputStream, length)))));
                 }
             }
             return Iterators.mergeSorted((x, y) -> comparator.compare(x.f1, y.f1), iterators);

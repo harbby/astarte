@@ -15,6 +15,7 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
+import com.github.harbby.astarte.core.operator.SortShuffleWriter;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
@@ -136,11 +137,13 @@ public final class ShuffleManagerService
             FileInputStream fileInputStream = new FileInputStream(shuffleFile);
             DataInputStream dataInputStream = new DataInputStream(fileInputStream);
             long[] segmentEnds = new long[dataInputStream.readInt()];
+            long[] segmentRowSize = new long[segmentEnds.length];
             for (int i = 0; i < segmentEnds.length; i++) {
                 segmentEnds[i] = dataInputStream.readLong();
+                segmentRowSize[i] = dataInputStream.readLong();
             }
 
-            int fileHeaderSize = Integer.BYTES + segmentEnds.length * Long.BYTES;
+            int fileHeaderSize = SortShuffleWriter.getSortMergedFileHarderSize(segmentEnds.length);
             final long length;
             final long position;
             if (reduceId > 0) {
@@ -152,8 +155,9 @@ public final class ShuffleManagerService
                 length = segmentEnds[reduceId];
             }
             //write net header info
-            ByteBuf header = ctx.alloc().directBuffer(Long.BYTES);
+            ByteBuf header = ctx.alloc().directBuffer(Long.BYTES * 2);
             header.writeLong(length);
+            header.writeLong(segmentRowSize[reduceId]);
             ctx.write(header);
             //write data by zero copy
             ctx.writeAndFlush(new DefaultFileRegion(fileInputStream.getChannel(), position, length), ctx.newProgressivePromise())

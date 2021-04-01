@@ -132,7 +132,8 @@ public class SortShuffleClusterClient
             //read header
             if (awaitDownLoadSize == null) {
                 this.awaitDownLoadSize = in1.readLong();
-                logger.debug("downloading shuffleId[{}] MapId[{}] reduce[{}] data size is {}", shuffleClientHandler.shuffleId, shuffleClientHandler.mapId, shuffleClientHandler.reduceId, this.awaitDownLoadSize);
+                long rowCount = in1.readLong();
+                logger.debug("downloading shuffleId[{}] MapId[{}] reduce[{}] data bytes is {} rowCount {}", shuffleClientHandler.shuffleId, shuffleClientHandler.mapId, shuffleClientHandler.reduceId, this.awaitDownLoadSize, rowCount);
                 if (this.awaitDownLoadSize == 0) {
                     ReferenceCountUtil.release(in1);
                     ctx.fireChannelReadComplete();
@@ -141,16 +142,17 @@ public class SortShuffleClusterClient
                 }
             }
             int readableBytes = in1.readableBytes();
-            if (readableBytes < awaitDownLoadSize) {
-                awaitDownLoadSize -= readableBytes;
-                ctx.fireChannelRead(in1);
+            if (readableBytes == 0) {
+                ReferenceCountUtil.release(in1);
                 return;
             }
-            checkState(readableBytes == awaitDownLoadSize && readableBytes > 0);
+            awaitDownLoadSize -= readableBytes;
             ctx.fireChannelRead(in1);
-            ctx.fireChannelReadComplete();
-            shuffleClientHandler.finish();
-            this.awaitDownLoadSize = 0L;
+            if (awaitDownLoadSize <= 0) {
+                checkState(awaitDownLoadSize == 0);
+                ctx.fireChannelReadComplete();
+                shuffleClientHandler.finish();
+            }
         }
 
         @Override
@@ -169,19 +171,13 @@ public class SortShuffleClusterClient
         private final BlockingQueue<ByteBuf> buffer = new LinkedBlockingQueue<>(10);
         private final DataInputStream dataInputStream = new DataInputStream(this);
         private ByteBuf byteBuf;
-        private boolean done = false;
         private volatile Throwable cause;
+        private boolean done = false;
 
         private void push(ByteBuf byteBuf)
                 throws InterruptedException
         {
             buffer.put(byteBuf);
-        }
-
-        public void downloadDone()
-                throws InterruptedException
-        {
-            buffer.put(STOP_DOWNLOAD);
         }
 
         public void downloadFailed(Throwable e)
@@ -203,14 +199,28 @@ public class SortShuffleClusterClient
             if (done) {
                 return false;
             }
-            boolean hasNext = this.available() > 0;
-            if (!hasNext) {
-                if (cause != null) {
-                    throw Throwables.throwsThrowable(cause);
+            try {
+                if (byteBuf == null) {
+                    byteBuf = buffer.take();
                 }
-                done = true;
+                else if (byteBuf.readableBytes() == 0) {
+                    ReferenceCountUtil.release(byteBuf);
+                    byteBuf = buffer.take();
+                }
+                if (byteBuf == STOP_DOWNLOAD) {
+                    done = true;
+                    if (cause != null) {
+                        throw Throwables.throwsThrowable(cause);
+                    }
+                    return false;
+                }
             }
-            return hasNext;
+            catch (InterruptedException e) {
+                logger.warn("whether the task is being killed?");
+                done = true;
+                return false;
+            }
+            return true;
         }
 
         @Override
@@ -228,31 +238,8 @@ public class SortShuffleClusterClient
         }
 
         @Override
-        public int available()
-        {
-            try {
-                if (byteBuf == null) {
-                    byteBuf = buffer.take();
-                }
-                else if (byteBuf.readableBytes() == 0) {
-                    ReferenceCountUtil.release(byteBuf);
-                    byteBuf = buffer.take();
-                }
-                if (byteBuf == STOP_DOWNLOAD) {
-                    return -1;
-                }
-                return byteBuf.readableBytes();
-            }
-            catch (InterruptedException e) {
-                logger.warn("whether the task is being killed?");
-                return -1;
-            }
-        }
-
-        @Override
         public int read()
         {
-            checkState(this.available() > 0);
             return byteBuf.readByte() & 0xFF;
         }
     }
@@ -296,8 +283,8 @@ public class SortShuffleClusterClient
         public void finish()
                 throws InterruptedException
         {
+            reader.push(STOP_DOWNLOAD);
             ctx.close();
-            reader.downloadDone();
         }
 
         @Override

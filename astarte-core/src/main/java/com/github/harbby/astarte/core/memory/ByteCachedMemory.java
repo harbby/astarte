@@ -24,7 +24,6 @@ import net.jpountz.lz4.LZ4BlockOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
@@ -41,6 +40,7 @@ public class ByteCachedMemory<E>
     private final Encoder<E> encoder;
     private final MemoryBlock block;
     private final DataOutputStream dataOutputStream;
+    private long count;
 
     public ByteCachedMemory(Encoder<E> encoder)
     {
@@ -59,7 +59,7 @@ public class ByteCachedMemory<E>
     public Iterator<E> prepareIterator()
     {
         checkState(isFinal, "only reader mode");
-        return new EncoderInputStream<>(new BufferedInputStream(new LZ4BlockInputStream(block.prepareInputStream())), encoder);
+        return new EncoderInputStream<>(count, encoder, new LZ4BlockInputStream(block.prepareInputStream()));
     }
 
     @Override
@@ -79,6 +79,7 @@ public class ByteCachedMemory<E>
     public void append(E record)
     {
         checkState(!isFinal, "don't append record to writeMode");
+        count++;
         try {
             encoder.encoder(record, dataOutputStream);
         }

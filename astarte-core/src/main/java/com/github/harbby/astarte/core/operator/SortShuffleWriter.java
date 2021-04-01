@@ -25,7 +25,10 @@ import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.io.BufferedNioOutputStream;
 import com.github.harbby.gadtry.io.LimitInputStream;
+import net.jpountz.lz4.LZ4BlockInputStream;
 import net.jpountz.lz4.LZ4BlockOutputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedInputStream;
 import java.io.DataOutputStream;
@@ -50,6 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class SortShuffleWriter<K, V>
         implements ShuffleWriter<K, V>
 {
+    private static final Logger logger = LoggerFactory.getLogger(SortShuffleWriter.class);
     public static final String MERGE_FILE_NAME = "shuffle_merged_%s_%s.data";
 
     private final Partitioner partitioner;
@@ -241,16 +245,22 @@ public class SortShuffleWriter<K, V>
         }
     }
 
+    public static int getSortMergedFileHarderSize(int segmentSize)
+    {
+        return Integer.BYTES + segmentSize * Long.BYTES * 2;
+    }
+
     private static class ReduceWriter<K, V>
     {
         private static final int BUFF_SIZE = 8192;
         private final Encoder<Tuple2<K, V>> encoder;
         private final File spillsFile;
-        private DataOutputStream dataOutput;
         private BufferedNioOutputStream bufferedNioOutput;
         private final List<Long> segmentEnds = new ArrayList<>();
+        private final List<Integer> segmentRowSizes = new ArrayList<>();
         private final List<Tuple2<K, V>> buffer = new ArrayList<>(BUFF_SIZE);
         private final Comparator<K> comparator;
+        private long mapTaskReadRowCount = 0;
 
         public ReduceWriter(
                 File spillsFile,
@@ -265,16 +275,20 @@ public class SortShuffleWriter<K, V>
         private void flushSegment()
                 throws IOException
         {
-            if (dataOutput == null) {
+            if (bufferedNioOutput == null) {
                 this.bufferedNioOutput = new BufferedNioOutputStream(new FileOutputStream(spillsFile, false).getChannel(), 10240);
-                dataOutput = new DataOutputStream(bufferedNioOutput);
             }
             buffer.sort((x, y) -> comparator.compare(x.f1(), y.f1()));
+            LZ4BlockOutputStream lz4BlockOutputStream = new LZ4BlockOutputStream(bufferedNioOutput);
+            DataOutputStream dataOutput = new DataOutputStream(lz4BlockOutputStream);
             for (Tuple2<K, V> kv : buffer) {
                 encoder.encoder(kv, dataOutput);
             }
-            buffer.clear();
+            lz4BlockOutputStream.finish();
             segmentEnds.add(bufferedNioOutput.position());
+            segmentRowSizes.add(buffer.size());
+            mapTaskReadRowCount += buffer.size();
+            buffer.clear();
         }
 
         public void insert(Tuple2<K, V> kv)
@@ -296,7 +310,8 @@ public class SortShuffleWriter<K, V>
                 long length = end - start;
                 FileInputStream fileInputStream = new FileInputStream(spillsFile);
                 fileInputStream.getChannel().position(start);
-                EncoderInputStream<Tuple2<K, V>> encoderInputStream = new EncoderInputStream<>(new BufferedInputStream(new LimitInputStream(fileInputStream, length)), encoder);
+                int segmentRowSize = segmentRowSizes.get(i);
+                EncoderInputStream<Tuple2<K, V>> encoderInputStream = new EncoderInputStream<>(segmentRowSize, encoder, new LZ4BlockInputStream(new BufferedInputStream(new LimitInputStream(fileInputStream, length))));
                 encoderInputStreams[i] = encoderInputStream;
                 start = end;
             }
@@ -304,11 +319,16 @@ public class SortShuffleWriter<K, V>
             return Iterators.mergeSorted((x, y) -> comparator.compare(x.f1, y.f1), encoderInputStreams);
         }
 
+        public long getMapTaskReadRowCount()
+        {
+            return mapTaskReadRowCount;
+        }
+
         public void writeFinish()
                 throws IOException
         {
-            if (dataOutput != null) {
-                dataOutput.close();
+            if (bufferedNioOutput != null) {
+                bufferedNioOutput.close();
             }
         }
     }
@@ -355,7 +375,7 @@ public class SortShuffleWriter<K, V>
         public ByteBuffer mergeFile()
                 throws IOException
         {
-            ByteBuffer header = ByteBuffer.allocate(Integer.BYTES + reduceWriters.length * Long.BYTES);
+            ByteBuffer header = ByteBuffer.allocate(getSortMergedFileHarderSize(reduceWriters.length));
             header.putInt(reduceWriters.length);
             try (FileChannel fileChannel = new FileOutputStream(mergeName, false).getChannel()) {
                 //skip header = int + len * long
@@ -364,6 +384,7 @@ public class SortShuffleWriter<K, V>
                 for (ReduceWriter<K, V> reduceWriter : reduceWriters) {
                     if (reduceWriter == null) {
                         header.putLong(bufferedNioOutputStream.position());
+                        header.putLong(0);
                         continue;
                     }
                     //flush last segment
@@ -375,16 +396,27 @@ public class SortShuffleWriter<K, V>
                     DataOutputStream dataOutputStream = new DataOutputStream(lz4OutputStream);
                     //merger
                     Iterator<Tuple2<K, V>> merger = reduceWriter.merger();
+                    long rowCount = reduceWriter.getMapTaskReadRowCount();
                     if (combine != null) {
                         merger = Iterators.reduceSorted(merger, combine);
+                        long count = 0;
+                        while (merger.hasNext()) {
+                            count++;
+                            encoder.encoder(merger.next(), dataOutputStream);
+                        }
+                        rowCount = count;
+                        logger.info("shuffleMapTask merged combine {}/{} ratio: {}", count, reduceWriter.getMapTaskReadRowCount(), count * 1.0f / reduceWriter.getMapTaskReadRowCount());
                     }
-                    while (merger.hasNext()) {
-                        encoder.encoder(merger.next(), dataOutputStream);
+                    else {
+                        while (merger.hasNext()) {
+                            encoder.encoder(merger.next(), dataOutputStream);
+                        }
                     }
                     dataOutputStream.flush();
                     lz4OutputStream.finish();
                     //merge index
                     header.putLong(bufferedNioOutputStream.position());
+                    header.putLong(rowCount);
                     if (reduceWriter.spillsFile.exists()) {
                         checkState(reduceWriter.spillsFile.delete(), "clear shuffle tmp file failed " + reduceWriter.spillsFile.getCanonicalPath());
                     }
@@ -394,6 +426,7 @@ public class SortShuffleWriter<K, V>
                 header.flip();
                 fileChannel.write(header);
             }
+            checkState(header.position() == header.capacity());
             header.position(0);
             return header;
         }

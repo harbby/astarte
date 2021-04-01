@@ -16,7 +16,6 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.gadtry.base.Throwables;
-import com.github.harbby.gadtry.collection.StateOption;
 
 import java.io.Closeable;
 import java.io.DataInputStream;
@@ -31,43 +30,32 @@ import static java.util.Objects.requireNonNull;
 public class EncoderInputStream<E>
         implements Iterator<E>, Closeable
 {
-    private final StateOption<E> option = StateOption.empty();
     private final DataInputStream dataInput;
     private final Encoder<E> encoder;
-    private boolean closed = false;
+    private final long count;
+    private long index = 0;
 
-    public EncoderInputStream(InputStream inputStream, Encoder<E> encoder)
+    public EncoderInputStream(long count, Encoder<E> encoder, InputStream inputStream)
     {
+        checkState(count >= 0, "row count >= 0");
+        this.count = count;
         this.encoder = requireNonNull(encoder, "encoder is null");
-        this.dataInput = new DataInputStream(requireNonNull(inputStream));
-        checkState(dataInput.markSupported(), "dataInput not support mark()");
+        this.dataInput = new DataInputStream(requireNonNull(inputStream, "inputStream is null"));
     }
 
     @Override
     public boolean hasNext()
     {
-        if (option.isDefined()) {
-            return true;
-        }
-        if (closed) {
-            return false;
-        }
-        try {
-            if (dataInput.available() == 0) {
-                dataInput.mark(1);
-                if (dataInput.read() == -1) {
-                    dataInput.close();
-                    this.closed = true;
-                    return false;
-                }
-                dataInput.reset();
+        boolean hasNext = index < count;
+        if (!hasNext) {
+            try {
+                dataInput.close();
             }
-            option.update(encoder.decoder(dataInput));
-            return true;
+            catch (IOException e) {
+                throw Throwables.throwsThrowable(e);
+            }
         }
-        catch (IOException e) {
-            throw Throwables.throwsThrowable(e);
-        }
+        return hasNext;
     }
 
     @Override
@@ -76,7 +64,13 @@ public class EncoderInputStream<E>
         if (!hasNext()) {
             throw new NoSuchElementException();
         }
-        return option.remove();
+        index++;
+        try {
+            return encoder.decoder(dataInput);
+        }
+        catch (IOException e) {
+            throw Throwables.throwsThrowable(e);
+        }
     }
 
     @Override
