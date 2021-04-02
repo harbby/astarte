@@ -19,6 +19,7 @@ import com.github.harbby.astarte.core.api.Collector;
 import com.github.harbby.astarte.core.api.DataSetSource;
 import com.github.harbby.astarte.core.api.Split;
 import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.gadtry.collection.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -31,7 +32,7 @@ public class ListDataSource<E>
 
     public ListDataSource(List<E> data)
     {
-        this.data = data;
+        this.data = ImmutableList.copy(data);
     }
 
     private static Split[] slice(List<?> data, int parallelism)

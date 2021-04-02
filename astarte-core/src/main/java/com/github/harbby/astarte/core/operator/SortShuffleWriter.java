@@ -276,7 +276,7 @@ public class SortShuffleWriter<K, V>
                 throws IOException
         {
             if (bufferedNioOutput == null) {
-                this.bufferedNioOutput = new BufferedNioOutputStream(new FileOutputStream(spillsFile, false).getChannel(), 10240);
+                this.bufferedNioOutput = new BufferedNioOutputStream(new FileOutputStream(spillsFile, false).getChannel());
             }
             buffer.sort((x, y) -> comparator.compare(x.f1(), y.f1()));
             LZ4BlockOutputStream lz4BlockOutputStream = new LZ4BlockOutputStream(bufferedNioOutput);
@@ -287,13 +287,13 @@ public class SortShuffleWriter<K, V>
             lz4BlockOutputStream.finish();
             segmentEnds.add(bufferedNioOutput.position());
             segmentRowSizes.add(buffer.size());
-            mapTaskReadRowCount += buffer.size();
             buffer.clear();
         }
 
         public void insert(Tuple2<K, V> kv)
                 throws IOException
         {
+            mapTaskReadRowCount++;
             if (buffer.size() >= BUFF_SIZE) {
                 this.flushSegment();
             }
@@ -303,6 +303,14 @@ public class SortShuffleWriter<K, V>
         public Iterator<Tuple2<K, V>> merger()
                 throws IOException
         {
+            //close spill file io
+            this.writeFinish();
+            buffer.sort((x, y) -> comparator.compare(x.f1(), y.f1()));
+            Iterator<Tuple2<K, V>> memoryBuffer = Iterators.wrap(buffer).autoClose(buffer::clear);
+            if (segmentEnds.isEmpty()) {
+                return memoryBuffer;
+            }
+
             EncoderInputStream<Tuple2<K, V>>[] encoderInputStreams = new EncoderInputStream[segmentEnds.size()];
             long start = 0;
             for (int i = 0; i < segmentEnds.size(); i++) {
@@ -316,7 +324,8 @@ public class SortShuffleWriter<K, V>
                 start = end;
             }
             //merger
-            return Iterators.mergeSorted((x, y) -> comparator.compare(x.f1, y.f1), encoderInputStreams);
+            Iterator<Tuple2<K, V>> iterator = Iterators.mergeSorted((x, y) -> comparator.compare(x.f1, y.f1), encoderInputStreams);
+            return Iterators.concat(memoryBuffer, iterator);
         }
 
         public long getMapTaskReadRowCount()
@@ -324,7 +333,7 @@ public class SortShuffleWriter<K, V>
             return mapTaskReadRowCount;
         }
 
-        public void writeFinish()
+        private void writeFinish()
                 throws IOException
         {
             if (bufferedNioOutput != null) {
@@ -387,13 +396,7 @@ public class SortShuffleWriter<K, V>
                         header.putLong(0);
                         continue;
                     }
-                    //flush last segment
-                    reduceWriter.flushSegment();
-                    //close spill file io
-                    reduceWriter.writeFinish();
-
                     LZ4BlockOutputStream lz4OutputStream = new LZ4BlockOutputStream(bufferedNioOutputStream);
-                    DataOutputStream dataOutputStream = new DataOutputStream(lz4OutputStream);
                     //merger
                     Iterator<Tuple2<K, V>> merger = reduceWriter.merger();
                     long rowCount = reduceWriter.getMapTaskReadRowCount();
@@ -402,17 +405,16 @@ public class SortShuffleWriter<K, V>
                         long count = 0;
                         while (merger.hasNext()) {
                             count++;
-                            encoder.encoder(merger.next(), dataOutputStream);
+                            encoder.encoder(merger.next(), new DataOutputStream(lz4OutputStream));
                         }
                         rowCount = count;
                         logger.info("shuffleMapTask merged combine {}/{} ratio: {}", count, reduceWriter.getMapTaskReadRowCount(), count * 1.0f / reduceWriter.getMapTaskReadRowCount());
                     }
                     else {
                         while (merger.hasNext()) {
-                            encoder.encoder(merger.next(), dataOutputStream);
+                            encoder.encoder(merger.next(), new DataOutputStream(lz4OutputStream));
                         }
                     }
-                    dataOutputStream.flush();
                     lz4OutputStream.finish();
                     //merge index
                     header.putLong(bufferedNioOutputStream.position());

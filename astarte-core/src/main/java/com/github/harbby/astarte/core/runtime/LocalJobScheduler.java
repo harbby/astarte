@@ -21,7 +21,9 @@ import com.github.harbby.astarte.core.ResultTask;
 import com.github.harbby.astarte.core.ShuffleMapStage;
 import com.github.harbby.astarte.core.ShuffleMapTask;
 import com.github.harbby.astarte.core.TaskContext;
+import com.github.harbby.astarte.core.Utils;
 import com.github.harbby.astarte.core.api.AstarteException;
+import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.Stage;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.operator.Operator;
@@ -74,8 +76,9 @@ public class LocalJobScheduler
                 ShuffleClient shuffleClient = new ShuffleClient.LocalShuffleClient(shuffleWorkDir, jobId);
                 TaskContext taskContext = TaskContext.of(jobId, stageId, stageMap.get(stage), shuffleClient, shuffleWorkDir);
                 logger.info("starting stage {}/{} {}", stage.getStageId(), jobStages.size(), stage);
+                Partition[] partitions = Utils.clear(stage.getPartitions());
                 if (stage instanceof ShuffleMapStage) {
-                    Stream.of(stage.getPartitions())
+                    Stream.of(partitions)
                             .map(partition -> new ShuffleMapTask(jobId, stageId, partition, ((ShuffleMapStage) stage).getFinalOperator(), Collections.emptyMap(), stageMap.get(stage)))
                             .map(task -> CompletableFuture.runAsync(() -> task.runTask(taskContext), executors))
                             .collect(Collectors.toList())
@@ -84,7 +87,7 @@ public class LocalJobScheduler
                 else {
                     //result stage ------
                     checkState(stage instanceof ResultStage, "Unknown stage " + stage);
-                    return Stream.of(stage.getPartitions())
+                    return Stream.of(partitions)
                             .map(partition -> new ResultTask<>(jobId, stageId, (Operator<E>) stage.getFinalOperator(), action, partition, Collections.emptyMap(), stageMap.get(stage)))
                             .map(task -> CompletableFuture.supplyAsync(() -> task.runTask(taskContext), executors))
                             .collect(Collectors.toList()).stream()
