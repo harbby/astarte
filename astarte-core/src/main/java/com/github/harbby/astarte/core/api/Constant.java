@@ -24,4 +24,6 @@ public class Constant
     public static final String EXECUTOR_MEMORY_CONF = "executor.memory.mb";
 
     public static final String SHUFFLE_MAP_COMBINE_ENABLE = "shuffle.map.combine.enable";
+
+    public static final String CALC_OPERATOR_CODE_GENERATION_ENABLE = "calc.operator.code.generation.enable";
 }

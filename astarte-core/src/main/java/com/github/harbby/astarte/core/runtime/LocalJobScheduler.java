@@ -69,7 +69,7 @@ public class LocalJobScheduler
         logger.info("starting... job: {}", jobId);
         //---------------------
         final ExecutorService executors = Executors.newFixedThreadPool(parallelism);
-        File shuffleWorkDir = new File("/tmp/astarte-" + UUID.randomUUID().toString());
+        File shuffleWorkDir = new File(System.getProperty("java.io.tmpdir"), "astarte-" + UUID.randomUUID().toString());
         try {
             for (Stage stage : jobStages) {
                 int stageId = stage.getStageId();

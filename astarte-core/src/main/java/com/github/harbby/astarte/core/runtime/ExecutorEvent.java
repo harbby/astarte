@@ -15,7 +15,10 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
-import java.net.SocketAddress;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.net.InetSocketAddress;
 
 public interface ExecutorEvent
         extends Event
@@ -23,16 +26,33 @@ public interface ExecutorEvent
     public static class ExecutorInitSuccessEvent
             implements ExecutorEvent
     {
-        private final SocketAddress shuffleServiceAddress;
+        private InetSocketAddress shuffleServiceAddress;
 
-        public ExecutorInitSuccessEvent(SocketAddress shuffleServiceAddress)
+        public ExecutorInitSuccessEvent(InetSocketAddress shuffleServiceAddress)
         {
             this.shuffleServiceAddress = shuffleServiceAddress;
         }
 
-        public SocketAddress getShuffleServiceAddress()
+        public ExecutorInitSuccessEvent() {}
+
+        public InetSocketAddress getShuffleServiceAddress()
         {
             return shuffleServiceAddress;
+        }
+
+        @Override
+        public void writeExternal(ObjectOutput out)
+                throws IOException
+        {
+            out.writeUTF(shuffleServiceAddress.getHostName());
+            out.writeInt(shuffleServiceAddress.getPort());
+        }
+
+        @Override
+        public void readExternal(ObjectInput in)
+                throws IOException, ClassNotFoundException
+        {
+            this.shuffleServiceAddress = InetSocketAddress.createUnresolved(in.readUTF(), in.readInt());
         }
     }
 }

@@ -16,19 +16,19 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.gadtry.base.Throwables;
+import com.github.harbby.gadtry.collection.IteratorPlus;
 
 import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class EncoderInputStream<E>
-        implements Iterator<E>, Closeable
+        implements IteratorPlus<E>, Closeable
 {
     private final DataInputStream dataInput;
     private final Encoder<E> encoder;

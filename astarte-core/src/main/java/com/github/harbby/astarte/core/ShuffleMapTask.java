@@ -19,7 +19,7 @@ import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.Task;
 import com.github.harbby.astarte.core.operator.ShuffleMapOperator;
 
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
@@ -30,14 +30,14 @@ public class ShuffleMapTask
     private final int stageId;
     private final Partition partition;
     private final ShuffleMapOperator<?, ?> shuffleMapOperator;
-    private final Map<Integer, Map<Integer, SocketAddress>> dependMapTasks;
+    private final Map<Integer, Map<Integer, InetSocketAddress>> dependMapTasks;
     private final Map<Integer, Integer> dependStages;
 
     public ShuffleMapTask(int jobId,
             int stageId,
             Partition partition,
             ShuffleMapOperator<?, ?> shuffleMapOperator,
-            Map<Integer, Map<Integer, SocketAddress>> dependMapTasks,
+            Map<Integer, Map<Integer, InetSocketAddress>> dependMapTasks,
             Map<Integer, Integer> dependStages)
     {
         this.jobId = jobId;
@@ -49,7 +49,7 @@ public class ShuffleMapTask
     }
 
     @Override
-    public Map<Integer, Map<Integer, SocketAddress>> getDependMapTasks()
+    public Map<Integer, Map<Integer, InetSocketAddress>> getDependMapTasks()
     {
         return dependMapTasks;
     }

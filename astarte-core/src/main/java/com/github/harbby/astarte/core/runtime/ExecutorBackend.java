@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 
 /**
@@ -52,7 +53,7 @@ public class ExecutorBackend
         this.driverManagerAddress = driverManagerAddress;
     }
 
-    public void start(SocketAddress shuffleServiceAddress)
+    public void start(InetSocketAddress shuffleServiceAddress)
             throws InterruptedException
     {
         final ExecutorNetHandler handler = new ExecutorNetHandler();

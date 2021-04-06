@@ -21,9 +21,11 @@ import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
+import java.util.List;
 
 /**
  * this pipiline agg Operator
@@ -36,7 +38,7 @@ public class AggOperator<K, V>
 
     protected AggOperator(Operator<Tuple2<K, V>> operator, Reducer<V> reducer)
     {
-        super(operator);
+        super(operator.getContext());
         this.operator = unboxing(operator);
         this.reducer = reducer;
     }
@@ -46,6 +48,12 @@ public class AggOperator<K, V>
     {
         // Reducer<V> reducer 聚合不会发生Key的变化因此，我们可以传递Partitioner下去
         return operator.getPartitioner();
+    }
+
+    @Override
+    public List<? extends Operator<?>> getDependencies()
+    {
+        return ImmutableList.of(operator);
     }
 
     @Override

@@ -20,6 +20,7 @@ import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.EncoderInputStream;
 import com.github.harbby.gadtry.base.Files;
 import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.io.LimitInputStream;
 import net.jpountz.lz4.LZ4BlockInputStream;
@@ -30,7 +31,7 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -51,7 +52,7 @@ public interface ShuffleClient
             throws IOException
     {}
 
-    public static ShuffleClient getClusterShuffleClient(Map<Integer, Map<Integer, SocketAddress>> dependMapTasks)
+    public static ShuffleClient getClusterShuffleClient(Map<Integer, Map<Integer, InetSocketAddress>> dependMapTasks)
     {
         return new SortShuffleClusterClient(dependMapTasks);
     }
@@ -96,7 +97,20 @@ public interface ShuffleClient
                     length = segmentEnd - segmentEnds[reduceId - 1];
                 }
                 if (length > 0) {
-                    iterators.add(new EncoderInputStream<>(segmentRowSizes[reduceId], encoder, new LZ4BlockInputStream(new BufferedInputStream(new LimitInputStream(fileInputStream, length)))));
+                    iterators.add(new EncoderInputStream<>(segmentRowSizes[reduceId], encoder,
+                            new LZ4BlockInputStream(new BufferedInputStream(new LimitInputStream(fileInputStream, length))))
+                            .autoClose(() -> {
+                                try {
+                                    fileInputStream.close();
+                                }
+                                catch (IOException e) {
+                                    Throwables.throwsThrowable(e);
+                                }
+                            })
+                    );
+                }
+                else {
+                    fileInputStream.close();
                 }
             }
             return Iterators.mergeSorted((x, y) -> comparator.compare(x.f1, y.f1), iterators);

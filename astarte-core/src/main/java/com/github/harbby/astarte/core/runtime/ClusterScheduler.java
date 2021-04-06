@@ -32,7 +32,7 @@ import com.github.harbby.astarte.core.operator.Operator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -87,11 +87,11 @@ public class ClusterScheduler
         Object[] result = null;
         //stageID, mapId,dataLength
         Map<Integer, Map<Integer, long[]>> stageMapState = new HashMap<>();
-        Map<Integer, Map<Integer, SocketAddress>> mapTaskNotes = new HashMap<>();
+        Map<Integer, Map<Integer, InetSocketAddress>> mapTaskNotes = new HashMap<>();
         for (Stage stage : jobStages) {
             Map<Integer, long[]> currentStageState = new HashMap<>();
             stageMapState.put(stage.getStageId(), currentStageState);
-            Map<Integer, SocketAddress> mapTaskRunningExecutor = submitStage(stage, action, mapTaskNotes, stageMap.get(stage));
+            Map<Integer, InetSocketAddress> mapTaskRunningExecutor = submitStage(stage, action, mapTaskNotes, stageMap.get(stage));
             mapTaskNotes.put(stage.getStageId(), mapTaskRunningExecutor);
             if (stage instanceof ResultStage) {
                 result = new Object[stage.getNumPartitions()];
@@ -128,9 +128,9 @@ public class ClusterScheduler
         throw new UnsupportedOperationException("job " + jobId + " Not found ResultStage");
     }
 
-    private <E, R> Map<Integer, SocketAddress> submitStage(Stage stage,
+    private <E, R> Map<Integer, InetSocketAddress> submitStage(Stage stage,
             Mapper<Iterator<E>, R> action,
-            Map<Integer, Map<Integer, SocketAddress>> dependMapTasks,
+            Map<Integer, Map<Integer, InetSocketAddress>> dependMapTasks,
             Map<Integer, Integer> dependStages)
     {
         List<Task<?>> tasks = new ArrayList<>();
@@ -163,9 +163,9 @@ public class ClusterScheduler
             }
         }
 
-        Map<Integer, SocketAddress> mapTaskRunningExecutor = new HashMap<>();
+        Map<Integer, InetSocketAddress> mapTaskRunningExecutor = new HashMap<>();
         tasks.forEach(task -> {
-            SocketAddress address = driverNetManager.submitTask(task);
+            InetSocketAddress address = driverNetManager.submitTask(task);
             mapTaskRunningExecutor.put(task.getTaskId(), address);
         });
         return mapTaskRunningExecutor;

@@ -22,6 +22,7 @@ import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.utils.JoinUtil;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.github.harbby.gadtry.function.Function2;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,6 +46,7 @@ public class LocalJoinOperator<K, V1, V2>
     protected final Operator<Tuple2<K, V2>> rightDataSet;
     protected final JoinUtil.JoinMode joinMode;
     protected final Comparator<K> comparator;
+    private final Function2<Partition, TaskContext, Iterator<Tuple2<K, Tuple2<V1, V2>>>> physicalPlan;
 
     protected LocalJoinOperator(JoinUtil.JoinMode joinMode,
             Operator<Tuple2<K, V1>> leftDataSet,
@@ -58,6 +60,44 @@ public class LocalJoinOperator<K, V1, V2>
         this.rightDataSet = unboxing(rightDataSet);
         this.comparator = requireNonNull(comparator, "comparator is null");
         checkState(Objects.equals(leftDataSet.getPartitioner(), rightDataSet.getPartitioner()));
+        this.physicalPlan = optimizerPlan(leftDataSet, rightDataSet, joinMode, comparator);
+    }
+
+    public static <K, V1, V2> Function2<Partition, TaskContext, Iterator<Tuple2<K, Tuple2<V1, V2>>>> optimizerPlan(
+            Operator<Tuple2<K, V1>> leftDataSet,
+            Operator<Tuple2<K, V2>> rightDataSet,
+            JoinUtil.JoinMode joinMode,
+            Comparator<K> comparator)
+    {
+        if ((Object) leftDataSet == rightDataSet) {
+            return (partition, taskContext) -> {
+                Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(partition, taskContext);
+                return JoinUtil.sameJoin(left);
+            };
+        }
+        List<? extends Operator<?>> leftOperators = getOperatorStageDependencies(leftDataSet);
+        List<? extends Operator<?>> rightOperators = getOperatorStageDependencies(rightDataSet);
+        Optional<Operator<?>> sameOperator = findLastSameOperator(leftOperators, rightOperators);
+        if (!sameOperator.isPresent()) {
+            return (partition, taskContext) -> {
+                Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(partition, taskContext);
+                Iterator<Tuple2<K, V2>> right = rightDataSet.computeOrCache(partition, taskContext);
+                return JoinUtil.mergeJoin(joinMode, comparator, left, right);
+            };
+        }
+        List<CalcOperator<?, ?>> leftCalcOperators = leftOperators.subList(0, leftOperators.indexOf(sameOperator.get())).stream()
+                .map(x -> ((CalcOperator<?, ?>) x)).collect(Collectors.toList());
+        Collections.reverse(leftCalcOperators); // 倒序排列
+        List<CalcOperator<?, ?>> rightCalcOperators = rightOperators.subList(0, rightOperators.indexOf(sameOperator.get())).stream()
+                .map(x -> ((CalcOperator<?, ?>) x)).collect(Collectors.toList());
+        Collections.reverse(rightCalcOperators); // 倒序排列
+
+        Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V1>>> leftCalc = it -> CalcOperator.doCodeGen(it, leftCalcOperators);
+        Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V2>>> rightCalc = it -> CalcOperator.doCodeGen(it, rightCalcOperators);
+
+        @SuppressWarnings("unchecked")
+        Operator<Tuple2<K, ?>> operator = (Operator<Tuple2<K, ?>>) sameOperator.get();
+        return (partition, taskContext) -> JoinUtil.sameJoin(operator.computeOrCache(partition, taskContext), leftCalc, rightCalc);
     }
 
     @Override
@@ -90,34 +130,10 @@ public class LocalJoinOperator<K, V1, V2>
         return leftDataSet.getPartitioner();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public Iterator<Tuple2<K, Tuple2<V1, V2>>> compute(Partition partition, TaskContext taskContext)
     {
-        if ((Object) leftDataSet == rightDataSet) {
-            Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(partition, taskContext);
-            return JoinUtil.sameJoin(left);
-        }
-        List<? extends Operator<?>> leftOperators = getOperatorStageDependencies(leftDataSet);
-        List<? extends Operator<?>> rightOperators = getOperatorStageDependencies(rightDataSet);
-        Optional<Operator<?>> sameOperator = findLastSameOperator(leftOperators, rightOperators);
-        if (!sameOperator.isPresent()) {
-            Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(partition, taskContext);
-            Iterator<Tuple2<K, V2>> right = rightDataSet.computeOrCache(partition, taskContext);
-            return JoinUtil.mergeJoin(joinMode, comparator, left, right);
-        }
-        List<CalcOperator<?, ?>> leftCalcOperators = leftOperators.subList(0, leftOperators.indexOf(sameOperator.get())).stream()
-                .map(x -> ((CalcOperator<?, ?>) x)).collect(Collectors.toList());
-        Collections.reverse(leftCalcOperators); // 倒序排列
-        List<CalcOperator<?, ?>> rightCalcOperators = rightOperators.subList(0, rightOperators.indexOf(sameOperator.get())).stream()
-                .map(x -> ((CalcOperator<?, ?>) x)).collect(Collectors.toList());
-        Collections.reverse(rightCalcOperators); // 倒序排列
-
-        Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>> leftCalc = it -> CalcOperator.doCodeGen(it, leftCalcOperators);
-        Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>> rightCalc = it -> CalcOperator.doCodeGen(it, rightCalcOperators);
-
-        Operator<Tuple2<K, ?>> operator = (Operator<Tuple2<K, ?>>) sameOperator.get();
-        return JoinUtil.sameJoin(operator.computeOrCache(partition, taskContext), leftCalc, rightCalc);
+        return physicalPlan.apply(partition, taskContext);
     }
 
     public static List<Operator<?>> getOperatorStageDependencies(Operator<?> operator)

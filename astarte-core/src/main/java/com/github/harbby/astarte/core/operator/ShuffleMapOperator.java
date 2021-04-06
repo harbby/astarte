@@ -25,12 +25,14 @@ import com.github.harbby.astarte.core.api.ShuffleWriter;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
+import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
+import java.util.List;
 
 import static com.github.harbby.astarte.core.operator.SortShuffleWriter.MERGE_FILE_NAME;
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
@@ -57,7 +59,7 @@ public class ShuffleMapOperator<K, V>
             Reducer<V> combine)
     {
         //use default HashPartitioner
-        super(operator);
+        super(operator.getContext());
         this.partitioner = requireNonNull(partitioner, "partitioner is null");
         this.operator = unboxing(operator);
         this.encoder = requireNonNull(operator.getRowEncoder(), "row Encoder is null");
@@ -83,6 +85,12 @@ public class ShuffleMapOperator<K, V>
     {
         checkState(stageId != -1, "ShuffleMapOperator " + this + " not set StageId");
         return stageId;
+    }
+
+    @Override
+    public List<? extends Operator<?>> getDependencies()
+    {
+        return ImmutableList.of(operator);
     }
 
     @Override

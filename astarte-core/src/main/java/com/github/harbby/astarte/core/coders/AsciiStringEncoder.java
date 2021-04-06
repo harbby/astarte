@@ -38,8 +38,7 @@ public class AsciiStringEncoder
             output.writeInt(-1);
             return;
         }
-        final int length = value.length();
-        output.writeInt(length);
+        output.writeInt(value.length());
         output.writeBytes(value);
     }
 

@@ -32,9 +32,11 @@ import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.astarte.core.coders.Tuple2Encoder;
 import com.github.harbby.astarte.core.utils.JoinUtil;
 import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -43,15 +45,17 @@ public class KvOperator<K, V>
         implements KvDataSet<K, V>
 {
     private final Operator<Tuple2<K, V>> dataSet;
-    /*
-     * 启用map端combine功能
-     */
-    private boolean combine = false; //context.getConf().getBoolean(SHUFFLE_MAP_COMBINE_ENABLE, true);
 
     public KvOperator(Operator<Tuple2<K, V>> dataSet)
     {
-        super(unboxing(dataSet));
+        super(dataSet.getContext());
         this.dataSet = unboxing(dataSet);
+    }
+
+    @Override
+    public List<? extends Operator<?>> getDependencies()
+    {
+        return ImmutableList.of(dataSet);
     }
 
     public Operator<? extends Tuple2<K, V>> getDataSet()
@@ -288,7 +292,7 @@ public class KvOperator<K, V>
         }
         else {
             // 进行shuffle
-            ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(dataSet, partitioner, this.getKeyEncoder().comparator(), reducer);
+            ShuffleMapOperator<K, V> shuffleMapper = new ShuffleMapOperator<>(dataSet, partitioner, this.getKeyEncoder().comparator(), clearedFunc);
             ShuffledMergeSortOperator<K, V> shuffledMergeSortOperator = new ShuffledMergeSortOperator<>(shuffleMapper, partitioner);
             return new KvOperator<>(new AggOperator<>(shuffledMergeSortOperator, clearedFunc));
         }

@@ -61,7 +61,7 @@ public class ForkVmExecutorManager
         //启动所有Executor
         for (int i = 0; i < executorNum; i++) {
             JVMLauncher<Integer> launcher = JVMLaunchers.<Integer>newJvm()
-                    .setName("astarte.TaskExecutor")
+                    //.setName("astarte.TaskExecutor")
                     .setEnvironment(Constant.DRIVER_SCHEDULER_ADDRESS, driverManagerAddress.toString())
                     .addUserjars(Utils.getSystemClassLoaderJars())
                     .setConsole(System.out::print)

@@ -23,9 +23,11 @@ import com.github.harbby.astarte.core.api.function.MapGroupFunc;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Tuple2Encoder;
 import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
+import java.util.List;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
@@ -47,11 +49,17 @@ public class FullAggOperator<K, V, O>
             Tuple2Encoder<K, O> encoder,
             boolean canCache)
     {
-        super(dataSet);
+        super(dataSet.getContext());
         this.dataSet = requireNonNull(unboxing(dataSet), "dataSet is null");
         this.mapGroupFunc = requireNonNull(mapGroupFunc);
         this.encoder = encoder;
         this.canCache = canCache;
+    }
+
+    @Override
+    public List<? extends Operator<?>> getDependencies()
+    {
+        return ImmutableList.of(dataSet);
     }
 
     @Override

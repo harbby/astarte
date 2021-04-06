@@ -20,8 +20,10 @@ import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.function.KvMapper;
 import com.github.harbby.astarte.core.api.function.Mapper;
+import com.github.harbby.gadtry.collection.ImmutableList;
 
 import java.util.Iterator;
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -37,7 +39,7 @@ public class MapPartitionOperator<I, O>
             Mapper<Iterator<I>, Iterator<O>> f,
             boolean holdPartitioner)
     {
-        super(dataSet);
+        super(dataSet.getContext());
         this.flatMapper = requireNonNull(f, "f is null");
         this.flatMapperWithId = null;
 
@@ -49,11 +51,17 @@ public class MapPartitionOperator<I, O>
             KvMapper<Integer, Iterator<I>, Iterator<O>> f,
             boolean holdPartitioner)
     {
-        super(dataSet);
+        super(dataSet.getContext());
         this.flatMapper = null;
         this.flatMapperWithId = requireNonNull(f, "f is null");
         this.dataSet = unboxing(dataSet);
         this.holdPartitioner = holdPartitioner;
+    }
+
+    @Override
+    public List<? extends Operator<?>> getDependencies()
+    {
+        return ImmutableList.of(dataSet);
     }
 
     @Override

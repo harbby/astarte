@@ -18,7 +18,7 @@ package com.github.harbby.astarte.core.api;
 import com.github.harbby.astarte.core.TaskContext;
 
 import java.io.Serializable;
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.util.Map;
 
 public interface Task<R>
@@ -34,5 +34,5 @@ public interface Task<R>
 
     Map<Integer, Integer> getDependStages();
 
-    Map<Integer, Map<Integer, SocketAddress>> getDependMapTasks();
+    Map<Integer, Map<Integer, InetSocketAddress>> getDependMapTasks();
 }

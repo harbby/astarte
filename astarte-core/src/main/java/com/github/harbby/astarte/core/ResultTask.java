@@ -20,7 +20,7 @@ import com.github.harbby.astarte.core.api.Task;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.operator.Operator;
 
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -32,7 +32,7 @@ public class ResultTask<E, R>
     private final Operator<E> operator;
     private final Mapper<Iterator<E>, R> func;
     private final Partition partition;
-    private final Map<Integer, Map<Integer, SocketAddress>> dependMapTasks;
+    private final Map<Integer, Map<Integer, InetSocketAddress>> dependMapTasks;
     private final Map<Integer, Integer> dependStages;
 
     public ResultTask(
@@ -41,7 +41,7 @@ public class ResultTask<E, R>
             Operator<E> operator,
             Mapper<Iterator<E>, R> func,
             Partition partition,
-            Map<Integer, Map<Integer, SocketAddress>> dependMapTasks,
+            Map<Integer, Map<Integer, InetSocketAddress>> dependMapTasks,
             Map<Integer, Integer> dependStages)
     {
         this.jobId = jobId;
@@ -66,7 +66,7 @@ public class ResultTask<E, R>
     }
 
     @Override
-    public Map<Integer, Map<Integer, SocketAddress>> getDependMapTasks()
+    public Map<Integer, Map<Integer, InetSocketAddress>> getDependMapTasks()
     {
         return dependMapTasks;
     }

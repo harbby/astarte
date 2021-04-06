@@ -15,12 +15,9 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
-import java.io.Serializable;
+import java.io.Externalizable;
 
-/**
- * todo: use google protobuf
- */
 public interface Event
-        extends Serializable
+        extends Externalizable
 {
 }

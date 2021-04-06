@@ -45,7 +45,7 @@ public class Executor
             throws Exception
     {
         pool = Executors.newFixedThreadPool(vcores);
-        this.shuffleBaseDir = new File("/tmp/astarte-" + UUID.randomUUID().toString());
+        this.shuffleBaseDir = new File(System.getProperty("java.io.tmpdir"), "astarte-" + UUID.randomUUID().toString());
         this.shuffleService = new ShuffleManagerService(shuffleBaseDir);
         this.executorBackend = new ExecutorBackend(this, driverManagerAddress);
         executorBackend.start(shuffleService.getShuffleServiceBindAddress());

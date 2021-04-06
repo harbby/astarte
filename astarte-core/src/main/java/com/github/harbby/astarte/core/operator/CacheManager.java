@@ -17,7 +17,6 @@ package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
-import com.github.harbby.astarte.core.coders.JavaEncoder;
 import com.github.harbby.astarte.core.memory.ByteCachedMemory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -180,9 +179,7 @@ public class CacheManager
         logger.debug("dataSet{}[{}] cache miss, stage: {}", dataSet, partitionId, taskContext.getStageId());
 
         Iterator<E> iterator = dataSet.compute(partition, taskContext);
-        CacheMemory<E> partitionCacheMemory = dataSet.getRowEncoder() instanceof JavaEncoder
-                ? new ObjectCacheMemory<>()
-                : new ByteCachedMemory<>(dataSet.getRowEncoder());
+        CacheMemory<E> partitionCacheMemory = new ByteCachedMemory<>(dataSet.getRowEncoder());
         dataSetCache.putCache(partitionId, partitionCacheMemory);
         return new Iterator<E>()
         {

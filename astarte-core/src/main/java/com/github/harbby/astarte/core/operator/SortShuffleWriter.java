@@ -258,7 +258,7 @@ public class SortShuffleWriter<K, V>
         private BufferedNioOutputStream bufferedNioOutput;
         private final List<Long> segmentEnds = new ArrayList<>();
         private final List<Integer> segmentRowSizes = new ArrayList<>();
-        private final List<Tuple2<K, V>> buffer = new ArrayList<>(BUFF_SIZE);
+        private final ArrayList<Tuple2<K, V>> buffer = new ArrayList<>(BUFF_SIZE);
         private final Comparator<K> comparator;
         private long mapTaskReadRowCount = 0;
 
@@ -303,14 +303,15 @@ public class SortShuffleWriter<K, V>
         public Iterator<Tuple2<K, V>> merger()
                 throws IOException
         {
+            if (segmentEnds.isEmpty()) {
+                buffer.sort((x, y) -> comparator.compare(x.f1(), y.f1()));
+                return Iterators.wrap(buffer).autoClose(buffer::clear);
+            }
+            //flush last segment
+            this.flushSegment();
+            this.buffer.trimToSize();
             //close spill file io
             this.writeFinish();
-            buffer.sort((x, y) -> comparator.compare(x.f1(), y.f1()));
-            Iterator<Tuple2<K, V>> memoryBuffer = Iterators.wrap(buffer).autoClose(buffer::clear);
-            if (segmentEnds.isEmpty()) {
-                return memoryBuffer;
-            }
-
             EncoderInputStream<Tuple2<K, V>>[] encoderInputStreams = new EncoderInputStream[segmentEnds.size()];
             long start = 0;
             for (int i = 0; i < segmentEnds.size(); i++) {
@@ -324,8 +325,7 @@ public class SortShuffleWriter<K, V>
                 start = end;
             }
             //merger
-            Iterator<Tuple2<K, V>> iterator = Iterators.mergeSorted((x, y) -> comparator.compare(x.f1, y.f1), encoderInputStreams);
-            return Iterators.concat(memoryBuffer, iterator);
+            return Iterators.mergeSorted((x, y) -> comparator.compare(x.f1, y.f1), encoderInputStreams);
         }
 
         public long getMapTaskReadRowCount()
@@ -401,14 +401,14 @@ public class SortShuffleWriter<K, V>
                     Iterator<Tuple2<K, V>> merger = reduceWriter.merger();
                     long rowCount = reduceWriter.getMapTaskReadRowCount();
                     if (combine != null) {
-                        merger = Iterators.reduceSorted(merger, combine);
                         long count = 0;
+                        merger = Iterators.reduceSorted(merger, combine);
                         while (merger.hasNext()) {
                             count++;
                             encoder.encoder(merger.next(), new DataOutputStream(lz4OutputStream));
                         }
+                        logger.info("shuffleMapTask merged combine {}/{} ratio: {}", count, rowCount, count * 1.0f / rowCount);
                         rowCount = count;
-                        logger.info("shuffleMapTask merged combine {}/{} ratio: {}", count, reduceWriter.getMapTaskReadRowCount(), count * 1.0f / reduceWriter.getMapTaskReadRowCount());
                     }
                     else {
                         while (merger.hasNext()) {

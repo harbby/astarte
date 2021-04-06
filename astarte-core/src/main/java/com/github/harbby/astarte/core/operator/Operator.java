@@ -36,7 +36,6 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -59,21 +58,12 @@ public abstract class Operator<R>
     private static final AtomicInteger nextDataSetId = new AtomicInteger(0);  //发号器
     protected final transient BatchContext context;
     private final int dataSetId = nextDataSetId.getAndIncrement();
-    private final List<Operator<?>> dataSets;
     private Encoder<R> rowEncoder;
     private boolean markedCache = false;
-
-    public Operator(Operator<?> dataSet)
-    {
-        checkState(dataSet != null, "dataSet is Empty");
-        this.dataSets = ImmutableList.of(unboxing(dataSet));
-        this.context = requireNonNull(dataSet.getContext(), "getContext is null " + dataSet);
-    }
 
     protected Operator(BatchContext context)
     {
         this.context = requireNonNull(context, "context is null");
-        this.dataSets = new ArrayList<>();
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -127,20 +117,14 @@ public abstract class Operator<R>
         return null;
     }
 
-    protected final Operator<?> lastParent()
-    {
-        return getDependencies().get(getDependencies().size() - 1);
-    }
-
-    public List<? extends Operator<?>> getDependencies()
-    {
-        return dataSets;
-    }
+    public abstract List<? extends Operator<?>> getDependencies();
 
     @Override
     public Partition[] getPartitions()
     {
-        Operator<?> dataSet = lastParent();
+        List<? extends Operator<?>> deps = getDependencies();
+        checkState(deps.size() > 0, "this operator %s is datasource?", this.getClass().getSimpleName());
+        Operator<?> dataSet = deps.get(deps.size() - 1);
         checkState(dataSet != null, this.getClass()
                 + " Parent Operator is null, Source Operator must @Override this Method");
         return dataSet.getPartitions();

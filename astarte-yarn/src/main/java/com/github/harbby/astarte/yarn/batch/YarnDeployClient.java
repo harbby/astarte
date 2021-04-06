@@ -223,7 +223,7 @@ public class YarnDeployClient
         if (!rootDir.exists()) {
             throw new NoSuchFileException("$ASTARTE_HOME/" + dir);
         }
-        File jarsArchive = File.createTempFile(ASTARTE_LIB_ARCHIVE, ".zip", new File("/tmp"));
+        File jarsArchive = File.createTempFile(ASTARTE_LIB_ARCHIVE, ".zip", new File(System.getProperty("java.io.tmpdir")));
         try (ZipOutputStream jarsStream = new ZipOutputStream(new FileOutputStream(jarsArchive))) {
             jarsStream.setLevel(0);
             for (File file : Files.listFiles(rootDir, true)) {

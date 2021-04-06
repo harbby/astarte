@@ -17,10 +17,12 @@ package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
+import com.github.harbby.astarte.core.api.Constant;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.function.Filter;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.gadtry.base.Throwables;
+import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.MutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple3;
 import com.github.harbby.gadtry.compiler.ByteClassLoader;
@@ -55,12 +57,14 @@ public abstract class CalcOperator<I, O>
 
     private final boolean holdPartitioner;
     private final Operator<I> dataSet;
+    private final boolean enableCodeGen;
 
     public CalcOperator(Operator<I> dataSet, boolean holdPartitioner)
     {
-        super(dataSet);
+        super(dataSet.getContext());
         this.dataSet = unboxing(dataSet);
         this.holdPartitioner = holdPartitioner;
+        this.enableCodeGen = context.getConf().getBoolean(Constant.CALC_OPERATOR_CODE_GENERATION_ENABLE, false);
     }
 
     public abstract Object getOperator();
@@ -70,6 +74,12 @@ public abstract class CalcOperator<I, O>
     public final boolean holdPartitioner()
     {
         return holdPartitioner;
+    }
+
+    @Override
+    public List<? extends Operator<?>> getDependencies()
+    {
+        return ImmutableList.of(dataSet);
     }
 
     @Override
@@ -102,21 +112,21 @@ public abstract class CalcOperator<I, O>
     @Override
     public Iterator<O> compute(Partition partition, TaskContext taskContext)
     {
-        if (dataSet instanceof CalcOperator && !dataSet.isMarkedCache()) {
+        if (enableCodeGen && dataSet instanceof CalcOperator && !dataSet.isMarkedCache()) {
             return (Iterator<O>) ((CalcOperator<?, ?>) dataSet).codeGenPlan(partition, taskContext, MutableList.of(this));
         }
         return doCompute(dataSet.computeOrCache(partition, taskContext));
     }
 
     @SuppressWarnings("unchecked")
-    public static <I, O> Iterator<O> doCodeGen(Iterator<?> iterator, List<CalcOperator<?, ?>> operators)
+    public static <I, O> Iterator<O> doCodeGen(Iterator<I> iterator, List<CalcOperator<?, ?>> operators)
     {
         if (operators.size() == 0) {
             return (Iterator<O>) iterator;
         }
         if (operators.size() == 1) {
             CalcOperator<I, O> calcOperator = (CalcOperator<I, O>) operators.get(0);
-            return calcOperator.doCompute((Iterator<I>) iterator);
+            return calcOperator.doCompute(iterator);
         }
         ByteClassLoader classLoader = new ByteClassLoader(ClassLoader.getSystemClassLoader());
         Class<?> aClass = prepareCode(calcCodeModel, classLoader, operators);
@@ -222,6 +232,7 @@ public abstract class CalcOperator<I, O>
 
         JavaSourceObject javaFileObject = javaClassCompiler.doCompile(classFullName, classCode, Collections.singletonList("-XDuseUnsharedTable"));
         byte[] bytes = javaFileObject.getClassByteCodes().get(classFullName);
+        logger.info("code generation compiled ,class {} byte size {}", classFullName, bytes.length);
         requireNonNull(bytes, "not found " + classFullName + ".class");
         return classLoader.loadClass(classFullName, bytes);
     }

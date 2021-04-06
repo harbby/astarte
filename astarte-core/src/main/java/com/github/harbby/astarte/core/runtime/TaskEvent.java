@@ -15,6 +15,10 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+
 public interface TaskEvent
         extends Event
 {
@@ -35,9 +39,9 @@ public interface TaskEvent
     public static class TaskFailed
             implements TaskEvent
     {
-        private final int jobId;
-        private final int taskId;
-        private final String error;
+        private int jobId;
+        private int taskId;
+        private String error;
 
         public TaskFailed(int jobId, int taskId, String error)
         {
@@ -45,6 +49,8 @@ public interface TaskEvent
             this.taskId = taskId;
             this.error = error;
         }
+
+        public TaskFailed() {}
 
         @Override
         public int getJobId()
@@ -62,14 +68,32 @@ public interface TaskEvent
         {
             return taskId;
         }
+
+        @Override
+        public void writeExternal(ObjectOutput out)
+                throws IOException
+        {
+            out.writeInt(jobId);
+            out.writeInt(taskId);
+            out.writeUTF(error);
+        }
+
+        @Override
+        public void readExternal(ObjectInput in)
+                throws IOException, ClassNotFoundException
+        {
+            this.jobId = in.readInt();
+            this.taskId = in.readInt();
+            this.error = in.readUTF();
+        }
     }
 
     public static class TaskSuccess
             implements TaskEvent
     {
-        private final int jobId;
-        private final int taskId;
-        private final Object result;
+        private int jobId;
+        private int taskId;
+        private Object result;
 
         public TaskSuccess(int jobId, int taskId, Object result)
         {
@@ -78,6 +102,8 @@ public interface TaskEvent
             //check result serializable
             this.result = result;
         }
+
+        public TaskSuccess() {}
 
         @Override
         public int getTaskId()
@@ -94,6 +120,24 @@ public interface TaskEvent
         public int getJobId()
         {
             return jobId;
+        }
+
+        @Override
+        public void writeExternal(ObjectOutput out)
+                throws IOException
+        {
+            out.writeInt(jobId);
+            out.writeInt(taskId);
+            out.writeObject(result);
+        }
+
+        @Override
+        public void readExternal(ObjectInput in)
+                throws IOException, ClassNotFoundException
+        {
+            this.jobId = in.readInt();
+            this.taskId = in.readInt();
+            this.result = in.readObject();
         }
     }
 }

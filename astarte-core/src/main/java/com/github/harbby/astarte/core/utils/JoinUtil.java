@@ -17,10 +17,12 @@ package com.github.harbby.astarte.core.utils;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Mapper;
+import com.github.harbby.astarte.core.operator.CalcOperator;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -153,13 +155,19 @@ public class JoinUtil
     public static <K, V1, V2> Iterator<Tuple2<K, Tuple2<V1, V2>>> sameJoin(
             Iterator<? extends Tuple2<K, ?>> iterator)
     {
-        return sameJoin(iterator, i -> i, i -> i);
+        return sameJoin(iterator,
+                (Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V1>>>) it -> {
+                    return CalcOperator.doCodeGen(it, Collections.emptyList());
+                },
+                (Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V2>>>) it -> {
+                    return CalcOperator.doCodeGen(it, Collections.emptyList());
+                });
     }
 
     public static <K, V1, V2> Iterator<Tuple2<K, Tuple2<V1, V2>>> sameJoin(
             Iterator<? extends Tuple2<K, ?>> iterator,
-            Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>> leftMapOperator,
-            Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, ?>>> rightMapOperator)
+            Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V1>>> leftMapOperator,
+            Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V2>>> rightMapOperator)
     {
         return new Iterator<Tuple2<K, Tuple2<V1, V2>>>()
         {
@@ -202,16 +210,15 @@ public class JoinUtil
                 return false;
             }
 
-            @SuppressWarnings("unchecked")
             private Iterator<Tuple2<K, Tuple2<V1, V2>>> propreChild()
             {
-                Iterator<Tuple2<K, ?>> left = leftMapOperator.map(leftIterator);
-                Iterator<Tuple2<K, ?>> right = rightMapOperator.map(rightIterator);
+                Iterator<Tuple2<K, V1>> left = leftMapOperator.map(leftIterator);
+                Iterator<Tuple2<K, V2>> right = rightMapOperator.map(rightIterator);
                 //笛卡尔积,如果是多个dataset同时Join,则唯一变化时这里变成多个笛卡尔积
                 return Iterators.flatMap(left,
                         x -> {
                             rightIterator.reset();
-                            return Iterators.map(right, y -> Tuple2.of(x.f1, Tuple2.of((V1) x.f2, (V2) y.f2)));
+                            return Iterators.map(right, y -> Tuple2.of(x.f1, Tuple2.of(x.f2, y.f2)));
                         });
             }
 

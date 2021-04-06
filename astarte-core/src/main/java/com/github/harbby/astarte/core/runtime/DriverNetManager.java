@@ -55,7 +55,7 @@ public class DriverNetManager
     private static final Logger logger = LoggerFactory.getLogger(DriverNetManager.class);
     private final ChannelFuture future;
 
-    private final ConcurrentMap<SocketAddress, DriverNetManagerHandler> executorHandlers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<InetSocketAddress, DriverNetManagerHandler> executorHandlers = new ConcurrentHashMap<>();
     private final BlockingQueue<TaskEvent> queue = new LinkedBlockingQueue<>(65536);
     private final int executorNum;
 
@@ -134,11 +134,11 @@ public class DriverNetManager
         queue.clear();
     }
 
-    public SocketAddress submitTask(Task<?> task)
+    public InetSocketAddress submitTask(Task<?> task)
     {
-        List<SocketAddress> addresses = new ArrayList<>(executorHandlers.keySet());
+        List<InetSocketAddress> addresses = new ArrayList<>(executorHandlers.keySet());
         //cache算子会使得Executor节点拥有状态，调度时应注意幂等
-        SocketAddress address = addresses.get(task.getTaskId() % executorNum);
+        InetSocketAddress address = addresses.get(task.getTaskId() % executorNum);
         executorHandlers.get(address).submitTask(task);
         return address;
     }
@@ -175,7 +175,7 @@ public class DriverNetManager
             ReferenceCountUtil.release(in);
             Event event = Serializables.byteToObject(bytes);
             if (event instanceof ExecutorEvent.ExecutorInitSuccessEvent) {
-                SocketAddress shuffleService = ((ExecutorEvent.ExecutorInitSuccessEvent) event).getShuffleServiceAddress();
+                InetSocketAddress shuffleService = ((ExecutorEvent.ExecutorInitSuccessEvent) event).getShuffleServiceAddress();
                 logger.info("executor {} register succeed, shuffle service bind {}", ctx.channel().remoteAddress(), shuffleService);
                 executorHandlers.put(shuffleService, this);
             }

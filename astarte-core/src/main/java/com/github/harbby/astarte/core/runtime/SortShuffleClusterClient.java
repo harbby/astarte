@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -56,10 +56,10 @@ public class SortShuffleClusterClient
 {
     static final ByteBuf STOP_DOWNLOAD = Unpooled.EMPTY_BUFFER;
     private static final Logger logger = LoggerFactory.getLogger(SortShuffleClusterClient.class);
-    private final Map<Integer, Map<Integer, SocketAddress>> dependMapTasks;
+    private final Map<Integer, Map<Integer, InetSocketAddress>> dependMapTasks;
     List<NioEventLoopGroup> eventLoopGroups = new ArrayList<>();
 
-    public SortShuffleClusterClient(Map<Integer, Map<Integer, SocketAddress>> dependMapTasks)
+    public SortShuffleClusterClient(Map<Integer, Map<Integer, InetSocketAddress>> dependMapTasks)
     {
         this.dependMapTasks = dependMapTasks;
     }
@@ -68,7 +68,7 @@ public class SortShuffleClusterClient
     public <K, V> Iterator<Tuple2<K, V>> createShuffleReader(Comparator<K> comparator, Encoder<Tuple2<K, V>> encoder, int shuffleId, int reduceId)
             throws IOException
     {
-        Map<Integer, SocketAddress> mapTaskIds = dependMapTasks.get(shuffleId);
+        Map<Integer, InetSocketAddress> mapTaskIds = dependMapTasks.get(shuffleId);
         List<ShuffleClientHandler<K, V>> handlers = new ArrayList<>();
         NioEventLoopGroup workerGroup = new NioEventLoopGroup(mapTaskIds.size(), r -> {
             Thread thread = new Thread(r);
@@ -77,7 +77,7 @@ public class SortShuffleClusterClient
             return thread;
         });
         eventLoopGroups.add(workerGroup);
-        for (Map.Entry<Integer, SocketAddress> entry : mapTaskIds.entrySet()) {
+        for (Map.Entry<Integer, InetSocketAddress> entry : mapTaskIds.entrySet()) {
             ShuffleClientHandler<K, V> shuffleClientHandler = new ShuffleClientHandler<>(encoder, shuffleId, reduceId, entry.getKey());
             Bootstrap bootstrap = new Bootstrap();
             bootstrap.group(workerGroup)
