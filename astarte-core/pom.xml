@@ -57,6 +57,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
+                <configuration>
+                    <excludes>com/github/harbby/astarte/core/coders/io/LZ4BlockOutputStream.java</excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <configuration>

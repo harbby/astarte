@@ -21,12 +21,12 @@ import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.EncoderInputStream;
+import com.github.harbby.astarte.core.coders.io.LZ4BlockOutputStream;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.io.BufferedNioOutputStream;
 import com.github.harbby.gadtry.io.LimitInputStream;
 import net.jpountz.lz4.LZ4BlockInputStream;
-import net.jpountz.lz4.LZ4BlockOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -256,6 +256,9 @@ public class SortShuffleWriter<K, V>
         private final Encoder<Tuple2<K, V>> encoder;
         private final File spillsFile;
         private BufferedNioOutputStream bufferedNioOutput;
+        private LZ4BlockOutputStream lz4BlockOutputStream;
+        private DataOutputStream dataOutput;
+
         private final List<Long> segmentEnds = new ArrayList<>();
         private final List<Integer> segmentRowSizes = new ArrayList<>();
         private final ArrayList<Tuple2<K, V>> buffer = new ArrayList<>(BUFF_SIZE);
@@ -277,14 +280,17 @@ public class SortShuffleWriter<K, V>
         {
             if (bufferedNioOutput == null) {
                 this.bufferedNioOutput = new BufferedNioOutputStream(new FileOutputStream(spillsFile, false).getChannel());
+                this.lz4BlockOutputStream = new LZ4BlockOutputStream(bufferedNioOutput);
+                this.dataOutput = new DataOutputStream(lz4BlockOutputStream);
             }
+
             buffer.sort((x, y) -> comparator.compare(x.f1(), y.f1()));
-            LZ4BlockOutputStream lz4BlockOutputStream = new LZ4BlockOutputStream(bufferedNioOutput);
-            DataOutputStream dataOutput = new DataOutputStream(lz4BlockOutputStream);
+
             for (Tuple2<K, V> kv : buffer) {
                 encoder.encoder(kv, dataOutput);
             }
             lz4BlockOutputStream.finish();
+            lz4BlockOutputStream.init(); //reset state
             segmentEnds.add(bufferedNioOutput.position());
             segmentRowSizes.add(buffer.size());
             buffer.clear();
@@ -397,6 +403,7 @@ public class SortShuffleWriter<K, V>
                         continue;
                     }
                     LZ4BlockOutputStream lz4OutputStream = new LZ4BlockOutputStream(bufferedNioOutputStream);
+                    DataOutputStream dataOutputStream = new DataOutputStream(lz4OutputStream);
                     //merger
                     Iterator<Tuple2<K, V>> merger = reduceWriter.merger();
                     long rowCount = reduceWriter.getMapTaskReadRowCount();
@@ -405,14 +412,14 @@ public class SortShuffleWriter<K, V>
                         merger = Iterators.reduceSorted(merger, combine);
                         while (merger.hasNext()) {
                             count++;
-                            encoder.encoder(merger.next(), new DataOutputStream(lz4OutputStream));
+                            encoder.encoder(merger.next(), dataOutputStream);
                         }
                         logger.info("shuffleMapTask merged combine {}/{} ratio: {}", count, rowCount, count * 1.0f / rowCount);
                         rowCount = count;
                     }
                     else {
                         while (merger.hasNext()) {
-                            encoder.encoder(merger.next(), new DataOutputStream(lz4OutputStream));
+                            encoder.encoder(merger.next(), dataOutputStream);
                         }
                     }
                     lz4OutputStream.finish();
