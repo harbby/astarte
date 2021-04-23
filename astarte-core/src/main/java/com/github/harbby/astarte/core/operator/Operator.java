@@ -140,7 +140,7 @@ public abstract class Operator<R>
     public final Iterator<R> computeOrCache(Partition split, TaskContext taskContext)
     {
         if (markedCache) {
-            return CacheManager.compute(this, dataSetId, split, taskContext);
+            return CacheManager.getOrSaveCache(this, split, taskContext);
         }
         else {
             return this.compute(split, taskContext);

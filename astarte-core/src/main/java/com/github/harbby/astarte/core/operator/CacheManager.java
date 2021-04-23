@@ -164,13 +164,13 @@ public class CacheManager
     /**
      * todo: fix bugs
      */
-    public static <E> Iterator<E> compute(Operator<E> dataSet, int dataSetId, Partition partition, TaskContext taskContext)
+    public static <E> Iterator<E> getOrSaveCache(Operator<E> dataSet, Partition partition, TaskContext taskContext)
     {
         int partitionId = partition.getId();
         int numPartitions = dataSet.numPartitions();
         @SuppressWarnings("unchecked")
         DataSetCache<E> dataSetCache = (DataSetCache<E>) cacheMemMap
-                .computeIfAbsent(dataSetId, key -> new DataSetCache<E>(dataSetId, numPartitions));
+                .computeIfAbsent(dataSet.getId(), key -> new DataSetCache<E>(dataSet.getId(), numPartitions));
 
         if (dataSetCache.getCache(partitionId) != null) {
             logger.debug("dataSet{}[{}] cache hit, stage: {}", dataSet, partitionId, taskContext.getStageId());

@@ -52,7 +52,7 @@ public class KeyValueGroupedOperator<K, R>
         Operator<Tuple2<K, R>> kv = dataSet.kvDataSet(row -> new Tuple2<>(mapFunc.map(row), row));
         ShuffleMapOperator<K, R> shuffleMapper = new ShuffleMapOperator<>(kv, kv.numPartitions(), Encoder.anyComparator(), null);
         ShuffledMergeSortOperator<K, R> shuffleReducer = new ShuffledMergeSortOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
-        return new KvOperator<>(new FullAggOperator<>(shuffleReducer, mapGroupFunc, encoder, true)).values();
+        return new KvOperator<>(new FullAggOperator<>(shuffleReducer, mapGroupFunc, encoder)).values();
     }
 
     public KvDataSet<K, R> reduceGroups(Reducer<R> reducer)

@@ -29,7 +29,6 @@ import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -41,19 +40,16 @@ public class FullAggOperator<K, V, O>
     private final Operator<Tuple2<K, V>> dataSet;
     private final MapGroupFunc<K, V, O> mapGroupFunc;
     private final Tuple2Encoder<K, O> encoder;
-    private final boolean canCache;
 
     public FullAggOperator(
             Operator<Tuple2<K, V>> dataSet,
             MapGroupFunc<K, V, O> mapGroupFunc,
-            Tuple2Encoder<K, O> encoder,
-            boolean canCache)
+            Tuple2Encoder<K, O> encoder)
     {
         super(dataSet.getContext());
         this.dataSet = requireNonNull(unboxing(dataSet), "dataSet is null");
         this.mapGroupFunc = requireNonNull(mapGroupFunc);
         this.encoder = encoder;
-        this.canCache = canCache;
     }
 
     @Override
@@ -65,8 +61,16 @@ public class FullAggOperator<K, V, O>
     @Override
     public DataSet<Tuple2<K, O>> cache(CacheManager.CacheMode cacheMode)
     {
-        checkState(canCache, "groupByKey() don't can Cache");
-        return super.cache(cacheMode);
+        logger.info("groupByKey operator pushdown cache() to {}", dataSet);
+        dataSet.cache(cacheMode);
+        return this;
+    }
+
+    @Override
+    public void unCache()
+    {
+        logger.info("groupByKey operator pushdown unCache() to {}", dataSet);
+        dataSet.cache();
     }
 
     @Override

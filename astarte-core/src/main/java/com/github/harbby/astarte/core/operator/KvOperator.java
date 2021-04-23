@@ -244,7 +244,7 @@ public class KvOperator<K, V>
         Tuple2Encoder<K, Iterator<V>> encoder = Encoders.tuple2(this.getKeyEncoder(), Encoders.javaEncoder());
         if (new HashPartitioner(dataSet.numPartitions()).equals(partitioner)) {
             // 因为上一个stage已经按照相同的分区器, 将数据分好，因此这里我们无需shuffle
-            return new KvOperator<>(new FullAggOperator<>(dataSet, (k, iterator) -> iterator, encoder, false));
+            return new KvOperator<>(new FullAggOperator<>(dataSet, (k, iterator) -> iterator, encoder));
         }
         else {
             // 进行shuffle
@@ -252,7 +252,7 @@ public class KvOperator<K, V>
                     new HashPartitioner(dataSet.numPartitions()), getKeyEncoder().comparator(),
                     null);
             ShuffledMergeSortOperator<K, V> shuffleReducer = new ShuffledMergeSortOperator<>(shuffleMapper, shuffleMapper.getPartitioner());
-            return new KvOperator<>(new FullAggOperator<>(shuffleReducer, (k, iterator) -> iterator, encoder, false));
+            return new KvOperator<>(new FullAggOperator<>(shuffleReducer, (k, iterator) -> iterator, encoder));
         }
     }
 

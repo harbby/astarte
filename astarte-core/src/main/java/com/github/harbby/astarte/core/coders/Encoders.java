@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Timestamp;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.function.Supplier;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
@@ -151,6 +152,11 @@ public final class Encoders
     {
         requireNonNull(kEncoder, "key Encoder is null");
         return new Tuple2Encoder.Tuple2OnlyKeyEncoder<>(kEncoder);
+    }
+
+    public static <E> Encoder<Iterator<E>> iteratorEncoder(Encoder<E> eEncoder)
+    {
+        return new LengthIteratorEncoder<>(eEncoder);
     }
 
     public static Encoder<String> jCharString()

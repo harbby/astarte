@@ -50,14 +50,14 @@ public class PageRankTest
         KvDataSet<String, List<String>> links = lines.kvDataSet(s -> {
             String[] parts = s.split("\\s+");
             return new Tuple2<>(parts[0], parts[1]);
-        }).distinct(2).groupByKey().mapValues(MutableList::copy)
+        }).distinct(2).groupByKey()
+                .mapValues(MutableList::copy)
                 .cache();
 
-        links.collect();
         KvDataSet<String, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {
             DataSet<Tuple2<String, Double>> contribs = links.join(ranks).values().flatMapIterator(it -> {
-                List<String> urls = MutableList.copy(it.f1);
+                List<String> urls = it.f1;
                 Double rank = it.f2();
 
                 long size = urls.size();
