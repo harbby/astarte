@@ -32,7 +32,8 @@ public class DateEncoder
     protected DateEncoder() {}
 
     @Override
-    public void encoder(Date value, DataOutput output) throws IOException
+    public void encoder(Date value, DataOutput output)
+            throws IOException
     {
         if (value == null) {
             output.writeLong(Long.MIN_VALUE);
@@ -43,7 +44,8 @@ public class DateEncoder
     }
 
     @Override
-    public Date decoder(DataInput input) throws IOException
+    public Date decoder(DataInput input)
+            throws IOException
     {
         final long l = input.readLong();
         if (l == Long.MIN_VALUE) {

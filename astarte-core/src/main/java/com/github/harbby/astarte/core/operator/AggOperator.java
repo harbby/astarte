@@ -18,11 +18,11 @@ package com.github.harbby.astarte.core.operator;
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
-import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.astarte.core.utils.AggUtil;
 import com.github.harbby.gadtry.collection.ImmutableList;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
 import java.util.List;
@@ -67,6 +67,6 @@ public class AggOperator<K, V>
     {
         Iterator<Tuple2<K, V>> input = operator.computeOrCache(split, taskContext);
         //sort merge shuffle reducer
-        return Iterators.reduceSorted(input, reducer);
+        return AggUtil.reduceSorted(input, reducer);
     }
 }

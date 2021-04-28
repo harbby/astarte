@@ -32,13 +32,15 @@ public class FloatEncoder
     protected FloatEncoder() {}
 
     @Override
-    public void encoder(Float value, DataOutput output) throws IOException
+    public void encoder(Float value, DataOutput output)
+            throws IOException
     {
         output.writeFloat(value);
     }
 
     @Override
-    public Float decoder(DataInput input) throws IOException
+    public Float decoder(DataInput input)
+            throws IOException
     {
         return input.readFloat();
     }

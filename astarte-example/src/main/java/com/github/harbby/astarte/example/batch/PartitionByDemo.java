@@ -18,7 +18,7 @@ package com.github.harbby.astarte.example.batch;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.github.harbby.astarte.core.api.Tuple2;
 
 public class PartitionByDemo
 {
@@ -32,7 +32,7 @@ public class PartitionByDemo
         DataSet<String> worlds = ds.flatMap(input -> input.toLowerCase().split(" "))
                 .filter(x -> !"".equals(x.trim()));
 
-        KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> new Tuple2<>(x, 1L));
+        KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> Tuple2.of(x, 1L));
         KvDataSet<String, Long> worldCounts = kvDataSet.rePartitionByKey(2).reduceByKey(Long::sum);
 
         KvDataSet<String, Long> worldCounts2 = worldCounts
@@ -42,6 +42,6 @@ public class PartitionByDemo
 
         //List a1 = worldCounts2.collect();  //job2
         //long cnt = worldCounts2.count();  //job3
-        worldCounts2.foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
+        worldCounts2.foreach(x -> System.out.println(x.key() + "," + x.value()));  //job4
     }
 }

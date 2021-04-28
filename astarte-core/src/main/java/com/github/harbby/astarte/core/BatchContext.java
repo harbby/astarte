@@ -18,6 +18,7 @@ package com.github.harbby.astarte.core;
 import com.github.harbby.astarte.core.api.AstarteConf;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
@@ -33,7 +34,6 @@ import com.github.harbby.astarte.core.runtime.LocalJobScheduler;
 import com.github.harbby.astarte.core.runtime.LocalNettyExecutorManager;
 import com.github.harbby.gadtry.base.Lazys;
 import com.github.harbby.gadtry.collection.ImmutableList;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.function.Function1;
 
 import java.net.URI;

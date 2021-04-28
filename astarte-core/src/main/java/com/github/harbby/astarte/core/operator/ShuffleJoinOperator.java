@@ -18,13 +18,13 @@ package com.github.harbby.astarte.core.operator;
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.Partition;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.runtime.ShuffleClient;
 import com.github.harbby.astarte.core.utils.JoinUtil;
 import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.ImmutableList;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.IOException;
 import java.util.Iterator;

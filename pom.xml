@@ -23,7 +23,7 @@
     <properties>
         <netty.version>4.1.58.Final</netty.version>
         <hadoop.version>3.2.1</hadoop.version>
-        <gadtry.version>1.8.5-SNAPSHOT</gadtry.version>
+        <gadtry.version>1.8.6-SNAPSHOT</gadtry.version>
         <guava.version>30.1-jre</guava.version>
         <commons-io>2.6</commons-io>
         <slf4j.version>1.7.25</slf4j.version>

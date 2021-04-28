@@ -33,7 +33,8 @@ public class SqlDateEncoder
     protected SqlDateEncoder() {}
 
     @Override
-    public void encoder(Date value, DataOutput output) throws IOException
+    public void encoder(Date value, DataOutput output)
+            throws IOException
     {
         if (value == null) {
             output.writeLong(-1);
@@ -44,7 +45,8 @@ public class SqlDateEncoder
     }
 
     @Override
-    public Date decoder(DataInput input) throws IOException
+    public Date decoder(DataInput input)
+            throws IOException
     {
         final long l = input.readLong();
         if (l == -1) {

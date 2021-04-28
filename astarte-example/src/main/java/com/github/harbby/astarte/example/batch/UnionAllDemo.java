@@ -17,7 +17,7 @@ package com.github.harbby.astarte.example.batch;
 
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.KvDataSet;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.github.harbby.astarte.core.api.Tuple2;
 
 import java.util.Arrays;
 
@@ -42,6 +42,6 @@ public class UnionAllDemo
         ), 1).reduceByKey(Integer::sum);
 
         KvDataSet<String, Integer> out = ds1.unionAll(ds2).reduceByKey(Integer::sum);
-        out.collect().forEach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
+        out.collect().forEach(x -> System.out.println(x.key() + "," + x.value()));  //job4
     }
 }

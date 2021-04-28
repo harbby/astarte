@@ -17,9 +17,9 @@ package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.collection.MutableMap;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -51,11 +51,11 @@ public class KeyValueGroupedOperatorTest
                     Map<Integer, StringBuilder> keyGroup = new HashMap<>();
                     while (partition.hasNext()) {
                         Tuple2<Integer, String> row = partition.next();
-                        keyGroup.computeIfAbsent(row.f1, k -> new StringBuilder()).append(row.f2);
+                        keyGroup.computeIfAbsent(row.key(), k -> new StringBuilder()).append(row.value());
                     }
-                    return keyGroup.entrySet().stream().map(x -> new Tuple2<>(x.getKey(), x.getValue())).iterator();
+                    return keyGroup.entrySet().stream().map(x -> Tuple2.of(x.getKey(), x.getValue())).iterator();
                 });
-        Map<Integer, String> result = dataSet.collect().stream().collect(Collectors.toMap(k -> k.getKey(), v -> v.getValue().toString()));
+        Map<Integer, String> result = dataSet.collect().stream().collect(Collectors.toMap(k -> k.key(), v -> v.value().toString()));
         Assert.assertEquals(result, MutableMap.of(0, "bbb", 1, "aa"));
     }
 }

@@ -18,8 +18,8 @@ package com.github.harbby.astarte.example.batch;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.coders.Encoders;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -40,7 +40,7 @@ public class PageRankClueWeb09
 {
     private PageRankClueWeb09() {}
 
-    private static final String DATA_PATH = "/data/data/ClueWeb09_WG_50m.graph-txt";
+    private static final String DATA_PATH = "/ideal/data/page_rank/ClueWeb09_WG_50m.graph-txt";
 
     public static void main(String[] args)
             throws Exception
@@ -48,7 +48,9 @@ public class PageRankClueWeb09
         BatchContext mppContext = BatchContext.builder().netLocal(2).getOrCreate();
         int iters = 3;  //迭代次数
 
-        DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(new String[] {DATA_PATH}).flatMapIterator(FileIteratorReader::new);
+        DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(new String[] {DATA_PATH})
+                .flatMapIterator(FileIteratorReader::new);
+                //.partitionLimit(100);
         KvDataSet<Integer, int[]> links = KvDataSet.toKvDataSet(lines)
                 .encoder(Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray()))
                 .rePartitionByKey(2)
@@ -57,11 +59,11 @@ public class PageRankClueWeb09
         KvDataSet<Integer, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {
             DataSet<Tuple2<Integer, Double>> contribs = links.join(ranks).values().flatMapIterator(it -> {
-                int[] urls = it.f1();
-                double rank = it.f2();
+                int[] urls = it.key();
+                double rank = it.value();
 
                 int size = urls.length;
-                return IntStream.of(urls).mapToObj(url -> new Tuple2<>(url, rank / size)).iterator();
+                return IntStream.of(urls).mapToObj(url -> Tuple2.of(url, rank / size)).iterator();
             });
 
             ranks = KvDataSet.toKvDataSet(contribs)
@@ -69,7 +71,7 @@ public class PageRankClueWeb09
                     .reduceByKey(Double::sum).mapValues(x -> 0.15 + 0.85 * x);
         }
         List<Tuple2<Integer, Double>> output = ranks.partitionLimit(10).collect();
-        output.forEach(tup -> System.out.printf("%s has rank:  %s .%n", tup.f1(), tup.f2()));
+        output.forEach(tup -> System.out.printf("%s has rank:  %s .%n", tup.key(), tup.value()));
 
         mppContext.stop();
     }
@@ -133,7 +135,7 @@ public class PageRankClueWeb09
                 targetIds[i] = Integer.parseInt(targets[i]);
             }
             this.line = null;
-            return new Tuple2<>(number, targetIds);
+            return Tuple2.of(number, targetIds);
         }
     }
 }

@@ -30,7 +30,8 @@ public class ByteStringEncoder
 {
     //todo 有缺陷，如果字符串长度很大，会有问题
     @Override
-    public void encoder(String value, DataOutput output) throws IOException
+    public void encoder(String value, DataOutput output)
+            throws IOException
     {
         if (value != null) {
             final int length = value.length();
@@ -41,8 +42,10 @@ public class ByteStringEncoder
             output.writeInt(0);
         }
     }
+
     @Override
-    public String decoder(DataInput input) throws IOException
+    public String decoder(DataInput input)
+            throws IOException
     {
         final int length = input.readInt();
         if (length == 0) {

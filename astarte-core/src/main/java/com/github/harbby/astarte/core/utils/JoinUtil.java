@@ -15,11 +15,12 @@
  */
 package com.github.harbby.astarte.core.utils;
 
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.operator.CalcOperator;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.github.harbby.gadtry.collection.iterator.MarkIterator;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +32,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * 实验性join
@@ -64,34 +66,34 @@ public class JoinUtil
         Map<K, List<V1>> cacheLeft = new HashMap<>();
         while (left.hasNext()) {
             Tuple2<K, V1> row = left.next();
-            List<V1> values = cacheLeft.computeIfAbsent(row.f1, key -> new ArrayList<>());
-            values.add(row.f2);
+            List<V1> values = cacheLeft.computeIfAbsent(row.key(), key -> new ArrayList<>());
+            values.add(row.value());
         }
         switch (joinMode) {
             case INNER_JOIN:
                 return Iterators.flatMap(right, rightRow -> {
-                    List<V1> values = cacheLeft.get(rightRow.f1);
+                    List<V1> values = cacheLeft.get(rightRow.key());
                     if (values == null) {
                         return Iterators.empty();
                     }
                     else if (values.size() == 1) {
-                        return Iterators.of(Tuple2.of(rightRow.f1, Tuple2.of(values.get(0), rightRow.f2)));
+                        return Iterators.of(Tuple2.of(rightRow.key(), Tuple2.of(values.get(0), rightRow.value())));
                     }
                     return values.stream().map(v -> {
-                        return Tuple2.of(rightRow.f1, Tuple2.of(v, rightRow.f2));
+                        return Tuple2.of(rightRow.key(), Tuple2.of(v, rightRow.value()));
                     }).iterator();
                 });
             case RIGHT_JOIN:
                 return Iterators.flatMap(right, rightRow -> {
-                    List<V1> values = cacheLeft.get(rightRow.f1);
+                    List<V1> values = cacheLeft.get(rightRow.key());
                     if (values == null) {
-                        return Iterators.of(Tuple2.of(rightRow.f1, Tuple2.of(null, rightRow.f2)));
+                        return Iterators.of(Tuple2.of(rightRow.key(), Tuple2.of(null, rightRow.value())));
                     }
                     else if (values.size() == 1) {
-                        return Iterators.of(Tuple2.of(rightRow.f1, Tuple2.of(values.get(0), rightRow.f2)));
+                        return Iterators.of(Tuple2.of(rightRow.key(), Tuple2.of(values.get(0), rightRow.value())));
                     }
                     return values.stream().map(v -> {
-                        return Tuple2.of(rightRow.f1, Tuple2.of(v, rightRow.f2));
+                        return Tuple2.of(rightRow.key(), Tuple2.of(v, rightRow.value()));
                     }).iterator();
                 });
             default:
@@ -108,30 +110,30 @@ public class JoinUtil
         Map<K, Tuple2<List<V1>, Boolean>> cacheLeft = new HashMap<>();
         while (left.hasNext()) {
             Tuple2<K, V1> row = left.next();
-            Tuple2<List<V1>, Boolean> values = cacheLeft.computeIfAbsent(row.f1, key -> Tuple2.of(new ArrayList<>(), false));
-            values.f1.add(row.f2);
+            Tuple2<List<V1>, Boolean> values = cacheLeft.computeIfAbsent(row.key(), key -> Tuple2.of(new ArrayList<>(), false));
+            values.key().add(row.value());
         }
         Iterator<Tuple2<K, Tuple2<V1, V2>>> innerJoin = Iterators.flatMap(right, rightRow -> {
-            Tuple2<List<V1>, Boolean> values = cacheLeft.get(rightRow.f1);
+            Tuple2<List<V1>, Boolean> values = cacheLeft.get(rightRow.key());
             if (values == null) {
                 if (joinMode == JoinMode.LEFT_JOIN) {
                     return Iterators.empty();
                 }
                 else {
-                    return Iterators.of(Tuple2.of(rightRow.f1, Tuple2.of(null, rightRow.f2)));
+                    return Iterators.of(Tuple2.of(rightRow.key(), Tuple2.of(null, rightRow.value())));
                 }
             }
-            values.f2 = true; //标注为命中
-            if (values.f1.size() == 1) {
-                return Iterators.of(Tuple2.of(rightRow.f1, Tuple2.of(values.f1.get(0), rightRow.f2)));
+            values.setValue(true); //标注为命中
+            if (values.key().size() == 1) {
+                return Iterators.of(Tuple2.of(rightRow.key(), Tuple2.of(values.key().get(0), rightRow.value())));
             }
-            return values.f1.stream().map(v -> {
-                return Tuple2.of(rightRow.f1, Tuple2.of(v, rightRow.f2));
+            return values.key().stream().map(v -> {
+                return Tuple2.of(rightRow.key(), Tuple2.of(v, rightRow.value()));
             }).iterator();
         });
         Iterator<Tuple2<K, Tuple2<V1, V2>>> leftOnly = cacheLeft.entrySet().stream()
-                .filter(x -> !x.getValue().f2).map(x -> {
-                    return Tuple2.of(x.getKey(), Tuple2.of(x.getValue().f1.get(0), (V2) null));
+                .filter(x -> !x.getValue().value()).map(x -> {
+                    return Tuple2.of(x.getKey(), Tuple2.of(x.getValue().key().get(0), (V2) null));
                 }).iterator();
         return Iterators.concat(innerJoin, leftOnly);
     }
@@ -144,7 +146,7 @@ public class JoinUtil
     {
         switch (joinMode) {
             case INNER_JOIN: {
-                return Iterators.mergeJoin(comparator, leftStream, rightStream);
+                return AggUtil.mergeJoin(comparator, leftStream, rightStream);
             }
             default:
                 return join(joinMode, leftStream, rightStream);
@@ -164,6 +166,49 @@ public class JoinUtil
                 });
     }
 
+    public static <E> Iterators.MarkFixLenIterator<E> wrap(List<E> values)
+    {
+        requireNonNull(values, "values is null");
+
+        return new Iterators.MarkFixLenIterator<E>()
+        {
+            private int index = 0;
+
+            @Override
+            public int length()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public boolean hasNext()
+            {
+                return index < values.size();
+            }
+
+            @Override
+            public E next()
+            {
+                if (!this.hasNext()) {
+                    throw new NoSuchElementException();
+                }
+                return values.get(index++);
+            }
+
+            @Override
+            public void mark()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void reset()
+            {
+                this.index = 0;
+            }
+        };
+    }
+
     public static <K, V1, V2> Iterator<Tuple2<K, Tuple2<V1, V2>>> sameJoin(
             Iterator<? extends Tuple2<K, ?>> iterator,
             Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V1>>> leftMapOperator,
@@ -173,8 +218,8 @@ public class JoinUtil
         {
             private final List<Tuple2<K, ?>> sameKeyRows = new ArrayList<>();
             private Iterator<Tuple2<K, Tuple2<V1, V2>>> child = Iterators.empty();
-            private final Iterators.ResetIterator<Tuple2<K, ?>> leftIterator = Iterators.wrap(sameKeyRows);
-            private final Iterators.ResetIterator<Tuple2<K, ?>> rightIterator = Iterators.wrap(sameKeyRows);
+            private final MarkIterator<Tuple2<K, ?>> leftIterator = wrap(sameKeyRows);
+            private final MarkIterator<Tuple2<K, ?>> rightIterator = wrap(sameKeyRows);
             private Tuple2<K, ?> next;
 
             @Override
@@ -191,7 +236,7 @@ public class JoinUtil
                 }
                 while (iterator.hasNext()) {
                     Tuple2<K, ?> row = iterator.next();
-                    if (sameKeyRows.isEmpty() || Objects.equals(row.f1, sameKeyRows.get(0).f1)) {
+                    if (sameKeyRows.isEmpty() || Objects.equals(row.key(), sameKeyRows.get(0).key())) {
                         sameKeyRows.add(row);
                         continue;
                     }
@@ -218,7 +263,7 @@ public class JoinUtil
                 return Iterators.flatMap(left,
                         x -> {
                             rightIterator.reset();
-                            return Iterators.map(right, y -> Tuple2.of(x.f1, Tuple2.of(x.f2, y.f2)));
+                            return Iterators.map(right, y -> Tuple2.of(x.key(), Tuple2.of(x.value(), y.value())));
                         });
             }
 

@@ -18,8 +18,8 @@ package com.github.harbby.astarte.core.operator;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.coders.Encoders;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -76,7 +76,7 @@ public class CacheManagerTest
     public void cacheTest1()
     {
         DataSet<String> lines = mppContext.makeDataSet(new String[] {"1", "2", "3"});
-        KvDataSet<String, Integer> links = lines.kvDataSet(x -> new Tuple2<>(x, x.length()))
+        KvDataSet<String, Integer> links = lines.kvDataSet(x -> Tuple2.of(x, x.length()))
                 .encoder(Encoders.tuple2(Encoders.asciiString(), Encoders.jInt()))
                 .rePartitionByKey(2)
                 .cache();

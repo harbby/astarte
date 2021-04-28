@@ -23,6 +23,7 @@ import com.github.harbby.astarte.core.Utils;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.astarte.core.api.Partition;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Filter;
 import com.github.harbby.astarte.core.api.function.Foreach;
 import com.github.harbby.astarte.core.api.function.KvMapper;
@@ -30,9 +31,9 @@ import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
+import com.github.harbby.astarte.core.utils.AggUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.ImmutableList;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -232,7 +233,7 @@ public abstract class Operator<R>
     @Override
     public DataSet<R> distinct(Partitioner partitioner)
     {
-        return this.kvDataSet(x -> new Tuple2<>(x, null))
+        return this.kvDataSet(x -> Tuple2.of(x, null))
                 .reduceByKey((x, y) -> x, partitioner)
                 .keys();
     }
@@ -240,12 +241,12 @@ public abstract class Operator<R>
     @Override
     public DataSet<R> rePartition(int numPartition)
     {
-        Operator<Tuple2<R, Void>> dataSet = this.map(x -> new Tuple2<>(x, null));
+        Operator<Tuple2<R, Void>> dataSet = this.map(x -> Tuple2.of(x, null));
         dataSet.encoder(Encoders.tuple2OnlyKey(this.getRowEncoder()));
         ShuffleMapOperator<R, Void> shuffleMapOperator =
                 new ShuffleMapOperator<>(dataSet, new HashPartitioner(numPartition), this.getRowEncoder().comparator(), null);
         ShuffledMergeSortOperator<R, Void> shuffleReducer = new ShuffledMergeSortOperator<>(shuffleMapOperator, shuffleMapOperator.getPartitioner());
-        return shuffleReducer.map(Tuple2::f1);
+        return shuffleReducer.map(Tuple2::key);
     }
 
     @Override
@@ -343,20 +344,20 @@ public abstract class Operator<R>
     public KvDataSet<R, Long> zipWithIndex()
     {
         List<Tuple2<Integer, Long>> list = this.mapPartitionWithId((id, it) ->
-                Iterators.of(new Tuple2<>(id, Iterators.size(it))))
+                Iterators.of(Tuple2.of(id, Iterators.size(it))))
                 .collect()
                 .stream()
-                .sorted((x, y) -> x.f1().compareTo(y.f1()))
+                .sorted((x, y) -> x.key().compareTo(y.key()))
                 .collect(Collectors.toList());
 
         long index = 0;
         Map<Integer, Long> info = new HashMap<>();
         for (Tuple2<Integer, Long> it : list) {
-            info.put(it.f1(), index);
-            index = index + it.f2();
+            info.put(it.key(), index);
+            index = index + it.value();
         }
         Operator<Tuple2<R, Long>> operator = (Operator<Tuple2<R, Long>>) this.mapPartitionWithId((id, it) ->
-                Iterators.zipIndex(it, info.get(id)));
+                AggUtil.zipIndex(it, info.get(id)));
         return new KvOperator<>(operator);
     }
 

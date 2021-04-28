@@ -17,8 +17,8 @@ package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -184,7 +184,7 @@ public class JoinOperatorTest
         ), 2);
 
         List<Tuple2<String, Tuple2<Integer, Integer>>> data = ds.mapValues(x -> x).join(ds.mapValues(x -> x)).collect();
-        data.sort(Comparator.comparing(it -> it.f1));
+        data.sort(Comparator.comparing(it -> it.key()));
         Assert.assertEquals(Arrays.asList(
                 Tuple2.of("hp", Tuple2.of(8, 8)),
                 Tuple2.of("hp", Tuple2.of(10, 8)),
@@ -210,7 +210,7 @@ public class JoinOperatorTest
         ), 2).rePartitionByKey();
         List<Tuple2<String, Tuple2<Integer, Integer>>> data = ds.mapValues(x -> x).mapValues(x -> x)
                 .join(ds.mapValues(x -> x)).collect();
-        data.sort(Comparator.comparing(it -> it.f1));
+        data.sort(Comparator.comparing(it -> it.key()));
         Assert.assertEquals(Arrays.asList(
                 Tuple2.of("hp", Tuple2.of(8, 8)),
                 Tuple2.of("hp", Tuple2.of(8, 10)),

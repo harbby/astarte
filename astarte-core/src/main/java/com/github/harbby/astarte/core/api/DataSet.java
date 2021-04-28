@@ -25,7 +25,6 @@ import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.operator.CacheManager;
 import com.github.harbby.astarte.core.operator.KeyValueGroupedOperator;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.Serializable;
 import java.util.Iterator;

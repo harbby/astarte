@@ -18,7 +18,7 @@ package com.github.harbby.astarte.example.batch;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.github.harbby.astarte.core.api.Tuple2;
 
 public class WorldCount
 {
@@ -37,6 +37,6 @@ public class WorldCount
                 .sortByValue((x, y) -> y.compareTo(x))
                 .limit(10);
 
-        worldCounts.collect().forEach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
+        worldCounts.collect().forEach(x -> System.out.println(x.key() + "," + x.value()));  //job4
     }
 }

@@ -18,9 +18,9 @@ package com.github.harbby.astarte.core.concurrent;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.collection.MutableMap;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -46,7 +46,7 @@ public class StabilityTest
                 "b",
                 "b",
                 "b"), 2);
-        KvDataSet<String, String> ds2 = ds1.kvDataSet(x -> new Tuple2<>(x, x))
+        KvDataSet<String, String> ds2 = ds1.kvDataSet(x -> Tuple2.of(x, x))
                 .encoder(Encoders.tuple2(Encoders.asciiString(), Encoders.asciiString()))
                 .reduceByKey((x, y) -> x + y, 2);
 

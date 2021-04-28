@@ -22,11 +22,11 @@ import com.github.harbby.astarte.core.api.AstarteException;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.ShuffleWriter;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.gadtry.collection.ImmutableList;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.File;
 import java.io.IOException;

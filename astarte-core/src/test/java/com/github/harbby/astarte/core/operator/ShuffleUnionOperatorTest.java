@@ -17,8 +17,8 @@ package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.gadtry.collection.MutableSet;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
 

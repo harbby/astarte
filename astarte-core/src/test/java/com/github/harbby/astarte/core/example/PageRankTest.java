@@ -18,10 +18,10 @@ package com.github.harbby.astarte.core.example;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.MutableList;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -49,7 +49,7 @@ public class PageRankTest
         DataSet<String> lines = mppContext.textFile("../data/batch/pagerank_data.txt");
         KvDataSet<String, List<String>> links = lines.kvDataSet(s -> {
             String[] parts = s.split("\\s+");
-            return new Tuple2<>(parts[0], parts[1]);
+            return Tuple2.of(parts[0], parts[1]);
         }).distinct(2).groupByKey()
                 .mapValues(MutableList::copy)
                 .cache();
@@ -57,20 +57,20 @@ public class PageRankTest
         KvDataSet<String, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {
             DataSet<Tuple2<String, Double>> contribs = links.join(ranks).values().flatMapIterator(it -> {
-                List<String> urls = it.f1;
-                Double rank = it.f2();
+                List<String> urls = it.key();
+                Double rank = it.value();
 
                 long size = urls.size();
-                return urls.stream().map(url -> new Tuple2<>(url, rank / size)).iterator();
+                return urls.stream().map(url -> Tuple2.of(url, rank / size)).iterator();
             });
 
             ranks = KvDataSet.toKvDataSet(contribs).reduceByKey((x, y) -> x + y).mapValues(x -> 0.15 + 0.85 * x);
         }
 
         List<Tuple2<String, Double>> output = ranks.collect();
-        output.forEach(tup -> System.out.println(String.format("%s has rank:  %s .", tup.f1(), tup.f2())));
+        output.forEach(tup -> System.out.println(String.format("%s has rank:  %s .", tup.key(), tup.value())));
 
-        Map<String, Double> data = output.stream().collect(Collectors.toMap(k -> k.f1(), v -> v.f2()));
+        Map<String, Double> data = output.stream().collect(Collectors.toMap(k -> k.key(), v -> v.value()));
         Assert.assertEquals(data.get("1"), 1.918918918918918D, 1e-7);
         Assert.assertEquals(data.get("2"), 0.6936936936936938, 1e-7);
         Assert.assertEquals(data.get("3"), 0.6936936936936938, 1e-7);
@@ -85,7 +85,7 @@ public class PageRankTest
         DataSet<String> lines = mppContext.textFile("../data/batch/pagerank_data.txt");
         KvDataSet<Integer, int[]> links = lines.kvDataSet(s -> {
             String[] parts = s.split("\\s+");
-            return new Tuple2<>(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
+            return Tuple2.of(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
         }).distinct(2).groupByKey()
                 .mapValues(x -> Iterators.toStream(x).mapToInt(y -> y).toArray())
                 .encoder(Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray()))
@@ -93,20 +93,20 @@ public class PageRankTest
         KvDataSet<Integer, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {
             DataSet<Tuple2<Integer, Double>> contribs = links.join(ranks).values().flatMapIterator(it -> {
-                int[] urls = it.f1();
-                Double rank = it.f2();
+                int[] urls = it.key();
+                Double rank = it.value();
 
                 long size = urls.length;
-                return IntStream.of(urls).mapToObj(url -> new Tuple2<>(url, rank / size)).iterator();
+                return IntStream.of(urls).mapToObj(url -> Tuple2.of(url, rank / size)).iterator();
             });
 
             ranks = KvDataSet.toKvDataSet(contribs).reduceByKey((x, y) -> x + y).mapValues(x -> 0.15 + 0.85 * x);
         }
 
         List<Tuple2<Integer, Double>> output = ranks.collect();
-        output.forEach(tup -> System.out.println(String.format("%s has rank:  %s .", tup.f1(), tup.f2())));
+        output.forEach(tup -> System.out.println(String.format("%s has rank:  %s .", tup.key(), tup.value())));
 
-        Map<Integer, Double> data = output.stream().collect(Collectors.toMap(k -> k.f1(), v -> v.f2()));
+        Map<Integer, Double> data = output.stream().collect(Collectors.toMap(k -> k.key(), v -> v.value()));
         Assert.assertEquals(data.get(1), 1.918918918918918D, 1e-7);
         Assert.assertEquals(data.get(2), 0.6936936936936938, 1e-7);
         Assert.assertEquals(data.get(3), 0.6936936936936938, 1e-7);

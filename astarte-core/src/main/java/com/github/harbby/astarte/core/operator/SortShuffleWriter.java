@@ -17,13 +17,14 @@ package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.api.ShuffleWriter;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.EncoderInputStream;
 import com.github.harbby.astarte.core.coders.io.LZ4BlockOutputStream;
+import com.github.harbby.astarte.core.utils.AggUtil;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.io.BufferedNioOutputStream;
 import com.github.harbby.gadtry.io.LimitInputStream;
 import net.jpountz.lz4.LZ4BlockInputStream;
@@ -131,7 +132,7 @@ public class SortShuffleWriter<K, V>
         for (SampleResult<K> sample : sampleResults) {
             double weight = (double) length / sample.getPartitionCount();
             for (K k : sample.getData()) {
-                arrays.add(new Tuple2<>(k, weight));
+                arrays.add(Tuple2.of(k, weight));
             }
         }
 
@@ -146,10 +147,10 @@ public class SortShuffleWriter<K, V>
             int partitions)
     {
         List<Tuple2<K, Double>> ordered = candidates.stream()
-                .sorted((x, y) -> ordering.compare(x.f1(), y.f1()))
+                .sorted((x, y) -> ordering.compare(x.key(), y.key()))
                 .collect(Collectors.toList());
         int numCandidates = ordered.size();
-        double sumWeights = ordered.stream().mapToDouble(x -> x.f2()).sum();
+        double sumWeights = ordered.stream().mapToDouble(x -> x.value()).sum();
         double step = sumWeights / partitions;
         double cumWeight = 0.0;
         double target = step;
@@ -159,8 +160,8 @@ public class SortShuffleWriter<K, V>
         Optional<K> previousBound = Optional.empty();
         while ((i < numCandidates) && (j < partitions - 1)) {
             Tuple2<K, Double> tp = ordered.get(i);
-            K key = tp.f1();
-            double weight = tp.f2();
+            K key = tp.key();
+            double weight = tp.value();
 
             cumWeight += weight;
             if (cumWeight >= target) {
@@ -284,7 +285,7 @@ public class SortShuffleWriter<K, V>
                 this.dataOutput = new DataOutputStream(lz4BlockOutputStream);
             }
 
-            buffer.sort((x, y) -> comparator.compare(x.f1(), y.f1()));
+            buffer.sort((x, y) -> comparator.compare(x.key(), y.key()));
 
             for (Tuple2<K, V> kv : buffer) {
                 encoder.encoder(kv, dataOutput);
@@ -310,7 +311,7 @@ public class SortShuffleWriter<K, V>
                 throws IOException
         {
             if (segmentEnds.isEmpty()) {
-                buffer.sort((x, y) -> comparator.compare(x.f1(), y.f1()));
+                buffer.sort((x, y) -> comparator.compare(x.key(), y.key()));
                 return Iterators.wrap(buffer).autoClose(buffer::clear);
             }
             //flush last segment
@@ -331,7 +332,7 @@ public class SortShuffleWriter<K, V>
                 start = end;
             }
             //merger
-            return Iterators.mergeSorted((x, y) -> comparator.compare(x.f1, y.f1), encoderInputStreams);
+            return Iterators.mergeSorted((x, y) -> comparator.compare(x.key(), y.key()), encoderInputStreams);
         }
 
         public long getMapTaskReadRowCount()
@@ -381,7 +382,7 @@ public class SortShuffleWriter<K, V>
         {
             while (iterator.hasNext()) {
                 Tuple2<K, V> kv = iterator.next();
-                int reduceId = this.partitioner.getPartition(kv.f1());
+                int reduceId = this.partitioner.getPartition(kv.key());
                 ReduceWriter<K, V> reduceWriter = getReduceWriter(reduceId);
                 reduceWriter.insert(kv);
             }
@@ -409,7 +410,7 @@ public class SortShuffleWriter<K, V>
                     long rowCount = reduceWriter.getMapTaskReadRowCount();
                     if (combine != null) {
                         long count = 0;
-                        merger = Iterators.reduceSorted(merger, combine);
+                        merger = AggUtil.reduceSorted(merger, combine);
                         while (merger.hasNext()) {
                             count++;
                             encoder.encoder(merger.next(), dataOutputStream);

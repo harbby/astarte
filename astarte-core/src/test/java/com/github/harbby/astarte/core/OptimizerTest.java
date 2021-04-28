@@ -16,7 +16,7 @@
 package com.github.harbby.astarte.core;
 
 import com.github.harbby.astarte.core.api.KvDataSet;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.github.harbby.astarte.core.api.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -37,7 +37,7 @@ public class OptimizerTest
         )).reduceByKey(Integer::sum);
 
         List<Tuple2<String, Tuple2<Integer, Integer>>> data = ageDs
-                //.mapKeys(x -> x + 1)  //todo: ind bug
+                //.mapKeys(x -> x + 1)  //todo: find bug
                 .join(ageDs)
                 .collect();
         Assert.assertEquals(data,

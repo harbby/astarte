@@ -19,7 +19,6 @@ import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.collection.MutableMap;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.function.exception.Consumer;
 import com.github.harbby.gadtry.function.exception.Function2;
 import org.junit.Assert;

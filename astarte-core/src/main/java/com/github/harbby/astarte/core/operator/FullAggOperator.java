@@ -19,12 +19,12 @@ import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.TaskContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.Partition;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.MapGroupFunc;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Tuple2Encoder;
-import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.astarte.core.utils.AggUtil;
 import com.github.harbby.gadtry.collection.ImmutableList;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
 import java.util.List;
@@ -89,6 +89,6 @@ public class FullAggOperator<K, V, O>
     public Iterator<Tuple2<K, O>> compute(Partition split, TaskContext taskContext)
     {
         Iterator<Tuple2<K, V>> input = dataSet.computeOrCache(split, taskContext);
-        return Iterators.mapGroupSorted(input, mapGroupFunc);
+        return AggUtil.mapGroupSorted(input, mapGroupFunc);
     }
 }

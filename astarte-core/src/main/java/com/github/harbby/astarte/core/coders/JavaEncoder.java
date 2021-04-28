@@ -15,11 +15,11 @@
  */
 package com.github.harbby.astarte.core.coders;
 
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.array.AnyArrayEncoder;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.base.Throwables;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -69,12 +69,12 @@ public class JavaEncoder<E extends Serializable>
         }
 
         checkState(v1.getClass() == v2.getClass(), "only objects of the same class can be sorted [%s than %s]", v1, v2);
-        if (v1.getClass() == Tuple2.class) {
-            int than = objectComparator(((Tuple2<?, ?>) v1).f1, ((Tuple2<?, ?>) v2).f1);
+        if (v1 instanceof Tuple2) {
+            int than = objectComparator(((Tuple2<?, ?>) v1).key(), ((Tuple2<?, ?>) v2).key());
             if (than != 0) {
                 return than;
             }
-            return objectComparator(((Tuple2<?, ?>) v1).f2, ((Tuple2<?, ?>) v2).f2);
+            return objectComparator(((Tuple2<?, ?>) v1).value(), ((Tuple2<?, ?>) v2).value());
         }
         else if (v1.getClass().isArray()) {
             Object[] arr1 = (Object[]) v1;

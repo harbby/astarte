@@ -20,6 +20,7 @@ import com.github.harbby.astarte.core.coders.Encoder;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+
 /**
  * @author ivan
  * @date 2021.02.04 22:52:00
@@ -29,8 +30,10 @@ public class StringArrayEncoder
         implements Encoder<String[]>
 {
     private static final String[] zeroStringArr = new String[0];
+
     @Override
-    public void encoder(String[] value, DataOutput output) throws IOException
+    public void encoder(String[] value, DataOutput output)
+            throws IOException
     {
         output.writeInt(value.length);
         for (String e : value) {
@@ -39,7 +42,8 @@ public class StringArrayEncoder
     }
 
     @Override
-    public String[] decoder(DataInput input) throws IOException
+    public String[] decoder(DataInput input)
+            throws IOException
     {
         final int len = input.readInt();
         if (len == 0) {

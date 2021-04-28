@@ -15,11 +15,11 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.base.Throwables;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -100,7 +100,7 @@ public class SortShuffleClusterClient
             ChannelFuture future = bootstrap.connect(entry.getValue());
             handlers.add(shuffleClientHandler);
         }
-        return Iterators.mergeSorted((x, y) -> comparator.compare(x.f1, y.f1),
+        return Iterators.mergeSorted((x, y) -> comparator.compare(x.key(), y.key()),
                 handlers.stream().map(ShuffleClientHandler::getReader).collect(Collectors.toList()));
     }
 

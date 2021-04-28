@@ -18,8 +18,8 @@ package com.github.harbby.astarte.example.batch;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.gadtry.collection.MutableList;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
 import java.util.List;
@@ -38,23 +38,23 @@ public class PageRank
 
         KvDataSet<String, Iterator<String>> links = lines.kvDataSet(s -> {
             String[] parts = s.split("\\s+");
-            return new Tuple2<>(parts[0], parts[1]);
+            return Tuple2.of(parts[0], parts[1]);
         }).cache().union(mppContext.makeEmptyDataSet()).mapValues(x -> x).groupByKey().cache();
 
         KvDataSet<String, Double> ranks = links.mapValues(v -> 1.0);
         for (int i = 1; i <= iters; i++) {
             DataSet<Tuple2<String, Double>> contribs = links.join(ranks).values().flatMapIterator(it -> {
-                List<String> urls = MutableList.copy(it.f1);
-                Double rank = it.f2();
+                List<String> urls = MutableList.copy(it.key());
+                Double rank = it.value();
 
                 long size = urls.size();
-                return urls.stream().map(url -> new Tuple2<>(url, rank / size)).iterator();
+                return urls.stream().map(url -> Tuple2.of(url, rank / size)).iterator();
             });
 
             ranks = KvDataSet.toKvDataSet(contribs).reduceByKey((x, y) -> x + y).mapValues(x -> 0.15 + 0.85 * x);
         }
 
         List<Tuple2<String, Double>> output = ranks.collect();
-        output.forEach(tup -> System.out.println(String.format("%s has rank:  %s .", tup.f1(), tup.f2())));
+        output.forEach(tup -> System.out.println(String.format("%s has rank:  %s .", tup.key(), tup.value())));
     }
 }

@@ -18,7 +18,7 @@ package com.github.harbby.astarte.example.batch;
 import com.github.harbby.astarte.core.BatchContext;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
+import com.github.harbby.astarte.core.api.Tuple2;
 
 public class JoinDemo
 {
@@ -33,11 +33,11 @@ public class JoinDemo
         DataSet<String> worlds = ds.flatMap(input -> input.toLowerCase().split(" "))
                 .filter(x -> !"".equals(x.trim()));
 
-        KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> new Tuple2<>(x.substring(0, 1), 1L));
+        KvDataSet<String, Long> kvDataSet = worlds.kvDataSet(x -> Tuple2.of(x.substring(0, 1), 1L));
         KvDataSet<String, Long> worldCounts = kvDataSet.rePartitionByKey(2).reduceByKey(Long::sum);
         //worldCounts.print();
 
-        KvDataSet<String, Long> worldLengths = worlds.kvDataSet(x -> new Tuple2<>(x.substring(0, 1), (long) x.length()))
+        KvDataSet<String, Long> worldLengths = worlds.kvDataSet(x -> Tuple2.of(x.substring(0, 1), (long) x.length()))
                 .rePartitionByKey(2).reduceByKey(Long::sum);
         //worldLengths.print();
 
@@ -45,6 +45,6 @@ public class JoinDemo
                 .join(worldCounts);
 
         // a,(143, 41)
-        ds2.foreach(x -> System.out.println(x.f1() + "," + x.f2()));  //job4
+        ds2.foreach(x -> System.out.println(x.key() + "," + x.value()));  //job4
     }
 }

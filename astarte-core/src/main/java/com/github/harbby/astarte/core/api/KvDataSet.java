@@ -26,7 +26,6 @@ import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.operator.CacheManager;
 import com.github.harbby.astarte.core.operator.KvOperator;
 import com.github.harbby.astarte.core.operator.Operator;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
 import java.util.Map;

@@ -22,6 +22,7 @@ import com.github.harbby.astarte.core.Utils;
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.astarte.core.api.Partition;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.KvForeach;
 import com.github.harbby.astarte.core.api.function.KvMapper;
@@ -33,7 +34,6 @@ import com.github.harbby.astarte.core.coders.Tuple2Encoder;
 import com.github.harbby.astarte.core.utils.JoinUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.ImmutableList;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.util.Iterator;
 import java.util.List;
@@ -114,33 +114,33 @@ public class KvOperator<K, V>
     public <O> DataSet<O> map(KvMapper<K, V, O> mapper)
     {
         KvMapper<K, V, O> clearedFunc = Utils.clear(mapper);
-        return dataSet.map(x -> clearedFunc.map(x.f1(), x.f2()));
+        return dataSet.map(x -> clearedFunc.map(x.key(), x.value()));
     }
 
     @Override
     public void foreach(KvForeach<K, V> kvKvForeach)
     {
         KvForeach<K, V> clearedFunc = Utils.clear(kvKvForeach);
-        dataSet.foreach(x -> clearedFunc.foreach(x.f1(), x.f2()));
+        dataSet.foreach(x -> clearedFunc.foreach(x.key(), x.value()));
     }
 
     @Override
     public Map<K, V> collectMap()
     {
-        return collect().stream().collect(Collectors.toMap(k -> k.f1, v -> v.f2));
+        return collect().stream().collect(Collectors.toMap(k -> k.key(), v -> v.value()));
     }
 
     @Override
     public DataSet<K> keys()
     {
-        return new MapOperator<>(dataSet, it -> it.f1, false);
+        return new MapOperator<>(dataSet, it -> it.key(), false);
     }
 
     @Override
     public <K1> KvDataSet<K1, V> mapKeys(Mapper<K, K1> mapper)
     {
         Mapper<K, K1> clearedFunc = Utils.clear(mapper);
-        Operator<Tuple2<K1, V>> out = new MapOperator<>(dataSet, x -> new Tuple2<>(clearedFunc.map(x.f1()), x.f2()), false);
+        Operator<Tuple2<K1, V>> out = new MapOperator<>(dataSet, x -> Tuple2.of(clearedFunc.map(x.key()), x.value()), false);
         return new KvOperator<>(out);
     }
 
@@ -148,7 +148,7 @@ public class KvOperator<K, V>
     public <O> KvDataSet<K, O> mapValues(Mapper<V, O> mapper)
     {
         Mapper<V, O> clearedFunc = Utils.clear(mapper);
-        Operator<Tuple2<K, O>> out = new MapOperator<>(dataSet, kv -> new Tuple2<>(kv.f1(), clearedFunc.map(kv.f2())), true);
+        Operator<Tuple2<K, O>> out = new MapOperator<>(dataSet, kv -> Tuple2.of(kv.key(), clearedFunc.map(kv.value())), true);
         return new KvOperator<>(out);
     }
 
@@ -166,7 +166,7 @@ public class KvOperator<K, V>
     {
         Mapper<V, Iterator<O>> clearedFunc = Utils.clear(mapper);
         Mapper<Tuple2<K, V>, Iterator<Tuple2<K, O>>> flatMapper =
-                input -> Iterators.map(clearedFunc.map(input.f2), o -> new Tuple2<>(input.f1, o));
+                input -> Iterators.map(clearedFunc.map(input.value()), o -> Tuple2.of(input.key(), o));
         Operator<Tuple2<K, O>> out = new FlatMapOperator<>(dataSet, flatMapper, true);
         return new KvOperator<>(out);
     }
@@ -174,7 +174,7 @@ public class KvOperator<K, V>
     @Override
     public DataSet<V> values()
     {
-        return dataSet.map(Tuple2::f2);
+        return dataSet.map(Tuple2::value);
     }
 
     @Override
@@ -314,9 +314,9 @@ public class KvOperator<K, V>
     public KvDataSet<K, Double> avgValues(Mapper<V, Double> valueCast, Partitioner partitioner)
     {
         Mapper<V, Double> clearedFunc = Utils.clear(valueCast);
-        return this.mapValues(x -> new Tuple2<>(clearedFunc.map(x), 1L))
-                .reduceByKey((x, y) -> new Tuple2<>(x.f1() + y.f1(), x.f2() + y.f2()), partitioner)
-                .mapValues(x -> x.f1() / x.f2());
+        return this.mapValues(x -> Tuple2.of(clearedFunc.map(x), 1L))
+                .reduceByKey((x, y) -> Tuple2.of(x.key() + y.key(), x.value() + y.value()), partitioner)
+                .mapValues(x -> x.key() / x.value());
     }
 
     @Override
@@ -442,8 +442,8 @@ public class KvOperator<K, V>
     @Override
     public KvDataSet<K, V> sortByValue(Comparator<V> comparator, int numPartitions)
     {
-        return this.kvDataSet(x -> new Tuple2<>(x.f2(), x.f1()))
+        return this.kvDataSet(x -> Tuple2.of(x.value(), x.key()))
                 .sortByKey(comparator, numPartitions)
-                .kvDataSet(x -> new Tuple2<>(x.f2(), x.f1()));
+                .kvDataSet(x -> Tuple2.of(x.value(), x.key()));
     }
 }

@@ -32,13 +32,15 @@ public class ShortEncoder
     protected ShortEncoder() {}
 
     @Override
-    public void encoder(Short value, DataOutput output) throws IOException
+    public void encoder(Short value, DataOutput output)
+            throws IOException
     {
         output.writeShort(value);
     }
 
     @Override
-    public Short decoder(DataInput input) throws IOException
+    public Short decoder(DataInput input)
+            throws IOException
     {
         return input.readShort();
     }

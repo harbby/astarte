@@ -15,8 +15,8 @@
  */
 package com.github.harbby.astarte.core.coders;
 
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
-import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -60,26 +60,26 @@ public interface Tuple2Encoder<K, V>
                 throws IOException
         {
             requireNonNull(value, "Tuple2 value is null");
-            kEncoder.encoder(value.f1, output);
-            vEncoder.encoder(value.f2, output);
+            kEncoder.encoder(value.key(), output);
+            vEncoder.encoder(value.value(), output);
         }
 
         @Override
         public Tuple2<K, V> decoder(DataInput input)
                 throws IOException
         {
-            return new Tuple2<>(kEncoder.decoder(input), vEncoder.decoder(input));
+            return Tuple2.of(kEncoder.decoder(input), vEncoder.decoder(input));
         }
 
         @Override
         public Comparator<Tuple2<K, V>> comparator()
         {
             return (kv1, kv2) -> {
-                int than = kEncoder.comparator().compare(kv1.f1, kv2.f1);
+                int than = kEncoder.comparator().compare(kv1.key(), kv2.key());
                 if (than != 0) {
                     return than;
                 }
-                return vEncoder.comparator().compare(kv1.f2, kv2.f2);
+                return vEncoder.comparator().compare(kv1.value(), kv2.value());
             };
         }
     }
@@ -110,20 +110,20 @@ public interface Tuple2Encoder<K, V>
         public void encoder(Tuple2<K, Void> value, DataOutput output)
                 throws IOException
         {
-            kEncoder.encoder(value.f1, output);
+            kEncoder.encoder(value.key(), output);
         }
 
         @Override
         public Tuple2<K, Void> decoder(DataInput input)
                 throws IOException
         {
-            return new Tuple2<>(kEncoder.decoder(input), null);
+            return Tuple2.of(kEncoder.decoder(input), null);
         }
 
         @Override
         public Comparator<Tuple2<K, Void>> comparator()
         {
-            return (kv1, kv2) -> kEncoder.comparator().compare(kv1.f1, kv2.f1);
+            return (kv1, kv2) -> kEncoder.comparator().compare(kv1.key(), kv2.key());
         }
     }
 }
