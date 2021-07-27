@@ -21,7 +21,7 @@ import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Mapper;
-import com.github.harbby.astarte.core.utils.JoinUtil;
+import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.function.Function2;
 
 import java.util.ArrayList;
@@ -44,11 +44,11 @@ public class LocalJoinOperator<K, V1, V2>
 {
     protected final Operator<Tuple2<K, V1>> leftDataSet;
     protected final Operator<Tuple2<K, V2>> rightDataSet;
-    protected final JoinUtil.JoinMode joinMode;
+    protected final ReduceUtil.JoinMode joinMode;
     protected final Comparator<K> comparator;
     private final Function2<Partition, TaskContext, Iterator<Tuple2<K, Tuple2<V1, V2>>>> physicalPlan;
 
-    protected LocalJoinOperator(JoinUtil.JoinMode joinMode,
+    protected LocalJoinOperator(ReduceUtil.JoinMode joinMode,
             Operator<Tuple2<K, V1>> leftDataSet,
             Operator<Tuple2<K, V2>> rightDataSet,
             Comparator<K> comparator)
@@ -66,13 +66,13 @@ public class LocalJoinOperator<K, V1, V2>
     public static <K, V1, V2> Function2<Partition, TaskContext, Iterator<Tuple2<K, Tuple2<V1, V2>>>> optimizerPlan(
             Operator<Tuple2<K, V1>> leftDataSet,
             Operator<Tuple2<K, V2>> rightDataSet,
-            JoinUtil.JoinMode joinMode,
+            ReduceUtil.JoinMode joinMode,
             Comparator<K> comparator)
     {
         if ((Object) leftDataSet == rightDataSet) {
             return (partition, taskContext) -> {
                 Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(partition, taskContext);
-                return JoinUtil.sameJoin(left);
+                return ReduceUtil.sameJoin(left);
             };
         }
         List<? extends Operator<?>> leftOperators = getOperatorStageDependencies(leftDataSet);
@@ -82,7 +82,7 @@ public class LocalJoinOperator<K, V1, V2>
             return (partition, taskContext) -> {
                 Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(partition, taskContext);
                 Iterator<Tuple2<K, V2>> right = rightDataSet.computeOrCache(partition, taskContext);
-                return JoinUtil.mergeJoin(joinMode, comparator, left, right);
+                return ReduceUtil.mergeJoin(joinMode, comparator, left, right);
             };
         }
         List<CalcOperator<?, ?>> leftCalcOperators = leftOperators.subList(0, leftOperators.indexOf(sameOperator.get())).stream()
@@ -97,7 +97,7 @@ public class LocalJoinOperator<K, V1, V2>
 
         @SuppressWarnings("unchecked")
         Operator<Tuple2<K, ?>> operator = (Operator<Tuple2<K, ?>>) sameOperator.get();
-        return (partition, taskContext) -> JoinUtil.sameJoin(operator.computeOrCache(partition, taskContext), leftCalc, rightCalc);
+        return (partition, taskContext) -> ReduceUtil.sameJoin(operator.computeOrCache(partition, taskContext), leftCalc, rightCalc);
     }
 
     @Override
@@ -186,7 +186,7 @@ public class LocalJoinOperator<K, V1, V2>
     {
         private final Partition[] partitions;
 
-        protected OnePartitionLocalJoin(JoinUtil.JoinMode joinMode, Operator<Tuple2<K, V1>> leftDataSet, Operator<Tuple2<K, V2>> rightDataSet, Comparator<K> comparator)
+        protected OnePartitionLocalJoin(ReduceUtil.JoinMode joinMode, Operator<Tuple2<K, V1>> leftDataSet, Operator<Tuple2<K, V2>> rightDataSet, Comparator<K> comparator)
         {
             super(joinMode, leftDataSet, rightDataSet, comparator);
             this.partitions = new Partition[leftDataSet.numPartitions()];
@@ -215,12 +215,12 @@ public class LocalJoinOperator<K, V1, V2>
             LocalJoinPartition localJoinPartition = (LocalJoinPartition) partition;
             if ((Object) leftDataSet == rightDataSet) {
                 Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(localJoinPartition.left, taskContext);
-                return JoinUtil.sameJoin(left);
+                return ReduceUtil.sameJoin(left);
             }
 
             Iterator<Tuple2<K, V1>> left = leftDataSet.computeOrCache(localJoinPartition.left, taskContext);
             Iterator<Tuple2<K, V2>> right = rightDataSet.computeOrCache(localJoinPartition.right, taskContext);
-            return JoinUtil.mergeJoin(joinMode, comparator, left, right);
+            return ReduceUtil.mergeJoin(joinMode, comparator, left, right);
         }
     }
 

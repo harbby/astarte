@@ -23,7 +23,7 @@ import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.MapGroupFunc;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Tuple2Encoder;
-import com.github.harbby.astarte.core.utils.AggUtil;
+import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.collection.ImmutableList;
 
 import java.util.Iterator;
@@ -89,6 +89,6 @@ public class FullAggOperator<K, V, O>
     public Iterator<Tuple2<K, O>> compute(Partition split, TaskContext taskContext)
     {
         Iterator<Tuple2<K, V>> input = dataSet.computeOrCache(split, taskContext);
-        return AggUtil.mapGroupSorted(input, mapGroupFunc);
+        return ReduceUtil.mapGroupSorted(input, mapGroupFunc);
     }
 }

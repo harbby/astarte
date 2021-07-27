@@ -23,7 +23,7 @@ import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.EncoderInputStream;
 import com.github.harbby.astarte.core.coders.io.LZ4BlockOutputStream;
-import com.github.harbby.astarte.core.utils.AggUtil;
+import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.io.BufferedNioOutputStream;
 import com.github.harbby.gadtry.io.LimitInputStream;
@@ -312,7 +312,22 @@ public class SortShuffleWriter<K, V>
         {
             if (segmentEnds.isEmpty()) {
                 buffer.sort((x, y) -> comparator.compare(x.key(), y.key()));
-                return Iterators.wrap(buffer).autoClose(buffer::clear);
+                return Iterators.autoClose(new Iterator<Tuple2<K, V>>()
+                {
+                    private int index;
+
+                    @Override
+                    public boolean hasNext()
+                    {
+                        return index < buffer.size();
+                    }
+
+                    @Override
+                    public Tuple2<K, V> next()
+                    {
+                        return buffer.get(index++);
+                    }
+                }, buffer::clear);
             }
             //flush last segment
             this.flushSegment();
@@ -410,7 +425,7 @@ public class SortShuffleWriter<K, V>
                     long rowCount = reduceWriter.getMapTaskReadRowCount();
                     if (combine != null) {
                         long count = 0;
-                        merger = AggUtil.reduceSorted(merger, combine);
+                        merger = ReduceUtil.reduceSorted(merger, combine);
                         while (merger.hasNext()) {
                             count++;
                             encoder.encoder(merger.next(), dataOutputStream);

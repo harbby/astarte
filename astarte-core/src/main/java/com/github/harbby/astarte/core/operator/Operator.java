@@ -31,7 +31,7 @@ import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
-import com.github.harbby.astarte.core.utils.AggUtil;
+import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import org.slf4j.Logger;
@@ -357,7 +357,7 @@ public abstract class Operator<R>
             index = index + it.value();
         }
         Operator<Tuple2<R, Long>> operator = (Operator<Tuple2<R, Long>>) this.mapPartitionWithId((id, it) ->
-                AggUtil.zipIndex(it, info.get(id)));
+                ReduceUtil.zipIndex(it, info.get(id)));
         return new KvOperator<>(operator);
     }
 

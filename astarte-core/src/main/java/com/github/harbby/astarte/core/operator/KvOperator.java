@@ -31,7 +31,7 @@ import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.astarte.core.coders.Tuple2Encoder;
-import com.github.harbby.astarte.core.utils.JoinUtil;
+import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.ImmutableList;
 
@@ -340,29 +340,29 @@ public class KvOperator<K, V>
     @Override
     public <W> KvDataSet<K, Tuple2<V, W>> leftJoin(DataSet<Tuple2<K, W>> kvDataSet)
     {
-        return join(kvDataSet, JoinUtil.JoinMode.LEFT_JOIN);
+        return join(kvDataSet, ReduceUtil.JoinMode.LEFT_JOIN);
     }
 
     @Override
     public <W> KvDataSet<K, Tuple2<V, W>> rightJoin(DataSet<Tuple2<K, W>> kvDataSet)
     {
-        return join(kvDataSet, JoinUtil.JoinMode.RIGHT_JOIN);
+        return join(kvDataSet, ReduceUtil.JoinMode.RIGHT_JOIN);
     }
 
     @Override
     public <W> KvDataSet<K, Tuple2<V, W>> fullJoin(DataSet<Tuple2<K, W>> kvDataSet)
     {
-        return join(kvDataSet, JoinUtil.JoinMode.FULL_JOIN);
+        return join(kvDataSet, ReduceUtil.JoinMode.FULL_JOIN);
     }
 
     @Override
     public <W> KvDataSet<K, Tuple2<V, W>> join(DataSet<Tuple2<K, W>> kvDataSet)
     {
-        return join(kvDataSet, JoinUtil.JoinMode.INNER_JOIN);
+        return join(kvDataSet, ReduceUtil.JoinMode.INNER_JOIN);
     }
 
     @Deprecated
-    private <W> KvDataSet<K, Tuple2<V, W>> join(DataSet<Tuple2<K, W>> rightDataSet, JoinUtil.JoinMode joinMode)
+    private <W> KvDataSet<K, Tuple2<V, W>> join(DataSet<Tuple2<K, W>> rightDataSet, ReduceUtil.JoinMode joinMode)
     {
         Operator<Tuple2<K, W>> rightOperator = unboxing((Operator<Tuple2<K, W>>) rightDataSet);
 

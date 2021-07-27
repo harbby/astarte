@@ -22,7 +22,7 @@ import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.runtime.ShuffleClient;
-import com.github.harbby.astarte.core.utils.JoinUtil;
+import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.ImmutableList;
 
@@ -37,7 +37,7 @@ public class ShuffleJoinOperator<K, V1, V2>
         extends Operator<Tuple2<K, Tuple2<V1, V2>>>
 {
     private final Partitioner partitioner;
-    private final JoinUtil.JoinMode joinMode;
+    private final ReduceUtil.JoinMode joinMode;
     private final Encoder<Tuple2<K, V1>> leftEncoder;
     private final Encoder<Tuple2<K, V2>> rightEncoder;
     private final Comparator<K> comparator;
@@ -47,7 +47,7 @@ public class ShuffleJoinOperator<K, V1, V2>
     private final transient List<ShuffleMapOperator<K, ?>> dependencies;
 
     protected ShuffleJoinOperator(Partitioner partitioner,
-            JoinUtil.JoinMode joinMode,
+            ReduceUtil.JoinMode joinMode,
             Operator<Tuple2<K, V1>> leftDataSet,
             Operator<Tuple2<K, V2>> rightDataSet,
             Comparator<K> comparator)
@@ -100,7 +100,7 @@ public class ShuffleJoinOperator<K, V1, V2>
         try {
             Iterator<Tuple2<K, V1>> left = shuffleClient.createShuffleReader(comparator, leftEncoder, leftShuffleId, split.getId());
             Iterator<Tuple2<K, V2>> right = shuffleClient.createShuffleReader(comparator, rightEncoder, rightShuffleId, split.getId());
-            return JoinUtil.mergeJoin(joinMode, comparator, left, right);
+            return ReduceUtil.mergeJoin(joinMode, comparator, left, right);
         }
         catch (IOException e) {
             throw Throwables.throwsThrowable(e);

@@ -21,7 +21,7 @@ import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
-import com.github.harbby.astarte.core.utils.AggUtil;
+import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.collection.ImmutableList;
 
 import java.util.Iterator;
@@ -67,6 +67,6 @@ public class AggOperator<K, V>
     {
         Iterator<Tuple2<K, V>> input = operator.computeOrCache(split, taskContext);
         //sort merge shuffle reducer
-        return AggUtil.reduceSorted(input, reducer);
+        return ReduceUtil.reduceSorted(input, reducer);
     }
 }

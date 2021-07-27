@@ -36,7 +36,7 @@ public class JoinUtilTest
                 Tuple2.of("hp1", 19),
                 Tuple2.of("hp2", 20));
 
-        Iterator<Tuple2<String, Tuple2<Integer, Integer>>> rs = JoinUtil.sameJoin(iterator);
+        Iterator<Tuple2<String, Tuple2<Integer, Integer>>> rs = ReduceUtil.sameJoin(iterator);
         List<Tuple2<String, Tuple2<Integer, Integer>>> data = MutableList.copy(rs);
         Assert.assertEquals(Arrays.asList(
                 Tuple2.of("hp", Tuple2.of(8, 8)),
@@ -55,7 +55,7 @@ public class JoinUtilTest
                 Tuple2.of("hp", 8),
                 Tuple2.of("hp", 10));
 
-        Iterator<Tuple2<String, Tuple2<Integer, Integer>>> rs = JoinUtil.sameJoin(iterator);
+        Iterator<Tuple2<String, Tuple2<Integer, Integer>>> rs = ReduceUtil.sameJoin(iterator);
         List<Tuple2<String, Tuple2<Integer, Integer>>> data = MutableList.copy(rs);
         Assert.assertEquals(Arrays.asList(
                 Tuple2.of("hp", Tuple2.of(8, 8)),
@@ -81,7 +81,7 @@ public class JoinUtilTest
                 Tuple2.of(7, "v2_7_2"),
                 Tuple2.of(8, "v2_8"),
                 Tuple2.of(9, "v2_9"));
-        Iterator<Tuple2<Integer, Tuple2<String, String>>> rs = JoinUtil.mergeJoin(JoinUtil.JoinMode.INNER_JOIN, Integer::compare, left, right);
+        Iterator<Tuple2<Integer, Tuple2<String, String>>> rs = ReduceUtil.mergeJoin(ReduceUtil.JoinMode.INNER_JOIN, Integer::compare, left, right);
         List<Tuple2<Integer, Tuple2<String, String>>> data = MutableList.copy(rs);
         Assert.assertEquals(Arrays.asList(
                 Tuple2.of(2, Tuple2.of("v1_2_1", "v2_2")),
@@ -107,7 +107,7 @@ public class JoinUtilTest
                 Tuple2.of(7, "v2_7_1"),
                 Tuple2.of(7, "v2_7_2"),
                 Tuple2.of(8, "v2_8"));
-        Iterator<Tuple2<Integer, Tuple2<String, String>>> rs = JoinUtil.mergeJoin(JoinUtil.JoinMode.INNER_JOIN, Integer::compare, left, right);
+        Iterator<Tuple2<Integer, Tuple2<String, String>>> rs = ReduceUtil.mergeJoin(ReduceUtil.JoinMode.INNER_JOIN, Integer::compare, left, right);
         List<Tuple2<Integer, Tuple2<String, String>>> data = MutableList.copy(rs);
         Assert.assertEquals(Arrays.asList(
                 Tuple2.of(2, Tuple2.of("v1_2_1", "v2_2")),
