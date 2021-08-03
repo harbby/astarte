@@ -20,27 +20,26 @@ import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
 import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.coders.Encoders;
+import net.jpountz.lz4.LZ4FrameInputStream;
 
-import java.io.BufferedReader;
-import java.io.File;
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.IntStream;
 
-import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static com.github.harbby.gadtry.base.Throwables.throwsThrowable;
 
 public class PageRankClueWeb09
 {
     private PageRankClueWeb09() {}
 
-    private static final String DATA_PATH = "/ideal/data/page_rank/ClueWeb09_WG_50m.graph-txt";
+    private static final String DATA_PATH = "/data/linux/data/page_rank/ideal_ClueWeb09_WG_50m.graph-txt.lz4";
 
     public static void main(String[] args)
             throws Exception
@@ -50,7 +49,7 @@ public class PageRankClueWeb09
 
         DataSet<Tuple2<Integer, int[]>> lines = mppContext.makeDataSet(new String[] {DATA_PATH})
                 .flatMapIterator(FileIteratorReader::new);
-                //.partitionLimit(100);
+        //.partitionLimit(100);
         KvDataSet<Integer, int[]> links = KvDataSet.toKvDataSet(lines)
                 .encoder(Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray()))
                 .rePartitionByKey(2)
@@ -79,47 +78,40 @@ public class PageRankClueWeb09
     private static class FileIteratorReader
             implements Iterator<Tuple2<Integer, int[]>>, Serializable
     {
-        private final BufferedReader reader;
-
-        private String line;
+        private final DataInputStream reader;
         private int number = 0;
-
-        private FileIteratorReader(File file)
-        {
-            try {
-                InputStreamReader inputStreamReader = new InputStreamReader(new FileInputStream(file));
-                this.reader = new BufferedReader(inputStreamReader);
-            }
-            catch (FileNotFoundException e) {
-                throw throwsThrowable(e);
-            }
-        }
+        private short nextLength = -1;
 
         private FileIteratorReader(String file)
         {
-            this(new File(file));
+            try {
+                this.reader = new DataInputStream(new LZ4FrameInputStream(new BufferedInputStream(new FileInputStream(file))));
+            }
+            catch (IOException e) {
+                throw throwsThrowable(e);
+            }
         }
 
         @Override
         public boolean hasNext()
         {
-            if (line != null) {
+            if (nextLength != -1) {
                 return true;
             }
-            do {
-                try {
-                    line = reader.readLine();
+            try {
+                do {
+                    this.nextLength = reader.readShort();
                     number++;
                 }
-                catch (IOException e) {
-                    throw throwsThrowable(e);
-                }
-                if (line == null) {
-                    return false;
-                }
+                while (this.nextLength == 0);
+                return true;
             }
-            while (line.length() == 0);
-            return true;
+            catch (EOFException e) {
+                return false;
+            }
+            catch (IOException e) {
+                throw throwsThrowable(e);
+            }
         }
 
         @Override
@@ -128,14 +120,17 @@ public class PageRankClueWeb09
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }
-            checkState(line.length() > 0);
-            String[] targets = this.line.trim().split(" ");
-            int[] targetIds = new int[targets.length];
-            for (int i = 0; i < targets.length; i++) {
-                targetIds[i] = Integer.parseInt(targets[i]);
+            try {
+                int[] targets = new int[nextLength];
+                for (short i = 0; i < nextLength; i++) {
+                    targets[i] = reader.readInt();
+                }
+                nextLength = -1;
+                return Tuple2.of(number, targets);
             }
-            this.line = null;
-            return Tuple2.of(number, targetIds);
+            catch (IOException e) {
+                throw throwsThrowable(e);
+            }
         }
     }
 }
