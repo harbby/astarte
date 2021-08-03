@@ -25,7 +25,6 @@ import com.github.harbby.astarte.core.coders.EncoderInputStream;
 import com.github.harbby.astarte.core.coders.io.LZ4BlockOutputStream;
 import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.io.BufferedNioOutputStream;
 import com.github.harbby.gadtry.io.LimitInputStream;
 import net.jpountz.lz4.LZ4BlockInputStream;
 import org.slf4j.Logger;
@@ -181,7 +180,6 @@ public class SortShuffleWriter<K, V>
     private static <K> List<SampleResult<K>> sketch(Operator<K> operator,
             int sampleSizePerPartition)
     {
-        //todo: 使用更小的数据结构
         List<SampleResult<K>> results = operator.mapPartitionWithId((index, it) -> {
             if (!it.hasNext()) {
                 throw new UnsupportedOperationException();
@@ -256,7 +254,6 @@ public class SortShuffleWriter<K, V>
         private static final int BUFF_SIZE = 8192;
         private final Encoder<Tuple2<K, V>> encoder;
         private final File spillsFile;
-        private BufferedNioOutputStream bufferedNioOutput;
         private LZ4BlockOutputStream lz4BlockOutputStream;
         private DataOutputStream dataOutput;
 
@@ -279,9 +276,8 @@ public class SortShuffleWriter<K, V>
         private void flushSegment()
                 throws IOException
         {
-            if (bufferedNioOutput == null) {
-                this.bufferedNioOutput = new BufferedNioOutputStream(new FileOutputStream(spillsFile, false).getChannel());
-                this.lz4BlockOutputStream = new LZ4BlockOutputStream(bufferedNioOutput);
+            if (lz4BlockOutputStream == null) {
+                this.lz4BlockOutputStream = new LZ4BlockOutputStream(new FileOutputStream(spillsFile, false));
                 this.dataOutput = new DataOutputStream(lz4BlockOutputStream);
             }
 
@@ -290,9 +286,9 @@ public class SortShuffleWriter<K, V>
             for (Tuple2<K, V> kv : buffer) {
                 encoder.encoder(kv, dataOutput);
             }
-            lz4BlockOutputStream.finish();
-            lz4BlockOutputStream.init(); //reset state
-            segmentEnds.add(bufferedNioOutput.position());
+            lz4BlockOutputStream.finishBlock();
+            segmentEnds.add(lz4BlockOutputStream.position());
+            lz4BlockOutputStream.beginBlock(); //reset state
             segmentRowSizes.add(buffer.size());
             buffer.clear();
         }
@@ -358,8 +354,8 @@ public class SortShuffleWriter<K, V>
         private void writeFinish()
                 throws IOException
         {
-            if (bufferedNioOutput != null) {
-                bufferedNioOutput.close();
+            if (lz4BlockOutputStream != null) {
+                lz4BlockOutputStream.close();
             }
         }
     }
@@ -408,19 +404,20 @@ public class SortShuffleWriter<K, V>
         {
             ByteBuffer header = ByteBuffer.allocate(getSortMergedFileHarderSize(reduceWriters.length));
             header.putInt(reduceWriters.length);
-            try (FileChannel fileChannel = new FileOutputStream(mergeName, false).getChannel()) {
+            try (FileOutputStream fileOutputStream = new FileOutputStream(mergeName, false)) {
+                FileChannel fileChannel = fileOutputStream.getChannel();
                 //skip header = int + len * long
                 fileChannel.position(header.capacity());
-                BufferedNioOutputStream bufferedNioOutputStream = new BufferedNioOutputStream(fileChannel);
+                LZ4BlockOutputStream lz4OutputStream = new LZ4BlockOutputStream(fileOutputStream);
+                DataOutputStream dataOutputStream = new DataOutputStream(lz4OutputStream);
                 for (ReduceWriter<K, V> reduceWriter : reduceWriters) {
                     if (reduceWriter == null) {
-                        header.putLong(bufferedNioOutputStream.position());
+                        header.putLong(lz4OutputStream.position());
                         header.putLong(0);
                         continue;
                     }
-                    LZ4BlockOutputStream lz4OutputStream = new LZ4BlockOutputStream(bufferedNioOutputStream);
-                    DataOutputStream dataOutputStream = new DataOutputStream(lz4OutputStream);
                     //merger
+                    lz4OutputStream.beginBlock();
                     Iterator<Tuple2<K, V>> merger = reduceWriter.merger();
                     long rowCount = reduceWriter.getMapTaskReadRowCount();
                     if (combine != null) {
@@ -438,9 +435,9 @@ public class SortShuffleWriter<K, V>
                             encoder.encoder(merger.next(), dataOutputStream);
                         }
                     }
-                    lz4OutputStream.finish();
+                    lz4OutputStream.finishBlock();
                     //merge index
-                    header.putLong(bufferedNioOutputStream.position());
+                    header.putLong(lz4OutputStream.position());
                     header.putLong(rowCount);
                     if (reduceWriter.spillsFile.exists()) {
                         checkState(reduceWriter.spillsFile.delete(), "clear shuffle tmp file failed " + reduceWriter.spillsFile.getCanonicalPath());
@@ -484,7 +481,6 @@ public class SortShuffleWriter<K, V>
         @Override
         public int getPartition(Object key)
         {
-            //todo: 二分法
             for (int i = 0; i < points.length; i++) {
                 if (ordering.compare((K) key, points[i]) < 0) {
                     return i;

@@ -28,7 +28,7 @@ import java.util.Arrays;
 import java.util.zip.Checksum;
 
 /**
- * copied net.jpountz.lz4.LZ4BlockOutputStream
+ * copied {@link net.jpountz.lz4.LZ4BlockOutputStream}
  */
 public class LZ4BlockOutputStream
         extends FilterOutputStream
@@ -77,6 +77,7 @@ public class LZ4BlockOutputStream
     private final boolean syncFlush;
     private boolean finished;
     private int o;
+    private long position = 0;
 
     /**
      * Creates a new {@link OutputStream} with configurable block size. Large
@@ -111,13 +112,18 @@ public class LZ4BlockOutputStream
     /**
      * reset pipeline state
      */
-    public void init()
+    public void beginBlock()
     {
         Arrays.fill(buffer, (byte) 0);
         Arrays.fill(compressedBuffer, (byte) 0);
         o = 0;
         finished = false;
         System.arraycopy(MAGIC, 0, compressedBuffer, 0, MAGIC_LENGTH);
+    }
+
+    public long position()
+    {
+        return position;
     }
 
     /**
@@ -213,7 +219,7 @@ public class LZ4BlockOutputStream
             throws IOException
     {
         if (!finished) {
-            finish();
+            finishBlock();
         }
         if (out != null) {
             out.close();
@@ -247,6 +253,7 @@ public class LZ4BlockOutputStream
         writeIntLE(check, compressedBuffer, MAGIC_LENGTH + 9);
         assert MAGIC_LENGTH + 13 == HEADER_LENGTH;
         out.write(compressedBuffer, 0, HEADER_LENGTH + compressedLength);
+        position += HEADER_LENGTH + compressedLength;
         o = 0;
     }
 
@@ -257,7 +264,7 @@ public class LZ4BlockOutputStream
      * data will be compressed and appended to the underlying {@link OutputStream}
      * before calling {@link OutputStream#flush()} on the underlying stream.
      * Otherwise, this method just flushes the underlying stream, so pending
-     * data might not be available for reading until {@link #finish()} or
+     * data might not be available for reading until {@link #finishBlock()} or
      * {@link #close()} is called.
      */
     @Override
@@ -278,7 +285,7 @@ public class LZ4BlockOutputStream
      *
      * @throws IOException if an I/O error occurs.
      */
-    public void finish()
+    public void finishBlock()
             throws IOException
     {
         ensureNotFinished();
@@ -289,6 +296,7 @@ public class LZ4BlockOutputStream
         writeIntLE(0, compressedBuffer, MAGIC_LENGTH + 9);
         assert MAGIC_LENGTH + 13 == HEADER_LENGTH;
         out.write(compressedBuffer, 0, HEADER_LENGTH);
+        position += HEADER_LENGTH;
         finished = true;
         out.flush();
     }
