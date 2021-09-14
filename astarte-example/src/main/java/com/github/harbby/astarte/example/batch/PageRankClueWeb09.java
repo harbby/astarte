@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.IntStream;
 
-import static com.github.harbby.gadtry.base.Throwables.throwsThrowable;
+import static com.github.harbby.gadtry.base.Throwables.throwThrowable;
 
 public class PageRankClueWeb09
 {
@@ -88,7 +88,7 @@ public class PageRankClueWeb09
                 this.reader = new DataInputStream(new LZ4FrameInputStream(new BufferedInputStream(new FileInputStream(file))));
             }
             catch (IOException e) {
-                throw throwsThrowable(e);
+                throw throwThrowable(e);
             }
         }
 
@@ -110,7 +110,7 @@ public class PageRankClueWeb09
                 return false;
             }
             catch (IOException e) {
-                throw throwsThrowable(e);
+                throw throwThrowable(e);
             }
         }
 
@@ -129,7 +129,7 @@ public class PageRankClueWeb09
                 return Tuple2.of(number, targets);
             }
             catch (IOException e) {
-                throw throwsThrowable(e);
+                throw throwThrowable(e);
             }
         }
     }

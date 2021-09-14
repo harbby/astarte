@@ -103,7 +103,7 @@ public class ShuffleJoinOperator<K, V1, V2>
             return ReduceUtil.mergeJoin(joinMode, comparator, left, right);
         }
         catch (IOException e) {
-            throw Throwables.throwsThrowable(e);
+            throw Throwables.throwThrowable(e);
         }
     }
 }

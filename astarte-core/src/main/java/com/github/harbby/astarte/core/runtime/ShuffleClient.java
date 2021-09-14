@@ -104,7 +104,7 @@ public interface ShuffleClient
                                     fileInputStream.close();
                                 }
                                 catch (IOException e) {
-                                    Throwables.throwsThrowable(e);
+                                    Throwables.throwThrowable(e);
                                 }
                             })
                     );

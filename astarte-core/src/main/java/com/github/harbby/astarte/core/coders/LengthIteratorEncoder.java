@@ -81,7 +81,7 @@ public class LengthIteratorEncoder<E>
                     return eEncoder.decoder(input);
                 }
                 catch (IOException e) {
-                    throw Throwables.throwsThrowable(e);
+                    throw Throwables.throwThrowable(e);
                 }
             }
         };

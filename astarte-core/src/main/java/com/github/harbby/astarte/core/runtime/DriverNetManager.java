@@ -95,7 +95,7 @@ public class DriverNetManager
             });
         }
         catch (InterruptedException | UnknownHostException e) {
-            throw Throwables.throwsThrowable(e);
+            throw Throwables.throwThrowable(e);
         }
     }
 

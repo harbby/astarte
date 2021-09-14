@@ -52,7 +52,7 @@ public class JavaEncoder<E extends Serializable>
             return Serializables.byteToObject(bytes);
         }
         catch (ClassNotFoundException e) {
-            throw Throwables.throwsThrowable(e);
+            throw Throwables.throwThrowable(e);
         }
     }
 

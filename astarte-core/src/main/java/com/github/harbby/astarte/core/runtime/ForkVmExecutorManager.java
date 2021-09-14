@@ -15,11 +15,11 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
-import com.github.harbby.astarte.core.Utils;
 import com.github.harbby.astarte.core.api.Constant;
+import com.github.harbby.gadtry.base.Platform;
 import com.github.harbby.gadtry.jvm.JVMLauncher;
 import com.github.harbby.gadtry.jvm.JVMLaunchers;
-import com.github.harbby.gadtry.jvm.VmFuture;
+import com.github.harbby.gadtry.jvm.VmPromise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +36,7 @@ public class ForkVmExecutorManager
     private final int vcores;
     private final int memMb;
     private final int executorNum;
-    private List<VmFuture<Integer>> vms;
+    private final List<VmPromise<Integer>> vms;
     private final ExecutorService pool;
     private final SocketAddress driverManagerAddress;
 
@@ -63,21 +63,28 @@ public class ForkVmExecutorManager
             JVMLauncher<Integer> launcher = JVMLaunchers.<Integer>newJvm()
                     //.setName("astarte.TaskExecutor")
                     .setEnvironment(Constant.DRIVER_SCHEDULER_ADDRESS, driverManagerAddress.toString())
-                    .addUserjars(Utils.getSystemClassLoaderJars())
-                    .setConsole(System.out::print)
+                    .addUserJars(Platform.getSystemClassLoaderJars())
+                    .setConsole(System.out::println)
                     .setXmx(memMb + "m")
                     .build();
-            VmFuture<Integer> vmFuture = runJvm(launcher, pool, vcores, executorNum);
-            vms.add(vmFuture);
+            VmPromise<Integer> vmPromise = runJvm(launcher, vcores, executorNum);
+            pool.submit(() -> {
+                try {
+                    vmPromise.call();
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+            vms.add(vmPromise);
         }
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> vms.forEach(VmFuture::cancel)));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> vms.forEach(VmPromise::cancel)));
     }
 
-    private static VmFuture<Integer> runJvm(JVMLauncher<Integer> launcher,
-            ExecutorService pool,
+    private static VmPromise<Integer> runJvm(JVMLauncher<Integer> launcher,
             int vcores, int executorNum)
     {
-        return launcher.startAsync(pool, () -> {
+        return launcher.start(() -> {
             logger.info("**************fork jvm*********************");
             logger.info("starting... TaskExecutor, vcores[" + vcores + "] mem[" + executorNum + "MB]");
             TaskExecutor.main(new String[0]);
@@ -89,6 +96,6 @@ public class ForkVmExecutorManager
     public void stop()
     {
         pool.shutdown();
-        vms.forEach(VmFuture::cancel);
+        vms.forEach(VmPromise::cancel);
     }
 }

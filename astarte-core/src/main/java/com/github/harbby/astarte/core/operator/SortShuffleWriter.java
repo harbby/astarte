@@ -251,7 +251,7 @@ public class SortShuffleWriter<K, V>
 
     private static class ReduceWriter<K, V>
     {
-        private static final int BUFF_SIZE = 8192;
+        private static final int BUFF_SIZE = 81920; //todo: use mem size
         private final Encoder<Tuple2<K, V>> encoder;
         private final File spillsFile;
         private LZ4BlockOutputStream lz4BlockOutputStream;

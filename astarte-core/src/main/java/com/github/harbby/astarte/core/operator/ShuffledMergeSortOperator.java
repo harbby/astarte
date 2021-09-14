@@ -87,7 +87,7 @@ public class ShuffledMergeSortOperator<K, V>
             return taskContext.getShuffleClient().createShuffleReader(comparator, encoder, depShuffleId, split.getId());
         }
         catch (IOException e) {
-            throw Throwables.throwsThrowable(e);
+            throw Throwables.throwThrowable(e);
         }
     }
 }

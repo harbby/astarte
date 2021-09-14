@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
-import static com.github.harbby.gadtry.base.Throwables.throwsThrowable;
+import static com.github.harbby.gadtry.base.Throwables.throwThrowable;
 
 public class TextFileSource
         implements DataSetSource<String>
@@ -68,7 +68,7 @@ public class TextFileSource
             return new FileIteratorReader(fileSplit);
         }
         catch (IOException e) {
-            throw throwsThrowable(e);
+            throw throwThrowable(e);
         }
     }
 
@@ -86,7 +86,7 @@ public class TextFileSource
             }
         }
         catch (IOException e) {
-            throw throwsThrowable(e);
+            throw throwThrowable(e);
         }
     }
 
@@ -100,7 +100,7 @@ public class TextFileSource
     {
         File rootFile = new File(uri.getPath());
         if (!rootFile.exists()) {
-            throw throwsThrowable(new NoSuchFileException(rootFile.getPath()));
+            throw throwThrowable(new NoSuchFileException(rootFile.getPath()));
         }
         List<File> files = Files.listFiles(rootFile, false, file -> file.length() > 0);
         Split[] splits = new Split[files.size()];
@@ -169,7 +169,7 @@ public class TextFileSource
                 line = reader.readLine();
             }
             catch (IOException e) {
-                throw throwsThrowable(e);
+                throw throwThrowable(e);
             }
             return line != null;
         }

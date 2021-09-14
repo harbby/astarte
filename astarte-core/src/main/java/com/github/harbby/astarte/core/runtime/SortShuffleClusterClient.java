@@ -210,7 +210,7 @@ public class SortShuffleClusterClient
                 if (byteBuf == STOP_DOWNLOAD) {
                     done = true;
                     if (cause != null) {
-                        throw Throwables.throwsThrowable(cause);
+                        throw Throwables.throwThrowable(cause);
                     }
                     return false;
                 }
@@ -218,7 +218,7 @@ public class SortShuffleClusterClient
             catch (InterruptedException e) {
                 logger.warn("whether the task is being killed?");
                 done = true;
-                throw Throwables.throwsThrowable(e);
+                throw Throwables.throwThrowable(e);
             }
             return true;
         }
@@ -233,7 +233,7 @@ public class SortShuffleClusterClient
                 return encoder.decoder(dataInputStream);
             }
             catch (IOException e) {
-                throw Throwables.throwsThrowable(e);
+                throw Throwables.throwThrowable(e);
             }
         }
 
@@ -247,7 +247,7 @@ public class SortShuffleClusterClient
                 }
                 catch (InterruptedException e) {
                     logger.warn("whether the task is being killed?");
-                    throw Throwables.throwsThrowable(e);
+                    throw Throwables.throwThrowable(e);
                 }
             }
             checkState(byteBuf != STOP_DOWNLOAD);

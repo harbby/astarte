@@ -134,7 +134,7 @@ public abstract class CalcOperator<I, O>
             return (Iterator<O>) aClass.getConstructor(Iterator.class, List.class).newInstance(iterator, operators);
         }
         catch (InstantiationException | NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-            throw Throwables.throwsThrowable(e);
+            throw Throwables.throwThrowable(e);
         }
     }
 
@@ -208,10 +208,10 @@ public abstract class CalcOperator<I, O>
             return (FlatMapCalcBase<O>) aClass.getConstructor(List.class).newInstance(operators);
         }
         catch (InstantiationException | ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
-            throw Throwables.throwsThrowable(e);
+            throw Throwables.throwThrowable(e);
         }
         catch (InvocationTargetException e) {
-            throw Throwables.throwsThrowable(e.getTargetException());
+            throw Throwables.throwThrowable(e.getTargetException());
         }
     }
 
@@ -244,7 +244,7 @@ public abstract class CalcOperator<I, O>
             return new String(IOUtils.readAllBytes(inputStream));
         }
         catch (IOException e) {
-            throw Throwables.throwsThrowable(e);
+            throw Throwables.throwThrowable(e);
         }
     }
 }

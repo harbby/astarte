@@ -52,7 +52,7 @@ public class EncoderInputStream<E>
                 dataInput.close();
             }
             catch (IOException e) {
-                throw Throwables.throwsThrowable(e);
+                throw Throwables.throwThrowable(e);
             }
         }
         return hasNext;
@@ -69,7 +69,7 @@ public class EncoderInputStream<E>
             return encoder.decoder(dataInput);
         }
         catch (IOException e) {
-            throw Throwables.throwsThrowable(e);
+            throw Throwables.throwThrowable(e);
         }
     }
 

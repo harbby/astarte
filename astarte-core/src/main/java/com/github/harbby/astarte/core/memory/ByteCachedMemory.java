@@ -70,7 +70,7 @@ public class ByteCachedMemory<E>
             dataOutputStream.close();
         }
         catch (IOException e) {
-            throw Throwables.throwsThrowable(e);
+            throw Throwables.throwThrowable(e);
         }
         block.finalData();
     }
@@ -84,7 +84,7 @@ public class ByteCachedMemory<E>
             encoder.encoder(record, dataOutputStream);
         }
         catch (IOException e) {
-            throw Throwables.throwsThrowable(e);
+            throw Throwables.throwThrowable(e);
         }
     }
 

@@ -80,7 +80,7 @@ public class YarnExecutorManager
             this.createYarnContainer();
         }
         catch (IOException | InterruptedException | YarnException e) {
-            throw Throwables.throwsThrowable(e);
+            throw Throwables.throwThrowable(e);
         }
     }
 

@@ -83,6 +83,11 @@ public class Executor
                 //task failed
                 logger.error("task failed", e);
             }
+            catch (Error e) {
+                //todo: executor exit code
+                e.printStackTrace();
+                System.exit(-1);
+            }
             finally {
                 runningTasks.remove(task.getTaskId());
             }

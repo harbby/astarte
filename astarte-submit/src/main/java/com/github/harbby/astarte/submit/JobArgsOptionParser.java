@@ -15,8 +15,8 @@
  */
 package com.github.harbby.astarte.submit;
 
-import com.github.harbby.astarte.core.Utils;
 import com.github.harbby.gadtry.base.Files;
+import com.github.harbby.gadtry.base.Platform;
 import com.github.harbby.gadtry.base.Strings;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
@@ -76,7 +76,7 @@ public class JobArgsOptionParser
         List<String> fullArgs = commandLine.getArgList().stream()
                 .filter(Strings::isNotBlank).collect(Collectors.toList());
         this.mainJar = new File(fullArgs.get(0));
-        Utils.loadExtJarToSystemClassLoader(Collections.singletonList(mainJar.toURI().toURL()));
+        Platform.loadExtJarToSystemClassLoader(Collections.singletonList(mainJar.toURI().toURL()));
 
         String mainClassString = requireNonNull(commandLine.getOptionValue("class"), "Missing required option: --class");
         this.mainClass = Class.forName(mainClassString);
