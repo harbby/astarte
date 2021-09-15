@@ -23,7 +23,8 @@ import com.github.harbby.gadtry.jvm.VmPromise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -32,15 +33,17 @@ import java.util.concurrent.Executors;
 public class ForkVmExecutorManager
         extends ExecutorManager
 {
+    public static final List<URL> JARS = new ArrayList<>();
     private static final Logger logger = LoggerFactory.getLogger(ForkVmExecutorManager.class);
     private final int vcores;
     private final int memMb;
     private final int executorNum;
     private final List<VmPromise<Integer>> vms;
     private final ExecutorService pool;
-    private final SocketAddress driverManagerAddress;
+    private final InetSocketAddress driverManagerAddress;
+    private volatile boolean shutdown = false;
 
-    public ForkVmExecutorManager(int vcores, int memMb, int executorNum, SocketAddress driverManagerAddress)
+    public ForkVmExecutorManager(int vcores, int memMb, int executorNum, InetSocketAddress driverManagerAddress)
     {
         super(vcores, memMb, executorNum);
         this.vcores = vcores;
@@ -58,12 +61,22 @@ public class ForkVmExecutorManager
     @Override
     public void start()
     {
+        JVMLaunchers.VmBuilder<Integer> builder = JVMLaunchers.<Integer>newJvm();
+        List<String> ops = new ArrayList<>();
+        if (Platform.getJavaVersion() >= 16) {
+            ops.add("--add-exports=java.base/sun.nio.ch=ALL-UNNAMED");
+            ops.add("--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED");
+            ops.add("--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED");
+            ops.add("--add-opens=java.base/jdk.internal.loader=ALL-UNNAMED");
+            ops.add("--add-opens=java.base/java.nio=ALL-UNNAMED");
+        }
+        ops.forEach(builder::addVmOps);
         //启动所有Executor
         for (int i = 0; i < executorNum; i++) {
-            JVMLauncher<Integer> launcher = JVMLaunchers.<Integer>newJvm()
-                    //.setName("astarte.TaskExecutor")
-                    .setEnvironment(Constant.DRIVER_SCHEDULER_ADDRESS, driverManagerAddress.toString())
-                    .addUserJars(Platform.getSystemClassLoaderJars())
+            JVMLauncher<Integer> launcher = builder
+                    .setName("AstarteForkVmTaskExecutor")
+                    .setEnvironment(Constant.DRIVER_SCHEDULER_ADDRESS, driverManagerAddress.getHostName() + ":" + driverManagerAddress.getPort())
+                    .addUserJars(JARS)
                     .setConsole(System.out::println)
                     .setXmx(memMb + "m")
                     .build();
@@ -72,8 +85,10 @@ public class ForkVmExecutorManager
                 try {
                     vmPromise.call();
                 }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+                catch (Exception e) {
+                    if (!shutdown) {
+                        logger.error("child VM executor failed!", e);
+                    }
                 }
             });
             vms.add(vmPromise);
@@ -95,6 +110,7 @@ public class ForkVmExecutorManager
     @Override
     public void stop()
     {
+        shutdown = true;
         pool.shutdown();
         vms.forEach(VmPromise::cancel);
     }

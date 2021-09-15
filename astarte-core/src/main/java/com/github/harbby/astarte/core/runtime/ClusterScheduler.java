@@ -29,6 +29,7 @@ import com.github.harbby.astarte.core.api.Stage;
 import com.github.harbby.astarte.core.api.Task;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.operator.Operator;
+import com.github.harbby.gadtry.base.Throwables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,14 +58,14 @@ public class ClusterScheduler
 
         //启动所有Executor
         this.executorManager = ExecutorManager.createExecutorManager(vcores, executorMemMb, executorNum, driverNetManager.getBindAddress());
-        executorManager.start();
-
-        //wait 等待所有exector上线
         try {
+            executorManager.start();
+            //wait 等待所有exector上线
             driverNetManager.awaitAllExecutorRegistered();
         }
-        catch (InterruptedException e) {
-            throw new UnsupportedOperationException(e);
+        catch (Exception e) {
+            this.stop();
+            Throwables.throwThrowable(e);
         }
     }
 

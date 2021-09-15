@@ -11,6 +11,8 @@ matrix:
       env: jdk=java8
     - jdk: openjdk11
       env: jdk=java11
+    - jdk: openjdk17
+      env: jdk=java17
 
 sudo: required
 dist: trusty
@@ -18,7 +20,7 @@ services:
   - docker
 
 script:
-  - ./mvnw clean package -Dlogback.configurationFile=`pwd`/build/ci-logback.xml --no-transfer-progress -Pjdk="$jdk"
+  - ./mvnw clean package -Dlogback.configurationFile=`pwd`/build/ci-logback.xml --no-transfer-progress -P"$jdk"
 
 before_deploy:
   - echo build astarte
