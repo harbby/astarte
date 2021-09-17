@@ -162,12 +162,14 @@ public class ReduceUtil
             Iterator<? extends Tuple2<K, ?>> iterator)
     {
         return sameJoin(iterator,
-                (Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V1>>>) it -> {
-                    return CalcOperator.doCodeGen(it, Collections.emptyList());
-                },
-                (Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V2>>>) it -> {
-                    return CalcOperator.doCodeGen(it, Collections.emptyList());
-                });
+                (Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V1>>>) ReduceUtil::castIterator,
+                (Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V2>>>) ReduceUtil::castIterator);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <O> Iterator<O> castIterator(Iterator<?> iterator)
+    {
+        return (Iterator<O>) iterator;
     }
 
     public static <E> MarkIterator<E> wrap(List<E> values)

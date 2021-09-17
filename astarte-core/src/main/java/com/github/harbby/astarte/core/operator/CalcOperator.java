@@ -21,6 +21,9 @@ import com.github.harbby.astarte.core.api.Constant;
 import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.function.Filter;
 import com.github.harbby.astarte.core.api.function.Mapper;
+import com.github.harbby.astarte.core.codegen.BaseCodegenIterator;
+import com.github.harbby.astarte.core.codegen.FlatMapCalcBase;
+import com.github.harbby.gadtry.base.JavaTypes;
 import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.MutableList;
@@ -33,7 +36,6 @@ import com.github.harbby.gadtry.io.IOUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -41,19 +43,20 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import static com.github.harbby.gadtry.base.MoreObjects.checkArgument;
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
 
 public abstract class CalcOperator<I, O>
         extends Operator<O>
 {
-    private static final String PACKAGE_NAME = "com.github.harbby.astarte.core";
+    private static final String PACKAGE_NAME = CalcOperator.class.getPackage().getName();
     private static final String CLASS_START_NAME = "CodeGenIterator$";
 
     private static final AtomicInteger classId = new AtomicInteger(0);
     private static final AtomicInteger fieldId = new AtomicInteger(0);
-    private static final String calcCodeModel = loadCodeModel(CalcOperator.class.getClassLoader().getResource("./codemodel/CalcModel.java"));
-    private static final String flatMapCodeModel = loadCodeModel(CalcOperator.class.getClassLoader().getResource("./codemodel/CalcModelFlatMap.java"));
+    private static final String calcCodeModel = loadCodeTemplate(CalcOperator.class.getClassLoader().getResourceAsStream("./codemodel/CalcModel.java"));
+    private static final String flatMapCodeModel = loadCodeTemplate(CalcOperator.class.getClassLoader().getResourceAsStream("./codemodel/CalcModelFlatMap.java"));
 
     private final boolean holdPartitioner;
     private final Operator<I> dataSet;
@@ -101,6 +104,9 @@ public abstract class CalcOperator<I, O>
             if (operators.size() == 1) {
                 return this.doCompute(dataSet.computeOrCache(partition, taskContext));
             }
+            else if (operators.isEmpty()) {
+                return dataSet.computeOrCache(partition, taskContext);
+            }
             //code gen
             List<CalcOperator<?, ?>> list = new ArrayList<>(operators);
             Collections.reverse(list);
@@ -118,18 +124,18 @@ public abstract class CalcOperator<I, O>
         return doCompute(dataSet.computeOrCache(partition, taskContext));
     }
 
+    public static Class<? extends BaseCodegenIterator<?>> doCodeGen0(List<CalcOperator<?, ?>> operators)
+    {
+        checkArgument(operators.size() > 1, "doCodeGen requires: operators.size > 1");
+        ByteClassLoader classLoader = new ByteClassLoader(ClassLoader.getSystemClassLoader());
+        Class<?> aClass = prepareCode(calcCodeModel, classLoader, operators);
+        return aClass.asSubclass(JavaTypes.classTag(BaseCodegenIterator.class));
+    }
+
     @SuppressWarnings("unchecked")
     public static <I, O> Iterator<O> doCodeGen(Iterator<I> iterator, List<CalcOperator<?, ?>> operators)
     {
-        if (operators.size() == 0) {
-            return (Iterator<O>) iterator;
-        }
-        if (operators.size() == 1) {
-            CalcOperator<I, O> calcOperator = (CalcOperator<I, O>) operators.get(0);
-            return calcOperator.doCompute(iterator);
-        }
-        ByteClassLoader classLoader = new ByteClassLoader(ClassLoader.getSystemClassLoader());
-        Class<?> aClass = prepareCode(calcCodeModel, classLoader, operators);
+        Class<?> aClass = doCodeGen0(operators);
         try {
             return (Iterator<O>) aClass.getConstructor(Iterator.class, List.class).newInstance(iterator, operators);
         }
@@ -193,19 +199,13 @@ public abstract class CalcOperator<I, O>
         return doCompute(classLoader, classCode, fieldMapping);
     }
 
-    public abstract static class FlatMapCalcBase<O>
-            implements Iterator<O>
-    {
-        public abstract Iterator<O> begin(Iterator<?> childIterator);
-    }
-
     @SuppressWarnings("unchecked")
     public static <O> FlatMapCalcBase<O> flatMapBaseNewInstance(ClassLoader classLoader, String className, List<CalcOperator<?, ?>> operators)
     {
         try {
             Class<?> aClass = classLoader.loadClass(className);
-            checkState(FlatMapCalcBase.class.isAssignableFrom(aClass));
-            return (FlatMapCalcBase<O>) aClass.getConstructor(List.class).newInstance(operators);
+            Class<? extends FlatMapCalcBase<?>> baseClass = aClass.asSubclass(JavaTypes.classTag(FlatMapCalcBase.class));
+            return (FlatMapCalcBase<O>) baseClass.getConstructor(List.class).newInstance(operators);
         }
         catch (InstantiationException | ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
             throw Throwables.throwThrowable(e);
@@ -232,15 +232,15 @@ public abstract class CalcOperator<I, O>
 
         JavaSourceObject javaFileObject = javaClassCompiler.doCompile(classFullName, classCode, Collections.singletonList("-XDuseUnsharedTable"));
         byte[] bytes = javaFileObject.getClassByteCodes().get(classFullName);
-        logger.info("code generation compiled ,class {} byte size {}", classFullName, bytes.length);
+        logger.info("code generation compiled ,class {} code: {}", classFullName, classCode);
         requireNonNull(bytes, "not found " + classFullName + ".class");
         return classLoader.loadClass(classFullName, bytes);
     }
 
-    private static String loadCodeModel(URL url)
+    private static String loadCodeTemplate(InputStream in)
     {
-        requireNonNull(url);
-        try (InputStream inputStream = url.openStream()) {
+        requireNonNull(in);
+        try (InputStream inputStream = in) {
             return new String(IOUtils.readAllBytes(inputStream));
         }
         catch (IOException e) {

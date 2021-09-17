@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 public class $className<O>
-        implements Iterator<O>
+        extends com.github.harbby.astarte.core.codegen.BaseCodegenIterator<O>
 {
     private final StateOption<O> option = StateOption.empty();
     private final Iterator<?> iterator;
@@ -35,8 +35,9 @@ public class $className<O>
 
     public $className(Iterator<?> iterator, List<CalcOperator<?, ?>> operators)
     {
+        super(iterator, operators);
         this.iterator = iterator;
-        // field mapping
+        //field mapping
         $fieldCreate
     }
 
@@ -52,7 +53,7 @@ public class $className<O>
         }
         while (iterator.hasNext()) {
             Object value = iterator.next();
-            //...code gen
+            //code gen...
             $calcCode
         }
         return false;
