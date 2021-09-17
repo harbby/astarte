@@ -19,9 +19,8 @@ import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.IteratorPlus;
 
 import java.io.Closeable;
-import java.io.DataInputStream;
+import java.io.DataInput;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.NoSuchElementException;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
@@ -30,17 +29,17 @@ import static java.util.Objects.requireNonNull;
 public class EncoderInputStream<E>
         implements IteratorPlus<E>, Closeable
 {
-    private final DataInputStream dataInput;
+    private final DataInput dataInput;
     private final Encoder<E> encoder;
     private final long count;
     private long index = 0;
 
-    public EncoderInputStream(long count, Encoder<E> encoder, InputStream inputStream)
+    public EncoderInputStream(long count, Encoder<E> encoder, DataInput dataInput)
     {
         checkState(count >= 0, "row count >= 0");
         this.count = count;
         this.encoder = requireNonNull(encoder, "encoder is null");
-        this.dataInput = new DataInputStream(requireNonNull(inputStream, "inputStream is null"));
+        this.dataInput = requireNonNull(dataInput, "dataInput is null");
     }
 
     @Override
@@ -49,7 +48,7 @@ public class EncoderInputStream<E>
         boolean hasNext = index < count;
         if (!hasNext) {
             try {
-                dataInput.close();
+                this.close();
             }
             catch (IOException e) {
                 throw Throwables.throwThrowable(e);
@@ -77,6 +76,8 @@ public class EncoderInputStream<E>
     public void close()
             throws IOException
     {
-        dataInput.close();
+        if (dataInput instanceof Closeable) {
+            ((Closeable) dataInput).close();
+        }
     }
 }

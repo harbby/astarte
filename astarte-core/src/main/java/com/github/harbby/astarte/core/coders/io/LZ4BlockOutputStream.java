@@ -30,7 +30,7 @@ import java.util.zip.Checksum;
 /**
  * copied {@link net.jpountz.lz4.LZ4BlockOutputStream}
  */
-public class LZ4BlockOutputStream
+public final class LZ4BlockOutputStream
         extends FilterOutputStream
 {
     static final byte[] MAGIC = new byte[] {'L', 'Z', '4', 'B', 'l', 'o', 'c', 'k'};
@@ -167,6 +167,21 @@ public class LZ4BlockOutputStream
     public LZ4BlockOutputStream(OutputStream out)
     {
         this(out, 1 << 16);
+    }
+
+    public LZ4BlockOutputStream(OutputStream out, Checksum checksum)
+    {
+        this(out, 1 << 16, checksum);
+    }
+
+    public LZ4BlockOutputStream(OutputStream out, int blockSize, Checksum checksum)
+    {
+        this(out, blockSize, LZ4Factory.fastestInstance().fastCompressor(), checksum);
+    }
+
+    public LZ4BlockOutputStream(OutputStream out, int blockSize, LZ4Compressor compressor, Checksum checksum)
+    {
+        this(out, blockSize, compressor, checksum, false);
     }
 
     private void ensureNotFinished()
