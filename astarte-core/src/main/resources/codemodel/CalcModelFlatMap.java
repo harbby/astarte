@@ -36,7 +36,7 @@ public class $className<O>
 
     public $className(List<CalcOperator<?, ?>> operators)
     {
-        // field mapping
+        //field mapping
         $fieldCreate
     }
 

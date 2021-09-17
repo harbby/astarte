@@ -47,7 +47,7 @@ import static java.util.Objects.requireNonNull;
 public abstract class CalcOperator<I, O>
         extends Operator<O>
 {
-    private static final String PACKAGE_NAME = "com.github.harbby.astarte.core";
+    private static final String PACKAGE_NAME = CalcOperator.class.getPackage().getName();
     private static final String CLASS_START_NAME = "CodeGenIterator$";
 
     private static final AtomicInteger classId = new AtomicInteger(0);
@@ -232,7 +232,7 @@ public abstract class CalcOperator<I, O>
 
         JavaSourceObject javaFileObject = javaClassCompiler.doCompile(classFullName, classCode, Collections.singletonList("-XDuseUnsharedTable"));
         byte[] bytes = javaFileObject.getClassByteCodes().get(classFullName);
-        logger.info("code generation compiled ,class {} byte size {}", classFullName, bytes.length);
+        logger.info("code generation compiled ,class {} code: {}", classFullName, classCode);
         requireNonNull(bytes, "not found " + classFullName + ".class");
         return classLoader.loadClass(classFullName, bytes);
     }

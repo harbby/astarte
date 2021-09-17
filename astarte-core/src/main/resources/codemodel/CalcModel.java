@@ -36,7 +36,7 @@ public class $className<O>
     public $className(Iterator<?> iterator, List<CalcOperator<?, ?>> operators)
     {
         this.iterator = iterator;
-        // field mapping
+        //field mapping
         $fieldCreate
     }
 
