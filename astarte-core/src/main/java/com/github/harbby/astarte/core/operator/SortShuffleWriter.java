@@ -30,7 +30,6 @@ import net.jpountz.lz4.LZ4BlockInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -338,7 +337,7 @@ public class SortShuffleWriter<K, V>
                 FileInputStream fileInputStream = new FileInputStream(spillsFile);
                 fileInputStream.getChannel().position(start);
                 int segmentRowSize = segmentRowSizes.get(i);
-                EncoderInputStream<Tuple2<K, V>> encoderInputStream = new EncoderInputStream<>(segmentRowSize, encoder, new LZ4BlockInputStream(new BufferedInputStream(new LimitInputStream(fileInputStream, length))));
+                EncoderInputStream<Tuple2<K, V>> encoderInputStream = new EncoderInputStream<>(segmentRowSize, encoder, new LZ4BlockInputStream(new LimitInputStream(fileInputStream, length)));
                 encoderInputStreams[i] = encoderInputStream;
                 start = end;
             }

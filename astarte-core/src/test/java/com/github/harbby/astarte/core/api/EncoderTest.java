@@ -32,7 +32,6 @@ import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.sql.Timestamp;
-import java.util.Date;
 import java.util.Map;
 
 public class EncoderTest
@@ -163,24 +162,6 @@ public class EncoderTest
         char decoder = characterEncoder.decoder(input);
 
         Assert.assertTrue(decoder == a);
-    }
-
-    @Test
-    public void dateSerializeTest()
-            throws IOException
-    {
-        Encoder<Date> dateEncoder = Encoders.jDate();
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        DataOutput dataOutput = new DataOutputStream(outputStream);
-        Date a = null;
-//        Date a = new Date();
-        dateEncoder.encoder(a, dataOutput);
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
-        DataInput input = new DataInputStream(inputStream);
-        Date decoder = dateEncoder.decoder(input);
-
-        Assert.assertTrue(decoder == null);
-//        Assert.assertTrue(decoder.getTime() == a.getTime());
     }
 
     @Test

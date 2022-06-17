@@ -29,7 +29,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Timestamp;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.function.Supplier;
 
@@ -41,7 +40,7 @@ import static java.util.Objects.requireNonNull;
  */
 public final class Encoders
 {
-    protected static final Logger logger = LoggerFactory.getLogger(Encoders.class);
+    private static final Logger logger = LoggerFactory.getLogger(Encoders.class);
 
     private Encoders() {}
 
@@ -49,7 +48,6 @@ public final class Encoders
     private static final Encoder<Boolean> booleanEncoder = new BooleanEncoder();
     private static final Encoder<Byte> byteEncoder = new ByteEncoder();
     private static final Encoder<Character> charEncoder = new CharEncoder();
-    private static final Encoder<Date> dateEncoder = new DateEncoder();
     private static final Encoder<Short> shortEncoder = new ShortEncoder();
     private static final Encoder<Float> floatEncoder = new FloatEncoder();
     private static final Encoder<java.sql.Date> sqlDateEncoder = new SqlDateEncoder();
@@ -119,15 +117,6 @@ public final class Encoders
         return (Encoder<E>) encoder;
     }
 
-    /**
-     * encode map
-     *
-     * @param kEncoder
-     * @param vEncoder
-     * @param <K>
-     * @param <V>
-     * @return
-     */
     public static <K, V> MapEncoder<K, V> mapEncoder(Encoder<K> kEncoder, Encoder<V> vEncoder)
     {
         requireNonNull(kEncoder, "key Encoder is null");
@@ -187,11 +176,6 @@ public final class Encoders
     public static Encoder<Float> jFloat()
     {
         return floatEncoder;
-    }
-
-    public static Encoder<Date> jDate()
-    {
-        return dateEncoder;
     }
 
     public static Encoder<Short> jShort()
@@ -262,6 +246,26 @@ public final class Encoders
     public static Encoder<Integer> jInt()
     {
         return intEncoder;
+    }
+
+    public static Encoder<Integer> varInt(boolean optimizeNegativeNumber)
+    {
+        return new VarIntEncoder(optimizeNegativeNumber);
+    }
+
+    public static Encoder<Integer> varInt()
+    {
+        return new VarIntEncoder();
+    }
+
+    public static Encoder<Long> varLong()
+    {
+        return new VarLongEncoder();
+    }
+
+    public static Encoder<Long> varLong(boolean optimizeNegativeNumber)
+    {
+        return new VarLongEncoder(optimizeNegativeNumber);
     }
 
     public static Encoder<int[]> jIntArray()
