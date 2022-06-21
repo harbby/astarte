@@ -16,7 +16,6 @@
 package $packageName;
 
 import com.github.harbby.astarte.core.operator.CalcOperator;
-import com.github.harbby.astarte.core.operator.CalcOperator.FlatMapCalcBase;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.StateOption;
 
@@ -25,8 +24,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 public class $className<O>
-        extends FlatMapCalcBase<O>
-        implements Iterator<O>
+        extends com.github.harbby.astarte.core.codegen.FlatMapCalcBase<O>
 {
     private final StateOption<O> option = StateOption.empty();
     private Iterator<?> iterator;
@@ -36,10 +34,12 @@ public class $className<O>
 
     public $className(List<CalcOperator<?, ?>> operators)
     {
+        super(operators);
         //field mapping
         $fieldCreate
     }
 
+    @Override
     public Iterator<O> begin(Iterator<?> childIterator)
     {
         this.iterator = childIterator;
@@ -58,7 +58,7 @@ public class $className<O>
         }
         while (iterator.hasNext()) {
             Object value = iterator.next();
-            //...code gen
+            //code gen...
             $calcCode
         }
         return false;
