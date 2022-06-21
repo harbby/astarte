@@ -28,7 +28,6 @@ import com.github.harbby.astarte.core.coders.io.LZ4BlockOutputStream;
 import com.github.harbby.astarte.core.coders.io.LZ4WritableByteChannel;
 import com.github.harbby.astarte.core.coders.io.UnsafeDataInput;
 import com.github.harbby.astarte.core.coders.io.UnsafeDataOutput;
-import com.github.harbby.astarte.core.coders.io.UnsafeOffHeapDataOutput;
 import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.io.LimitInputStream;
@@ -45,8 +44,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -73,7 +70,14 @@ public class SortShuffleWriter<K, V>
     private final Reducer<V> combine;
 
     //spillFile
-    public SortShuffleWriter(File shuffleWorkDir, String filePrefix, String mergeName, Partitioner partitioner, Encoder<Tuple2<K, V>> encoder, Comparator<K> comparator, Reducer<V> combine)
+    public SortShuffleWriter(
+            File shuffleWorkDir,
+            String filePrefix,
+            String mergeName,
+            Partitioner partitioner,
+            Encoder<Tuple2<K, V>> encoder,
+            Comparator<K> comparator,
+            Reducer<V> combine)
     {
         this.partitioner = partitioner;
         this.encoder = encoder;
