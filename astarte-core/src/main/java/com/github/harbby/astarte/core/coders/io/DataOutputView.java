@@ -66,9 +66,9 @@ public interface DataOutputView
         throw new UnsupportedOperationException();
     }
 
-    void writeVarInt(int v);
+    void writeVarInt(int v, boolean optimizeNegativeNumber);
 
-    void writeVarLong(long v);
+    void writeVarLong(long v, boolean optimizeNegativeNumber);
 
     void writeBoolArray(boolean[] v);
 

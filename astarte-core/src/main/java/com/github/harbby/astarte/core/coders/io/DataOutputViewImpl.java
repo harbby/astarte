@@ -21,15 +21,16 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
+import java.util.Arrays;
 
-public final class DataOutputViewImpl
+public class DataOutputViewImpl
         extends OutputStream
         implements DataOutputView
 {
-    private final WritableByteChannel channel;
-    private final ByteBuffer byteBuffer;
-    private final byte[] buffer;
-    private int index = 0;
+    protected final WritableByteChannel channel;
+    protected final ByteBuffer byteBuffer;
+    protected final byte[] buffer;
+    protected int offset;
 
     public DataOutputViewImpl(WritableByteChannel channel)
     {
@@ -42,12 +43,13 @@ public final class DataOutputViewImpl
         this.channel = channel;
         this.buffer = new byte[buffSize];
         this.byteBuffer = ByteBuffer.wrap(buffer);
+        this.offset = 0;
     }
 
     @Override
     public void flush()
     {
-        byteBuffer.limit(index);
+        byteBuffer.limit(offset);
         try {
             channel.write(byteBuffer);
         }
@@ -55,12 +57,12 @@ public final class DataOutputViewImpl
             Throwables.throwThrowable(e);
         }
         byteBuffer.clear();
-        this.index = 0;
+        this.offset = 0;
     }
 
-    private void checkSize(int size)
+    protected void checkSize(int size)
     {
-        if (index + size > buffer.length) {
+        if (offset + size > buffer.length) {
             this.flush();
         }
     }
@@ -69,7 +71,7 @@ public final class DataOutputViewImpl
     public void write(int b)
     {
         checkSize(1);
-        buffer[index++] = (byte) b;
+        buffer[offset++] = (byte) b;
     }
 
     @Override
@@ -81,17 +83,17 @@ public final class DataOutputViewImpl
     @Override
     public void write(byte[] b, int off, int len)
     {
-        int ramming = buffer.length - index;
+        int ramming = buffer.length - offset;
         while (len > ramming) {
-            System.arraycopy(b, off, buffer, index, ramming);
-            index = buffer.length;
+            System.arraycopy(b, off, buffer, offset, ramming);
+            offset = buffer.length;
             this.flush();
             off += ramming;
             len -= ramming;
             ramming = buffer.length;
         }
-        System.arraycopy(b, off, buffer, index, len);
-        index += len;
+        System.arraycopy(b, off, buffer, offset, len);
+        offset += len;
     }
 
     @Override
@@ -110,8 +112,8 @@ public final class DataOutputViewImpl
     public void writeShort(int v)
     {
         checkSize(2);
-        buffer[index++] = (byte) ((v >>> 8) & 0xFF);
-        buffer[index++] = (byte) ((v) & 0xFF);
+        buffer[offset++] = (byte) ((v >>> 8) & 0xFF);
+        buffer[offset++] = (byte) ((v) & 0xFF);
     }
 
     @Override
@@ -124,24 +126,24 @@ public final class DataOutputViewImpl
     public void writeInt(int v)
     {
         checkSize(4);
-        buffer[index++] = (byte) ((v >>> 24) & 0xFF);
-        buffer[index++] = (byte) ((v >>> 16) & 0xFF);
-        buffer[index++] = (byte) ((v >>> 8) & 0xFF);
-        buffer[index++] = (byte) ((v) & 0xFF);
+        buffer[offset++] = (byte) ((v >>> 24) & 0xFF);
+        buffer[offset++] = (byte) ((v >>> 16) & 0xFF);
+        buffer[offset++] = (byte) ((v >>> 8) & 0xFF);
+        buffer[offset++] = (byte) ((v) & 0xFF);
     }
 
     @Override
     public void writeLong(long v)
     {
         checkSize(8);
-        buffer[index++] = (byte) (v >>> 56);
-        buffer[index++] = (byte) (v >>> 48);
-        buffer[index++] = (byte) (v >>> 40);
-        buffer[index++] = (byte) (v >>> 32);
-        buffer[index++] = (byte) (v >>> 24);
-        buffer[index++] = (byte) (v >>> 16);
-        buffer[index++] = (byte) (v >>> 8);
-        buffer[index++] = (byte) (v);
+        buffer[offset++] = (byte) (v >>> 56);
+        buffer[offset++] = (byte) (v >>> 48);
+        buffer[offset++] = (byte) (v >>> 40);
+        buffer[offset++] = (byte) (v >>> 32);
+        buffer[offset++] = (byte) (v >>> 24);
+        buffer[offset++] = (byte) (v >>> 16);
+        buffer[offset++] = (byte) (v >>> 8);
+        buffer[offset++] = (byte) (v);
     }
 
     @Override
@@ -163,7 +165,7 @@ public final class DataOutputViewImpl
         for (int i = 0; i < len; i++) {
             this.write((byte) s.charAt(i));
         }
-        index += len;
+        offset += len;
     }
 
     @Override
@@ -173,7 +175,7 @@ public final class DataOutputViewImpl
         for (int i = 0; i < len; i++) {
             this.writeChar(s.charAt(i));
         }
-        index += len * 2;
+        offset += len * 2;
     }
 
     @Override
@@ -184,21 +186,141 @@ public final class DataOutputViewImpl
     }
 
     @Override
-    public void writeVarInt(int v)
+    public void writeVarInt(int value, boolean optimizeNegativeNumber)
     {
-        throw new UnsupportedOperationException();
+        int v = value;
+        if (optimizeNegativeNumber) {
+            // zigzag coder: v = v >=0 ? value << 1 : (~value) + 1;
+            v = (v << 1) ^ (v >> 31);
+        }
+        if (v >>> 7 == 0) {
+            checkSize(1);
+            buffer[offset++] = (byte) (v & 0x7F);
+        }
+        else if (v >>> 14 == 0) {
+            checkSize(2);
+            buffer[offset++] = (byte) (v & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 7 & 0x7F);
+        }
+        else if (v >>> 21 == 0) {
+            checkSize(3);
+            buffer[offset++] = (byte) (v & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 14 & 0x7F);
+        }
+        else if (v >>> 28 == 0) {
+            checkSize(4);
+            buffer[offset++] = (byte) (v & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 21 & 0x7F);
+        }
+        else {
+            checkSize(5);
+            buffer[offset++] = (byte) (v & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 21 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 28);
+        }
     }
 
     @Override
-    public void writeVarLong(long v)
+    public void writeVarLong(long value, boolean optimizeNegativeNumber)
     {
-        throw new UnsupportedOperationException();
+        long v = value;
+        if (optimizeNegativeNumber) {
+            // zigzag coder: v = v >=0 ? value << 1 : (~value) + 1;
+            v = (v << 1) ^ (v >> 63);
+        }
+        if (v >>> 7 == 0) {
+            checkSize(1);
+            buffer[offset++] = (byte) (v & 0x7F);
+        }
+        else if (v >>> 14 == 0) {
+            checkSize(2);
+            buffer[offset++] = (byte) (v & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 7 & 0x7F);
+        }
+        else if (v >>> 21 == 0) {
+            checkSize(3);
+            buffer[offset++] = (byte) (v & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 14 & 0x7F);
+        }
+        else if (v >>> 28 == 0) {
+            checkSize(4);
+            buffer[offset++] = (byte) (v & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 21 & 0x7F);
+        }
+        else if (v >>> 35 == 0) {
+            checkSize(5);
+            buffer[offset++] = (byte) (v & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 21 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 28 & 0x7F);
+        }
+        else if (v >>> 42 == 0) {
+            checkSize(6);
+            buffer[offset++] = (byte) (v & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 21 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 28 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 35 & 0x7F);
+        }
+        else if (v >>> 49 == 0) {
+            checkSize(7);
+            buffer[offset++] = (byte) (v & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 21 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 28 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 35 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 42 & 0x7F);
+        }
+        else if (v >>> 56 == 0) {
+            checkSize(8);
+            buffer[offset++] = (byte) (v & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 21 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 28 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 35 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 42 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 49 & 0x7F);
+        }
+        else {
+            checkSize(9);
+            buffer[offset++] = (byte) (v & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 21 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 28 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 35 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 42 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (v >>> 49 & 0x7F | 0x80);
+            // remain 8bit (64 - 8 * 7)
+            buffer[offset++] = (byte) (v >>> 56);
+        }
     }
 
     @Override
-    public void writeBoolArray(boolean[] v)
+    public void writeBoolArray(boolean[] value)
     {
-        throw new UnsupportedOperationException();
+        if (value.length == 0) {
+            this.writeVarInt(0, false);
+            return;
+        }
+        this.writeVarInt(value.length, false);
+        int byteSize = (value.length + 7) >> 3;
+        checkSize(byteSize);
+
+        zip(value, 0, buffer, offset, value.length);
+        offset += byteSize;
     }
 
     @Override
@@ -209,6 +331,25 @@ public final class DataOutputViewImpl
         }
         catch (IOException e) {
             Throwables.throwThrowable(e);
+        }
+    }
+
+    public static void zip(boolean[] src, int srcPos, byte[] dest, int destPos, int dataLength)
+    {
+        int byteSize = (dataLength + 7) >> 3;
+        Arrays.fill(dest, destPos, destPos + byteSize, (byte) 0);
+        for (int i = 0; i < dataLength; i++) {
+            if (src[i + srcPos]) {
+                dest[(i >> 3) + destPos] |= 0x80 >> (i & 7);
+            }
+        }
+    }
+
+    public static void unzip(byte[] src, int srcPos, boolean[] dest, int destPos, int dataLength)
+    {
+        for (int i = 0; i < dataLength; i++) {
+            byte v = src[(i >> 3) + srcPos];
+            dest[i + destPos] = (v & (0x80 >> (i & 7))) != 0;
         }
     }
 }

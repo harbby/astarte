@@ -194,13 +194,13 @@ public final class UnsafeOffHeapDataOutput
     }
 
     @Override
-    public void writeVarInt(int v)
+    public void writeVarInt(int v, boolean optimizeNegativeNumber)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void writeVarLong(long v)
+    public void writeVarLong(long v, boolean optimizeNegativeNumber)
     {
         throw new UnsupportedOperationException();
     }

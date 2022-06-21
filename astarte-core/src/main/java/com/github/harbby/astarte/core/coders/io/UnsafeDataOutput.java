@@ -16,114 +16,33 @@
 package com.github.harbby.astarte.core.coders.io;
 
 import com.github.harbby.gadtry.base.Platform;
-import com.github.harbby.gadtry.base.Throwables;
 import sun.misc.Unsafe;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 
 public final class UnsafeDataOutput
-        extends OutputStream
-        implements DataOutputView
+        extends DataOutputViewImpl
 {
     private static final Unsafe unsafe = Platform.getUnsafe();
-    private final byte[] buffer;
-    private final WritableByteChannel channel;
-    private final ByteBuffer byteBuffer;
-    private final int maxOffset;
-    private int offset = Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
     public UnsafeDataOutput(WritableByteChannel channel, int blockSize)
     {
-        this.channel = channel;
-        buffer = new byte[blockSize];
-        this.byteBuffer = ByteBuffer.wrap(buffer);
-        this.maxOffset = Unsafe.ARRAY_BYTE_BASE_OFFSET + buffer.length;
-    }
-
-    private void checkSize(int size)
-    {
-        if (offset + size > maxOffset) {
-            this.flush();
-        }
-    }
-
-    @Override
-    public void flush()
-    {
-        byteBuffer.limit(offset - Unsafe.ARRAY_BYTE_BASE_OFFSET);
-        try {
-            channel.write(byteBuffer);
-        }
-        catch (IOException e) {
-            Throwables.throwThrowable(e);
-        }
-        byteBuffer.clear();
-        this.offset = Unsafe.ARRAY_BYTE_BASE_OFFSET;
-    }
-
-    @Override
-    public void close()
-    {
-        try (WritableByteChannel ignored = this.channel) {
-            this.flush();
-        }
-        catch (IOException e) {
-            Throwables.throwThrowable(e);
-        }
-    }
-
-    @Override
-    public void write(int b)
-    {
-        checkSize(1);
-        buffer[offset++] = (byte) b;
-    }
-
-    @Override
-    public void write(byte[] b)
-    {
-        this.write(b, 0, b.length);
-    }
-
-    @Override
-    public void write(byte[] b, int off, int len)
-    {
-        int index = this.offset - Unsafe.ARRAY_BYTE_BASE_OFFSET;
-        int ramming = buffer.length - index;
-        while (len > ramming) {
-            System.arraycopy(b, off, buffer, index, ramming);
-            index = buffer.length;
-            this.flush();
-            off += ramming;
-            len -= ramming;
-            ramming = buffer.length;
-        }
-        System.arraycopy(b, off, buffer, index, len);
-        this.offset += len;
+        super(channel, blockSize);
     }
 
     @Override
     public void writeBoolean(boolean v)
     {
         checkSize(1);
-        unsafe.putBoolean(this.buffer, (long) offset, v);
+        unsafe.putBoolean(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, v);
         offset++;
-    }
-
-    @Override
-    public void writeByte(int v)
-    {
-        this.write(v);
     }
 
     @Override
     public void writeShort(int v)
     {
         checkSize(2);
-        unsafe.putShort(this.buffer, (long) offset, (short) v);
+        unsafe.putShort(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, (short) v);
         offset += 2;
     }
 
@@ -131,7 +50,7 @@ public final class UnsafeDataOutput
     public void writeChar(int v)
     {
         checkSize(2);
-        unsafe.putChar(this.buffer, (long) offset, (char) v);
+        unsafe.putChar(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, (char) v);
         offset += 2;
     }
 
@@ -139,7 +58,7 @@ public final class UnsafeDataOutput
     public void writeInt(int v)
     {
         checkSize(4);
-        unsafe.putInt(this.buffer, (long) offset, v);
+        unsafe.putInt(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, v);
         offset += 4;
     }
 
@@ -147,7 +66,7 @@ public final class UnsafeDataOutput
     public void writeLong(long v)
     {
         checkSize(8);
-        unsafe.putLong(this.buffer, (long) offset, v);
+        unsafe.putLong(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, v);
         offset += 8;
     }
 
@@ -155,7 +74,7 @@ public final class UnsafeDataOutput
     public void writeFloat(float v)
     {
         checkSize(4);
-        unsafe.putFloat(this.buffer, (long) offset, v);
+        unsafe.putFloat(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, v);
         offset += 4;
     }
 
@@ -163,7 +82,7 @@ public final class UnsafeDataOutput
     public void writeDouble(double v)
     {
         checkSize(8);
-        unsafe.putDouble(this.buffer, (long) offset, v);
+        unsafe.putDouble(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, v);
         offset += 8;
     }
 
@@ -186,29 +105,5 @@ public final class UnsafeDataOutput
             int v = s.charAt(i);
             this.writeChar(v);
         }
-    }
-
-    @Override
-    public void writeVarInt(int v)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeVarLong(long v)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolArray(boolean[] v)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeString(String s)
-    {
-        throw new UnsupportedOperationException();
     }
 }

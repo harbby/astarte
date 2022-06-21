@@ -15,6 +15,9 @@
  */
 package com.github.harbby.astarte.core.coders.io;
 
+import com.github.harbby.gadtry.base.Platform;
+import sun.misc.Unsafe;
+
 import java.io.Closeable;
 import java.io.DataInput;
 import java.io.EOFException;
@@ -166,14 +169,7 @@ public final class UnsafeDataInput
             throws IOException
     {
         readFully(readBuffer, 0, 8);
-        return (((long) readBuffer[7] << 56) +
-                ((long) (readBuffer[6] & 255) << 48) +
-                ((long) (readBuffer[5] & 255) << 40) +
-                ((long) (readBuffer[4] & 255) << 32) +
-                ((long) (readBuffer[3] & 255) << 24) +
-                ((readBuffer[2] & 255) << 16) +
-                ((readBuffer[1] & 255) << 8) +
-                ((readBuffer[0] & 255) << 0));
+        return Platform.getUnsafe().getLong(readBuffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET);
     }
 
     @Override
