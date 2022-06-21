@@ -29,13 +29,13 @@ public class $className<O>
     private final StateOption<O> option = StateOption.empty();
     private Iterator<?> iterator;
     private Iterator<O> child = Iterators.empty();
-    //field mapping
+    // field mapping
     $fieldDefine
 
     public $className(List<CalcOperator<?, ?>> operators)
     {
         super(operators);
-        //field mapping
+        // field mapping
         $fieldCreate
     }
 
@@ -58,7 +58,7 @@ public class $className<O>
         }
         while (iterator.hasNext()) {
             Object value = iterator.next();
-            //code gen...
+            // code gen...
             $calcCode
         }
         return false;
