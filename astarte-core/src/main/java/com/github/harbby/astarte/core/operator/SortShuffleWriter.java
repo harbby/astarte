@@ -22,11 +22,18 @@ import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.EncoderInputStream;
+import com.github.harbby.astarte.core.coders.io.Checksums;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 import com.github.harbby.astarte.core.coders.io.LZ4BlockOutputStream;
+import com.github.harbby.astarte.core.coders.io.LZ4WritableByteChannel;
+import com.github.harbby.astarte.core.coders.io.UnsafeDataInput;
+import com.github.harbby.astarte.core.coders.io.UnsafeDataOutput;
+import com.github.harbby.astarte.core.coders.io.UnsafeOffHeapDataOutput;
 import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.io.LimitInputStream;
 import net.jpountz.lz4.LZ4BlockInputStream;
+import net.jpountz.lz4.LZ4Factory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +45,8 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -64,14 +73,7 @@ public class SortShuffleWriter<K, V>
     private final Reducer<V> combine;
 
     //spillFile
-    public SortShuffleWriter(
-            File shuffleWorkDir,
-            String filePrefix,
-            String mergeName,
-            Partitioner partitioner,
-            Encoder<Tuple2<K, V>> encoder,
-            Comparator<K> comparator,
-            Reducer<V> combine)
+    public SortShuffleWriter(File shuffleWorkDir, String filePrefix, String mergeName, Partitioner partitioner, Encoder<Tuple2<K, V>> encoder, Comparator<K> comparator, Reducer<V> combine)
     {
         this.partitioner = partitioner;
         this.encoder = encoder;
@@ -97,23 +99,15 @@ public class SortShuffleWriter<K, V>
         return sorter.mergeFile();
     }
 
-    public static <K> Partitioner createPartitioner(
-            int reduceNumber,
-            Operator<K> operator,
-            Comparator<K> ordering)
+    public static <K> Partitioner createPartitioner(int reduceNumber, Operator<K> operator, Comparator<K> ordering)
     {
         int sampleSize = Math.min(200 * reduceNumber, 1 << 20); //max 1M rows
         int sampleSizePerPartition = (int) Math.ceil(1.0 * sampleSize / operator.numPartitions());
-        K[] points = analyzerSplit(operator,
-                ordering,
-                sampleSizePerPartition);
+        K[] points = analyzerSplit(operator, ordering, sampleSizePerPartition);
         return new SortShuffleRangePartitioner<>(reduceNumber, points, ordering);
     }
 
-    public static <K> K[] analyzerSplit(
-            Operator<K> operator,
-            Comparator<K> ordering,
-            int sampleSizePerPartition)
+    public static <K> K[] analyzerSplit(Operator<K> operator, Comparator<K> ordering, int sampleSizePerPartition)
     {
         List<SampleResult<K>> sampleResults = sketch(operator, sampleSizePerPartition);
         long length = sampleResults.stream().mapToLong(x -> x.getPartitionCount()).sum();
@@ -139,14 +133,9 @@ public class SortShuffleWriter<K, V>
         return ks;
     }
 
-    private static <K> K[] getPoints(
-            List<Tuple2<K, Double>> candidates,
-            Comparator<K> ordering,
-            int partitions)
+    private static <K> K[] getPoints(List<Tuple2<K, Double>> candidates, Comparator<K> ordering, int partitions)
     {
-        List<Tuple2<K, Double>> ordered = candidates.stream()
-                .sorted((x, y) -> ordering.compare(x.key(), y.key()))
-                .collect(Collectors.toList());
+        List<Tuple2<K, Double>> ordered = candidates.stream().sorted((x, y) -> ordering.compare(x.key(), y.key())).collect(Collectors.toList());
         int numCandidates = ordered.size();
         double sumWeights = ordered.stream().mapToDouble(x -> x.value()).sum();
         double step = sumWeights / partitions;
@@ -176,8 +165,7 @@ public class SortShuffleWriter<K, V>
         return (K[]) bounds.toArray();
     }
 
-    private static <K> List<SampleResult<K>> sketch(Operator<K> operator,
-            int sampleSizePerPartition)
+    private static <K> List<SampleResult<K>> sketch(Operator<K> operator, int sampleSizePerPartition)
     {
         List<SampleResult<K>> results = operator.mapPartitionWithId((index, it) -> {
             if (!it.hasNext()) {
@@ -248,13 +236,13 @@ public class SortShuffleWriter<K, V>
         return Integer.BYTES + segmentSize * Long.BYTES * 2;
     }
 
-    private static class ReduceWriter<K, V>
+    private static final class ReduceWriter<K, V>
     {
         private static final int BUFF_SIZE = 81920; //todo: use mem size
         private final Encoder<Tuple2<K, V>> encoder;
         private final File spillsFile;
-        private LZ4BlockOutputStream lz4BlockOutputStream;
-        private DataOutputStream dataOutput;
+        private LZ4WritableByteChannel lz4BlockOutputStream;
+        private DataOutputView dataOutput;
 
         private final List<Long> segmentEnds = new ArrayList<>();
         private final List<Integer> segmentRowSizes = new ArrayList<>();
@@ -262,10 +250,7 @@ public class SortShuffleWriter<K, V>
         private final Comparator<K> comparator;
         private long mapTaskReadRowCount = 0;
 
-        public ReduceWriter(
-                File spillsFile,
-                Encoder<Tuple2<K, V>> encoder,
-                Comparator<K> comparator)
+        public ReduceWriter(File spillsFile, Encoder<Tuple2<K, V>> encoder, Comparator<K> comparator)
         {
             this.encoder = encoder;
             this.comparator = comparator;
@@ -276,8 +261,9 @@ public class SortShuffleWriter<K, V>
                 throws IOException
         {
             if (lz4BlockOutputStream == null) {
-                this.lz4BlockOutputStream = new LZ4BlockOutputStream(new FileOutputStream(spillsFile, false));
-                this.dataOutput = new DataOutputStream(lz4BlockOutputStream);
+                int blockSize = 1 << 16;  //64k is lz4 default buffSize
+                this.lz4BlockOutputStream = new LZ4WritableByteChannel(new FileOutputStream(spillsFile, false), blockSize);
+                this.dataOutput = new UnsafeDataOutput(lz4BlockOutputStream, blockSize);
             }
 
             buffer.sort((x, y) -> comparator.compare(x.key(), y.key()));
@@ -285,6 +271,8 @@ public class SortShuffleWriter<K, V>
             for (Tuple2<K, V> kv : buffer) {
                 encoder.encoder(kv, dataOutput);
             }
+
+            dataOutput.flush();
             lz4BlockOutputStream.finishBlock();
             segmentEnds.add(lz4BlockOutputStream.position());
             lz4BlockOutputStream.beginBlock(); //reset state
@@ -329,15 +317,18 @@ public class SortShuffleWriter<K, V>
             this.buffer.trimToSize();
             //close spill file io
             this.writeFinish();
+            @SuppressWarnings("unchecked")
             EncoderInputStream<Tuple2<K, V>>[] encoderInputStreams = new EncoderInputStream[segmentEnds.size()];
             long start = 0;
             for (int i = 0; i < segmentEnds.size(); i++) {
                 long end = segmentEnds.get(i);
                 long length = end - start;
                 FileInputStream fileInputStream = new FileInputStream(spillsFile);
-                fileInputStream.getChannel().position(start);
+                FileChannel fileChannel = fileInputStream.getChannel();
+                fileChannel.position(start);
                 int segmentRowSize = segmentRowSizes.get(i);
-                EncoderInputStream<Tuple2<K, V>> encoderInputStream = new EncoderInputStream<>(segmentRowSize, encoder, new LZ4BlockInputStream(new LimitInputStream(fileInputStream, length)));
+                LZ4BlockInputStream lz4BlockInputStream = new LZ4BlockInputStream(new LimitInputStream(fileInputStream, length), LZ4Factory.fastestInstance().fastDecompressor(), Checksums.lengthCheckSum());
+                EncoderInputStream<Tuple2<K, V>> encoderInputStream = new EncoderInputStream<>(segmentRowSize, encoder, new UnsafeDataInput(lz4BlockInputStream));
                 encoderInputStreams[i] = encoderInputStream;
                 start = end;
             }
@@ -359,7 +350,7 @@ public class SortShuffleWriter<K, V>
         }
     }
 
-    public class SorterBuffer
+    public final class SorterBuffer
     {
         private final Comparator<K> ordering;
         private final Partitioner partitioner;
@@ -403,8 +394,8 @@ public class SortShuffleWriter<K, V>
         {
             ByteBuffer header = ByteBuffer.allocate(getSortMergedFileHarderSize(reduceWriters.length));
             header.putInt(reduceWriters.length);
-            try (FileOutputStream fileOutputStream = new FileOutputStream(mergeName, false)) {
-                FileChannel fileChannel = fileOutputStream.getChannel();
+            try (FileOutputStream fileOutputStream = new FileOutputStream(mergeName, false);
+                    FileChannel fileChannel = fileOutputStream.getChannel()) {
                 //skip header = int + len * long
                 fileChannel.position(header.capacity());
                 LZ4BlockOutputStream lz4OutputStream = new LZ4BlockOutputStream(fileOutputStream);
@@ -460,11 +451,7 @@ public class SortShuffleWriter<K, V>
         private final K[] points;
         private final Comparator<K> ordering;
 
-        public SortShuffleRangePartitioner(
-                int reduceNumber,
-                K[] points,
-                Comparator<K> ordering
-        )
+        public SortShuffleRangePartitioner(int reduceNumber, K[] points, Comparator<K> ordering)
         {
             this.reduceNumber = reduceNumber;
             this.points = points;

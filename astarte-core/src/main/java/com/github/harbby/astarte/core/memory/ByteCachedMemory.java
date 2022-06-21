@@ -24,6 +24,7 @@ import net.jpountz.lz4.LZ4BlockOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
@@ -59,7 +60,8 @@ public class ByteCachedMemory<E>
     public Iterator<E> prepareIterator()
     {
         checkState(isFinal, "only reader mode");
-        return new EncoderInputStream<>(count, encoder, new LZ4BlockInputStream(block.prepareInputStream()));
+        LZ4BlockInputStream lz4BlockInputStream = new LZ4BlockInputStream(block.prepareInputStream());
+        return new EncoderInputStream<>(count, encoder, new DataInputStream(lz4BlockInputStream));
     }
 
     @Override

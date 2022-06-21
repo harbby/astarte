@@ -97,17 +97,15 @@ public interface ShuffleClient
                     length = segmentEnd - segmentEnds[reduceId - 1];
                 }
                 if (length > 0) {
-                    iterators.add(new EncoderInputStream<>(segmentRowSizes[reduceId], encoder,
-                            new LZ4BlockInputStream(new BufferedInputStream(new LimitInputStream(fileInputStream, length))))
-                            .autoClose(() -> {
-                                try {
-                                    fileInputStream.close();
-                                }
-                                catch (IOException e) {
-                                    Throwables.throwThrowable(e);
-                                }
-                            })
-                    );
+                    LZ4BlockInputStream lz4BlockInputStream = new LZ4BlockInputStream(new BufferedInputStream(new LimitInputStream(fileInputStream, length)));
+                    iterators.add(new EncoderInputStream<>(segmentRowSizes[reduceId], encoder, new DataInputStream(lz4BlockInputStream)).autoClose(() -> {
+                        try {
+                            fileInputStream.close();
+                        }
+                        catch (IOException e) {
+                            Throwables.throwThrowable(e);
+                        }
+                    }));
                 }
                 else {
                     fileInputStream.close();
