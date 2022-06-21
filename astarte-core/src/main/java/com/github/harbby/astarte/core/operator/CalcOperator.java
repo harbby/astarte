@@ -154,7 +154,7 @@ public abstract class CalcOperator<I, O>
                 String field = getNextField();
                 fieldMapping.add(Tuple3.of(Mapper.class.getCanonicalName() + "<Object, Iterator<?>>", field, "(" + Mapper.class.getCanonicalName() + "<Object, Iterator<?>>) operators.get(" + i + ").getOperator()"));
                 if (i + 1 == operators.size()) {
-                    //这个分支表明当前stage最后一个算子是flatMap
+                    //当前stage最后一个算子是flatMap
                     builder.append("child = (Iterator<O>)" + field + ".map(value);\n");
                 }
                 else {
