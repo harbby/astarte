@@ -16,6 +16,7 @@
 package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.api.function.Filter;
+import com.github.harbby.astarte.core.codegen.CalcOperator;
 import com.github.harbby.gadtry.base.Iterators;
 
 import java.util.Iterator;

@@ -41,7 +41,36 @@ public class CodeGenTest
                 "c",
                 "d",
                 "e"), 1);
-        List<String> out = ds.map(x -> x.charAt(0)).map(x -> x + 1).filter(x -> x > 0).map(x -> (char) x.intValue()).map(String::valueOf)
+        List<String> out = ds.map(x -> x.charAt(0))
+                .map(x -> x + 1)
+                .filter(x -> x > 0)
+                .map(x -> (char) x.intValue())
+                .map(String::valueOf)
+                .collect();
+        Assert.assertEquals(out, Arrays.asList("b", "c", "d", "e", "f"));
+    }
+
+    @Test
+    public void flatMapTest()
+    {
+        final AstarteConf astarteConf = new AstarteConf();
+        astarteConf.put(Constant.CALC_OPERATOR_CODE_GENERATION_ENABLE, "true");
+        final BatchContext mppContext = BatchContext.builder()
+                .conf(astarteConf)
+                .local(2)
+                .getOrCreate();
+
+        DataSet<String> ds = mppContext.makeDataSet(Arrays.asList("a",
+                "b",
+                "c",
+                "d",
+                "e"), 1);
+        List<String> out = ds.map(x -> x.charAt(0))
+                .map(x -> x + 1)
+                .filter(x -> x > 0)
+                .map(x -> (char) x.intValue())
+                .flatMap(x-> new Character[] {x})
+                .map(String::valueOf)
                 .collect();
         Assert.assertEquals(out, Arrays.asList("b", "c", "d", "e", "f"));
     }

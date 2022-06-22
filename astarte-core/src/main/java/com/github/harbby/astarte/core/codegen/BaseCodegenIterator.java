@@ -15,8 +15,6 @@
  */
 package com.github.harbby.astarte.core.codegen;
 
-import com.github.harbby.astarte.core.operator.CalcOperator;
-
 import java.util.Iterator;
 import java.util.List;
 

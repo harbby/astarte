@@ -21,6 +21,8 @@ import com.github.harbby.astarte.core.api.Partition;
 import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Mapper;
+import com.github.harbby.astarte.core.codegen.CalcOperator;
+import com.github.harbby.astarte.core.codegen.CodeGenUtil;
 import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.function.Function2;
 
@@ -92,8 +94,8 @@ public class LocalJoinOperator<K, V1, V2>
                 .map(x -> ((CalcOperator<?, ?>) x)).collect(Collectors.toList());
         Collections.reverse(rightCalcOperators); // 倒序排列
 
-        Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V1>>> leftCalc = it -> CalcOperator.doCodeGen(it, leftCalcOperators);
-        Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V2>>> rightCalc = it -> CalcOperator.doCodeGen(it, rightCalcOperators);
+        Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V1>>> leftCalc = it -> CodeGenUtil.doCodeGen(it, leftCalcOperators);
+        Mapper<Iterator<Tuple2<K, ?>>, Iterator<Tuple2<K, V2>>> rightCalc = it -> CodeGenUtil.doCodeGen(it, rightCalcOperators);
 
         @SuppressWarnings("unchecked")
         Operator<Tuple2<K, ?>> operator = (Operator<Tuple2<K, ?>>) sameOperator.get();

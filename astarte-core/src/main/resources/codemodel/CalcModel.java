@@ -15,7 +15,7 @@
  */
 package $packageName;
 
-import com.github.harbby.astarte.core.operator.CalcOperator;
+import com.github.harbby.astarte.core.codegen.CalcOperator;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.StateOption;
 
