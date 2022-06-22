@@ -350,7 +350,8 @@
                         <configuration>
                             <argLine>--add-exports=java.base/sun.nio.ch=ALL-UNNAMED
                                 --add-exports=java.base/jdk.internal.ref=ALL-UNNAMED
-                                --add-opens=java.base/jdk.internal.loader=ALL-UNNAMED</argLine>
+                                --add-opens=java.base/jdk.internal.loader=ALL-UNNAMED
+                            </argLine>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -372,7 +373,6 @@
                             <target>17</target>
                             <compilerArgs combine.children="append">
                                 <arg>--add-exports=java.base/sun.nio.ch=ALL-UNNAMED</arg>
-                                <arg>--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED</arg>
                             </compilerArgs>
                         </configuration>
                     </plugin>
@@ -380,11 +380,11 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <argLine>--add-exports=java.base/sun.nio.ch=ALL-UNNAMED
+                            <argLine>
+                                --add-exports=java.base/sun.nio.ch=ALL-UNNAMED
                                 --add-exports=java.base/jdk.internal.ref=ALL-UNNAMED
-                                --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED
-                                --add-opens=java.base/jdk.internal.loader=ALL-UNNAMED
-                                --add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+                                --add-opens=java.base/java.nio=ALL-UNNAMED
+                            </argLine>
                         </configuration>
                     </plugin>
                 </plugins>
