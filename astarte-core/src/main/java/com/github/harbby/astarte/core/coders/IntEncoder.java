@@ -16,24 +16,20 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 public class IntEncoder
         implements Encoder<Integer>
 {
     @Override
-    public void encoder(Integer value, DataOutput output)
-            throws IOException
+    public void encoder(Integer value, DataOutputView output)
     {
         output.writeInt(value);
     }
 
     @Override
-    public Integer decoder(DataInput input)
-            throws IOException
+    public Integer decoder(DataInputView input)
     {
         return input.readInt();
     }

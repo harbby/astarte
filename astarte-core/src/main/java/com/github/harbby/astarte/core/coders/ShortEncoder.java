@@ -16,10 +16,8 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 /**
  * @author ivan
@@ -32,15 +30,13 @@ public class ShortEncoder
     protected ShortEncoder() {}
 
     @Override
-    public void encoder(Short value, DataOutput output)
-            throws IOException
+    public void encoder(Short value, DataOutputView output)
     {
         output.writeShort(value);
     }
 
     @Override
-    public Short decoder(DataInput input)
-            throws IOException
+    public Short decoder(DataInputView input)
     {
         return input.readShort();
     }

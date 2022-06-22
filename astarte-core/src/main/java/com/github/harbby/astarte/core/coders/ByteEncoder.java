@@ -16,10 +16,8 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 /**
  * @author ivan
@@ -32,15 +30,13 @@ public class ByteEncoder
     protected ByteEncoder() {}
 
     @Override
-    public void encoder(Byte value, DataOutput output)
-            throws IOException
+    public void encoder(Byte value, DataOutputView output)
     {
         output.writeByte(value);
     }
 
     @Override
-    public Byte decoder(DataInput input)
-            throws IOException
+    public Byte decoder(DataInputView input)
     {
         return input.readByte();
     }

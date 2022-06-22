@@ -16,10 +16,10 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * @author ivan
@@ -31,34 +31,31 @@ public class AsciiStringEncoder
         implements Encoder<String>
 {
     @Override
-    public void encoder(String value, DataOutput output)
-            throws IOException
+    public void encoder(String value, DataOutputView output)
     {
-        if (value == null) {
-            output.writeInt(-1);
-            return;
+        if (value != null) {
+            final int length = value.length();
+            output.writeInt(length);
+            output.writeBytes(value);
         }
-        output.writeInt(value.length());
-        output.writeBytes(value);
+        else {
+            output.writeInt(0x80);
+        }
     }
 
     @Override
-    public String decoder(DataInput input)
-            throws IOException
+    public String decoder(DataInputView input)
     {
         final int length = input.readInt();
-        if (length == -1) {
+        if (length == 0x80) {
             return null;
         }
-        if (length == 0) {
-            return "";
-        }
-        final char[] data = new char[length];
+        final byte[] data = new byte[length];
         for (int i = 0; i < length; i++) {
             byte c = input.readByte();
-            data[i] = (char) c;
+            data[i] = c;
         }
-        return new String(data);
+        return new String(data, 0, length, StandardCharsets.US_ASCII);
     }
 
     @Override

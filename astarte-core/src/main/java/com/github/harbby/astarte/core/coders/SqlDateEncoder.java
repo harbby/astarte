@@ -16,10 +16,9 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
 import java.sql.Date;
 
 /**
@@ -33,8 +32,7 @@ public class SqlDateEncoder
     protected SqlDateEncoder() {}
 
     @Override
-    public void encoder(Date value, DataOutput output)
-            throws IOException
+    public void encoder(Date value, DataOutputView output)
     {
         if (value == null) {
             output.writeLong(-1);
@@ -45,8 +43,7 @@ public class SqlDateEncoder
     }
 
     @Override
-    public Date decoder(DataInput input)
-            throws IOException
+    public Date decoder(DataInputView input)
     {
         final long l = input.readLong();
         if (l == -1) {

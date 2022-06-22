@@ -16,24 +16,20 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 public class DoubleEncoder
         implements Encoder<Double>
 {
     @Override
-    public void encoder(Double value, DataOutput output)
-            throws IOException
+    public void encoder(Double value, DataOutputView output)
     {
         output.writeDouble(value);
     }
 
     @Override
-    public Double decoder(DataInput input)
-            throws IOException
+    public Double decoder(DataInputView input)
     {
         return input.readDouble();
     }

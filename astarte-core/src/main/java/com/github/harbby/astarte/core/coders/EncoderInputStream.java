@@ -15,11 +15,11 @@
  */
 package com.github.harbby.astarte.core.coders;
 
+import com.github.harbby.astarte.core.coders.io.DataInputView;
 import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.collection.IteratorPlus;
 
 import java.io.Closeable;
-import java.io.DataInput;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 
@@ -29,12 +29,12 @@ import static java.util.Objects.requireNonNull;
 public class EncoderInputStream<E>
         implements IteratorPlus<E>, Closeable
 {
-    private final DataInput dataInput;
+    private final DataInputView dataInput;
     private final Encoder<E> encoder;
     private final long count;
     private long index = 0;
 
-    public EncoderInputStream(long count, Encoder<E> encoder, DataInput dataInput)
+    public EncoderInputStream(long count, Encoder<E> encoder, DataInputView dataInput)
     {
         checkState(count >= 0, "row count >= 0");
         this.count = count;
@@ -64,20 +64,13 @@ public class EncoderInputStream<E>
             throw new NoSuchElementException();
         }
         index++;
-        try {
-            return encoder.decoder(dataInput);
-        }
-        catch (IOException e) {
-            throw Throwables.throwThrowable(e);
-        }
+        return encoder.decoder(dataInput);
     }
 
     @Override
     public void close()
             throws IOException
     {
-        if (dataInput instanceof Closeable) {
-            ((Closeable) dataInput).close();
-        }
+        dataInput.close();
     }
 }

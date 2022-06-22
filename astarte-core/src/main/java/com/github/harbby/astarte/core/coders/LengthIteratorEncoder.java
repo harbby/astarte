@@ -17,11 +17,9 @@ package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.LengthIterator;
 import com.github.harbby.astarte.core.api.function.Comparator;
-import com.github.harbby.gadtry.base.Throwables;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -39,8 +37,7 @@ public class LengthIteratorEncoder<E>
     }
 
     @Override
-    public void encoder(Iterator<E> value, DataOutput output)
-            throws IOException
+    public void encoder(Iterator<E> value, DataOutputView output)
     {
         checkState(value instanceof LengthIterator, "only support LengthIterator");
         output.writeInt(((LengthIterator<?>) value).length());
@@ -50,8 +47,7 @@ public class LengthIteratorEncoder<E>
     }
 
     @Override
-    public LengthIterator<E> decoder(DataInput input)
-            throws IOException
+    public LengthIterator<E> decoder(DataInputView input)
     {
         final int length = input.readInt();
         return new LengthIterator<E>()
@@ -77,12 +73,7 @@ public class LengthIteratorEncoder<E>
                     throw new NoSuchElementException();
                 }
                 index++;
-                try {
-                    return eEncoder.decoder(input);
-                }
-                catch (IOException e) {
-                    throw Throwables.throwThrowable(e);
-                }
+                return eEncoder.decoder(input);
             }
         };
     }

@@ -16,10 +16,9 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -41,8 +40,7 @@ public class MapEncoder<K, V>
     }
 
     @Override
-    public void encoder(Map<K, V> value, DataOutput output)
-            throws IOException
+    public void encoder(Map<K, V> value, DataOutputView output)
     {
         if (value == null) {
             output.writeInt(-1);
@@ -61,8 +59,7 @@ public class MapEncoder<K, V>
     }
 
     @Override
-    public Map<K, V> decoder(DataInput input)
-            throws IOException
+    public Map<K, V> decoder(DataInputView input)
     {
         final int size = input.readInt();
         if (size == -1) {

@@ -16,10 +16,9 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
 import java.io.Serializable;
 
 import static com.github.harbby.astarte.core.coders.JavaEncoder.OBJECT_COMPARATOR;
@@ -27,11 +26,9 @@ import static com.github.harbby.astarte.core.coders.JavaEncoder.OBJECT_COMPARATO
 public interface Encoder<E>
         extends Serializable
 {
-    public void encoder(E value, DataOutput output)
-            throws IOException;
+    public void encoder(E value, DataOutputView output);
 
-    public E decoder(DataInput input)
-            throws IOException;
+    public E decoder(DataInputView input);
 
     /**
      * sortMerge shuffle need

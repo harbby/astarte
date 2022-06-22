@@ -18,6 +18,8 @@ package com.github.harbby.astarte.core.runtime;
 import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataInputViewImpl;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.base.Throwables;
 import io.netty.bootstrap.Bootstrap;
@@ -36,7 +38,6 @@ import io.netty.util.ReferenceCountUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
@@ -169,7 +170,7 @@ public class SortShuffleClusterClient
     {
         private final Encoder<Tuple2<K, V>> encoder;
         private final BlockingQueue<ByteBuf> buffer = new LinkedBlockingQueue<>(10);
-        private final DataInputStream dataInputStream = new DataInputStream(this);
+        private final DataInputView inputView = new DataInputViewImpl(this);
         private ByteBuf byteBuf;
         private volatile Throwable cause;
         private boolean done = false;
@@ -229,12 +230,7 @@ public class SortShuffleClusterClient
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }
-            try {
-                return encoder.decoder(dataInputStream);
-            }
-            catch (IOException e) {
-                throw Throwables.throwThrowable(e);
-            }
+            return encoder.decoder(inputView);
         }
 
         @Override

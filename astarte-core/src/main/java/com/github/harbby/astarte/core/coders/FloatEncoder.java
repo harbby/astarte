@@ -16,10 +16,8 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 /**
  * @author ivan
@@ -32,15 +30,13 @@ public class FloatEncoder
     protected FloatEncoder() {}
 
     @Override
-    public void encoder(Float value, DataOutput output)
-            throws IOException
+    public void encoder(Float value, DataOutputView output)
     {
         output.writeFloat(value);
     }
 
     @Override
-    public Float decoder(DataInput input)
-            throws IOException
+    public Float decoder(DataInputView input)
     {
         return input.readFloat();
     }

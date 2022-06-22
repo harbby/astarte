@@ -24,6 +24,7 @@ import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.EncoderInputStream;
 import com.github.harbby.astarte.core.coders.io.Checksums;
 import com.github.harbby.astarte.core.coders.io.DataOutputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputViewImpl;
 import com.github.harbby.astarte.core.coders.io.LZ4BlockOutputStream;
 import com.github.harbby.astarte.core.coders.io.LZ4WritableByteChannel;
 import com.github.harbby.astarte.core.coders.io.UnsafeDataInput;
@@ -36,7 +37,6 @@ import net.jpountz.lz4.LZ4Factory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -403,7 +403,7 @@ public class SortShuffleWriter<K, V>
                 //skip header = int + len * long
                 fileChannel.position(header.capacity());
                 LZ4BlockOutputStream lz4OutputStream = new LZ4BlockOutputStream(fileOutputStream);
-                DataOutputStream dataOutputStream = new DataOutputStream(lz4OutputStream);
+                DataOutputView dataOutputView = new DataOutputViewImpl(lz4OutputStream);
                 for (ReduceWriter<K, V> reduceWriter : reduceWriters) {
                     if (reduceWriter == null) {
                         header.putLong(lz4OutputStream.position());
@@ -419,14 +419,14 @@ public class SortShuffleWriter<K, V>
                         merger = ReduceUtil.reduceSorted(merger, combine);
                         while (merger.hasNext()) {
                             count++;
-                            encoder.encoder(merger.next(), dataOutputStream);
+                            encoder.encoder(merger.next(), dataOutputView);
                         }
                         logger.info("shuffleMapTask merged combine {}/{} ratio: {}", count, rowCount, count * 1.0f / rowCount);
                         rowCount = count;
                     }
                     else {
                         while (merger.hasNext()) {
-                            encoder.encoder(merger.next(), dataOutputStream);
+                            encoder.encoder(merger.next(), dataOutputView);
                         }
                     }
                     lz4OutputStream.finishBlock();

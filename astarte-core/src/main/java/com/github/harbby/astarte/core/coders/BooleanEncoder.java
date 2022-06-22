@@ -16,10 +16,8 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 /**
  * @author ivan
@@ -32,15 +30,13 @@ public class BooleanEncoder
     protected BooleanEncoder() {}
 
     @Override
-    public void encoder(Boolean value, DataOutput output)
-            throws IOException
+    public void encoder(Boolean value, DataOutputView output)
     {
         output.writeBoolean(value);
     }
 
     @Override
-    public Boolean decoder(DataInput input)
-            throws IOException
+    public Boolean decoder(DataInputView input)
     {
         return input.readBoolean();
     }

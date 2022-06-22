@@ -15,23 +15,31 @@
  */
 package com.github.harbby.astarte.core.coders.io;
 
-import com.github.harbby.gadtry.base.Platform;
 import com.github.harbby.gadtry.base.Throwables;
-import sun.misc.Unsafe;
 
 import java.io.IOException;
 import java.io.InputStream;
 
-public final class UnsafeDataInput
+public final class DataInputViewImpl
         extends AbstractBufferDataInputView
 {
-    private static final Unsafe unsafe = Platform.getUnsafe();
     private final InputStream in;
 
-    public UnsafeDataInput(InputStream in)
+    public DataInputViewImpl(InputStream in)
     {
         super(new byte[1 << 16]);
         this.in = in;
+    }
+
+    @Override
+    public void close()
+    {
+        try {
+            this.in.close();
+        }
+        catch (IOException e) {
+            Throwables.throwThrowable(e);
+        }
     }
 
     @Override
@@ -66,79 +74,69 @@ public final class UnsafeDataInput
     public short readShort()
     {
         require(2);
-        short v = unsafe.getShort(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 2;
-        return v;
+        int ch1 = buffer[offset++] & 0XFF;
+        int ch2 = buffer[offset++] & 0XFF;
+        return (short) ((ch1 << 8) + ch2);
     }
 
     @Override
     public int readUnsignedShort()
     {
         require(2);
-        short v = unsafe.getShort(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 2;
-        return v & 0XFFFF;
+        int ch1 = buffer[offset++] & 0XFF;
+        int ch2 = buffer[offset++] & 0XFF;
+        return (ch1 << 8) + ch2;
     }
 
     @Override
     public char readChar()
     {
         require(2);
-        char v = unsafe.getChar(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 2;
-        return v;
+        int ch1 = buffer[offset++] & 0XFF;
+        int ch2 = buffer[offset++] & 0XFF;
+        return (char) ((ch1 << 8) + ch2);
     }
 
     @Override
     public int readInt()
     {
         require(4);
-        int v = unsafe.getInt(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 4;
-        return v;
+        int ch1 = buffer[offset++] & 0XFF;
+        int ch2 = buffer[offset++] & 0XFF;
+        int ch3 = buffer[offset++] & 0XFF;
+        int ch4 = buffer[offset++] & 0XFF;
+        return (ch1 << 24) + (ch2 << 16) + (ch3 << 8) + ch4;
     }
 
     @Override
     public long readLong()
     {
         require(8);
-        long l = unsafe.getLong(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 8;
-        return l;
+        return (((long) buffer[offset++] << 56) +
+                ((long) (buffer[offset++] & 255) << 48) +
+                ((long) (buffer[offset++] & 255) << 40) +
+                ((long) (buffer[offset++] & 255) << 32) +
+                ((long) (buffer[offset++] & 255) << 24) +
+                ((buffer[offset++] & 255) << 16) +
+                ((buffer[offset++] & 255) << 8) +
+                ((buffer[offset++] & 255)));
     }
 
     @Override
     public float readFloat()
     {
-        require(4);
-        float v = unsafe.getFloat(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 4;
-        return v;
+        return Float.intBitsToFloat(readInt());
     }
 
     @Override
     public double readDouble()
     {
-        require(8);
-        double v = unsafe.getDouble(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 8;
-        return v;
+        return Double.longBitsToDouble(readLong());
     }
 
     @Override
     public String readString()
     {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void close()
-    {
-        try {
-            this.in.close();
-        }
-        catch (IOException e) {
-            Throwables.throwThrowable(e);
-        }
+        return null;
     }
 }

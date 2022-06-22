@@ -16,10 +16,8 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 /**
  * @author ivan
@@ -31,8 +29,7 @@ public class CharStringEncoder
         implements Encoder<String>
 {
     @Override
-    public void encoder(String value, DataOutput output)
-            throws IOException
+    public void encoder(String value, DataOutputView output)
     {
         if (value == null) {
             output.writeInt(-1);
@@ -43,8 +40,7 @@ public class CharStringEncoder
     }
 
     @Override
-    public String decoder(DataInput input)
-            throws IOException
+    public String decoder(DataInputView input)
     {
         final int length = input.readInt();
         if (length == -1) {

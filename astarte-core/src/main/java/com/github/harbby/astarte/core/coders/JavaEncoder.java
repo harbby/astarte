@@ -18,11 +18,11 @@ package com.github.harbby.astarte.core.coders;
 import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.array.AnyArrayEncoder;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.base.Throwables;
 
-import java.io.DataInput;
-import java.io.DataOutput;
 import java.io.IOException;
 import java.io.Serializable;
 
@@ -34,24 +34,27 @@ public class JavaEncoder<E extends Serializable>
     public static final Comparator<?> OBJECT_COMPARATOR = JavaEncoder::objectComparator;
 
     @Override
-    public void encoder(E value, DataOutput output)
-            throws IOException
+    public void encoder(E value, DataOutputView output)
     {
-        byte[] bytes = Serializables.serialize(value);
-        output.writeInt(bytes.length);
-        output.write(bytes);
+        try {
+            byte[] bytes = Serializables.serialize(value);
+            output.writeInt(bytes.length);
+            output.write(bytes);
+        }
+        catch (IOException e) {
+            Throwables.throwThrowable(e);
+        }
     }
 
     @Override
-    public E decoder(DataInput input)
-            throws IOException
+    public E decoder(DataInputView input)
     {
         byte[] bytes = new byte[input.readInt()];
-        input.readFully(bytes);
         try {
+            input.readFully(bytes);
             return Serializables.byteToObject(bytes);
         }
-        catch (ClassNotFoundException e) {
+        catch (IOException | ClassNotFoundException e) {
             throw Throwables.throwThrowable(e);
         }
     }

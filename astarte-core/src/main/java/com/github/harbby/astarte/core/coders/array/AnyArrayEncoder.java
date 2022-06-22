@@ -17,10 +17,8 @@ package com.github.harbby.astarte.core.coders.array;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 public class AnyArrayEncoder<E>
         implements Encoder<E[]>
@@ -35,8 +33,7 @@ public class AnyArrayEncoder<E>
     }
 
     @Override
-    public void encoder(E[] values, DataOutput output)
-            throws IOException
+    public void encoder(E[] values, DataOutputView output)
     {
         if (values == null) {
             output.writeInt(-1);
@@ -49,8 +46,7 @@ public class AnyArrayEncoder<E>
     }
 
     @Override
-    public E[] decoder(DataInput input)
-            throws IOException
+    public E[] decoder(DataInputView input)
     {
         int len = input.readInt();
         if (len == -1) {

@@ -16,14 +16,7 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.coders.array.AnyArrayEncoder;
-import com.github.harbby.astarte.core.coders.array.BooleanArrayEncoder;
-import com.github.harbby.astarte.core.coders.array.ByteArrayEncoder;
-import com.github.harbby.astarte.core.coders.array.CharArrayEncoder;
-import com.github.harbby.astarte.core.coders.array.DoubleArrayEncoder;
-import com.github.harbby.astarte.core.coders.array.FloatArrayEncoder;
 import com.github.harbby.astarte.core.coders.array.IntArrayEncoder;
-import com.github.harbby.astarte.core.coders.array.LongArrayEncoder;
-import com.github.harbby.astarte.core.coders.array.ShortArrayEncoder;
 import com.github.harbby.gadtry.base.Lazys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,16 +45,9 @@ public final class Encoders
     private static final Encoder<Float> floatEncoder = new FloatEncoder();
     private static final Encoder<java.sql.Date> sqlDateEncoder = new SqlDateEncoder();
     private static final Encoder<Timestamp> timestampEncoder = new SqlTimestampEncoder();
-    private static final Encoder<long[]> longArrEncoder = new LongArrayEncoder();
 
     private static final Encoder<Integer> intEncoder = new IntEncoder();
     private static final Encoder<int[]> intArrEncoder = new IntArrayEncoder();
-    private static final Encoder<boolean[]> booleanArrayEncoder = new BooleanArrayEncoder();
-    private static final Encoder<byte[]> byteArrayEncoder = new ByteArrayEncoder();
-    private static final Encoder<char[]> charArrayEncoder = new CharArrayEncoder();
-    private static final Encoder<double[]> doubleArrayEncoder = new DoubleArrayEncoder();
-    private static final Encoder<float[]> floatArrayEncoder = new FloatArrayEncoder();
-    private static final Encoder<short[]> shortArrayEncoder = new ShortArrayEncoder();
 
     private static final Encoder<Double> doubleEncoder = new DoubleEncoder();
     private static final Encoder<String> charStringEncoder = new CharStringEncoder();
@@ -201,46 +187,6 @@ public final class Encoders
     public static Encoder<Long> jLong()
     {
         return longEncoder;
-    }
-
-    public static Encoder<long[]> jLongArray()
-    {
-        return longArrEncoder;
-    }
-
-    public static Encoder<boolean[]> jBooleanArray()
-    {
-        return booleanArrayEncoder;
-    }
-
-    public static Encoder<byte[]> jByteArray()
-    {
-        return byteArrayEncoder;
-    }
-
-    public static Encoder<char[]> jCharArray()
-    {
-        return charArrayEncoder;
-    }
-
-    public static Encoder<double[]> jDoubleArray()
-    {
-        return doubleArrayEncoder;
-    }
-
-    public static Encoder<float[]> jFloatArray()
-    {
-        return floatArrayEncoder;
-    }
-
-    public static Encoder<short[]> jShortArray()
-    {
-        return shortArrayEncoder;
-    }
-
-    public static Encoder<String[]> jStringArray()
-    {
-        return new AnyArrayEncoder<>(UTF8_STRING_ENCODER, String.class);
     }
 
     public static Encoder<Integer> jInt()

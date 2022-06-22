@@ -16,16 +16,13 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 public class VarLongEncoder
         implements Encoder<Long>
 {
     private final boolean optimizeNegativeNumber;
-    private final byte[] buffer = new byte[9];
 
     public VarLongEncoder(boolean optimizeNegativeNumber)
     {
@@ -38,125 +35,15 @@ public class VarLongEncoder
     }
 
     @Override
-    public void encoder(Long value, DataOutput output)
-            throws IOException
+    public void encoder(Long value, DataOutputView output)
     {
-        long v = value;
-        if (optimizeNegativeNumber) {
-            //v = v >=0 ? value << 1 : (~value) + 1;
-            v = (v << 1) ^ (v >> 63);
-        }
-        buffer[0] = (byte) (v & 0x7F);
-        v = v >>> 7;
-        if (v == 0) {
-            output.write(buffer, 0, 1);
-            return;
-        }
-        buffer[0] |= 0x80;
-        buffer[1] = (byte) (v & 0x7F);
-        v = v >>> 7;
-
-        if (v == 0) {
-            output.write(buffer, 0, 2);
-            return;
-        }
-        buffer[1] |= 0x80;
-        buffer[2] = (byte) (v & 0x7F);
-        v = v >>> 7;
-
-        if (v == 0) {
-            output.write(buffer, 0, 3);
-            return;
-        }
-        buffer[2] |= 0x80;
-        buffer[3] = (byte) (v & 0x7F);
-        v = v >>> 7;
-
-        if (v == 0) {
-            output.write(buffer, 0, 4);
-            return;
-        }
-        buffer[3] |= 0x80;
-        buffer[4] = (byte) (v & 0x7F);
-        v = v >>> 7;
-
-        if (v == 0) {
-            output.write(buffer, 0, 5);
-            return;
-        }
-        buffer[4] |= 0x80;
-        buffer[5] = (byte) (v & 0x7F);
-        v = v >>> 7;
-
-        if (v == 0) {
-            output.write(buffer, 0, 6);
-            return;
-        }
-        buffer[5] |= 0x80;
-        buffer[6] = (byte) (v & 0x7F);
-        v = v >>> 7;
-
-        if (v == 0) {
-            output.write(buffer, 0, 7);
-            return;
-        }
-        buffer[6] |= 0x80;
-        buffer[7] = (byte) (v & 0x7F);
-        v = v >>> 7;
-
-        if (v == 0) {
-            output.write(buffer, 0, 8);
-            return;
-        }
-        buffer[7] |= 0x80;
-        buffer[8] = (byte) v;
-        output.write(buffer, 0, 9);
+        output.writeVarLong(value, optimizeNegativeNumber);
     }
 
     @Override
-    public Long decoder(DataInput input)
-            throws IOException
+    public Long decoder(DataInputView input)
     {
-        byte b = input.readByte();
-        long result = b & 0x7F;
-        if (b < 0) {
-            b = input.readByte();
-            result |= (b & 0x7F) << 7;
-            if (b < 0) {
-                b = input.readByte();
-                result |= (b & 0x7F) << 14;
-                if (b < 0) {
-                    b = input.readByte();
-                    result |= (b & 0x7F) << 21;
-                    if (b < 0) {
-                        b = input.readByte();
-                        result |= (long) (b & 0x7F) << 28;
-                        if (b < 0) {
-                            b = input.readByte();
-                            result |= (long) (b & 0x7F) << 35;
-                            if (b < 0) {
-                                b = input.readByte();
-                                result |= (long) (b & 0x7F) << 42;
-                                if (b < 0) {
-                                    b = input.readByte();
-                                    result |= (long) (b & 0x7F) << 49;
-                                    if (b < 0) {
-                                        b = input.readByte();
-                                        result |= (long) b << 56;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (optimizeNegativeNumber) {
-            return (result >>> 1) ^ -(result & 1);
-        }
-        else {
-            return result;
-        }
+        return input.readVarLong(optimizeNegativeNumber);
     }
 
     @Override

@@ -15,12 +15,13 @@
  */
 package com.github.harbby.astarte.core.coders;
 
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataInputViewImpl;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputViewImpl;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.DataInput;
-import java.io.DataInputStream;
-import java.io.DataOutput;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -29,9 +30,9 @@ public class EncoderChecker<T>
     private final Encoder<T> encoder;
     private final byte[] buffer = new byte[4096];
     private final TestByteArrayOutputStream outputStream = new TestByteArrayOutputStream(buffer);
-    private final DataOutput dataOutput = new DataOutputStream(outputStream);
+    private final DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
     private final ByteArrayInputStream inputStream = new ByteArrayInputStream(buffer);
-    private final DataInput dataInput = new DataInputStream(inputStream);
+    private final DataInputView dataInput = new DataInputViewImpl(inputStream);
 
     public EncoderChecker(Encoder<T> encoder)
     {

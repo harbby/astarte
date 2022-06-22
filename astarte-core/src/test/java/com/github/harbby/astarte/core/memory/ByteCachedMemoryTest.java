@@ -46,8 +46,8 @@ public class ByteCachedMemoryTest
     @Test(expected = IllegalStateException.class)
     public void shouldFinalCacheCheck()
     {
-        Encoder<Tuple2<Integer, long[]>> encoder = Encoders.tuple2(Encoders.jInt(), Encoders.jLongArray());
-        ByteCachedMemory<Tuple2<Integer, long[]>> cachedMemory = new ByteCachedMemory<>(encoder);
+        Encoder<Tuple2<Integer, int[]>> encoder = Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray());
+        ByteCachedMemory<Tuple2<Integer, int[]>> cachedMemory = new ByteCachedMemory<>(encoder);
         cachedMemory.prepareIterator();
     }
 
@@ -68,12 +68,12 @@ public class ByteCachedMemoryTest
     @Test
     public void doubleForeachCache()
     {
-        Encoder<Tuple2<Integer, long[]>> encoder = Encoders.tuple2(Encoders.jInt(), Encoders.jLongArray());
-        ByteCachedMemory<Tuple2<Integer, long[]>> cachedMemory = new ByteCachedMemory<>(encoder);
-        cachedMemory.append(Tuple2.of(1, new long[] {1, 1}));
+        Encoder<Tuple2<Integer, int[]>> encoder = Encoders.tuple2(Encoders.jInt(), Encoders.jIntArray());
+        ByteCachedMemory<Tuple2<Integer, int[]>> cachedMemory = new ByteCachedMemory<>(encoder);
+        cachedMemory.append(Tuple2.of(1, new int[] {1, 1}));
         cachedMemory.finalCache();
         // foreach 1
-        Iterator<Tuple2<Integer, long[]>> iterator = cachedMemory.prepareIterator();
+        Iterator<Tuple2<Integer, int[]>> iterator = cachedMemory.prepareIterator();
         while (iterator.hasNext()) {
             System.out.println(iterator.next());
         }

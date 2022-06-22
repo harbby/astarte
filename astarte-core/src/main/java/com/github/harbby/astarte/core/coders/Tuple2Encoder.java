@@ -17,10 +17,8 @@ package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 import static java.util.Objects.requireNonNull;
 
@@ -56,8 +54,7 @@ public interface Tuple2Encoder<K, V>
         }
 
         @Override
-        public void encoder(Tuple2<K, V> value, DataOutput output)
-                throws IOException
+        public void encoder(Tuple2<K, V> value, DataOutputView output)
         {
             requireNonNull(value, "Tuple2 value is null");
             kEncoder.encoder(value.key(), output);
@@ -65,8 +62,7 @@ public interface Tuple2Encoder<K, V>
         }
 
         @Override
-        public Tuple2<K, V> decoder(DataInput input)
-                throws IOException
+        public Tuple2<K, V> decoder(DataInputView input)
         {
             return Tuple2.of(kEncoder.decoder(input), vEncoder.decoder(input));
         }
@@ -107,15 +103,13 @@ public interface Tuple2Encoder<K, V>
         }
 
         @Override
-        public void encoder(Tuple2<K, Void> value, DataOutput output)
-                throws IOException
+        public void encoder(Tuple2<K, Void> value, DataOutputView output)
         {
             kEncoder.encoder(value.key(), output);
         }
 
         @Override
-        public Tuple2<K, Void> decoder(DataInput input)
-                throws IOException
+        public Tuple2<K, Void> decoder(DataInputView input)
         {
             return Tuple2.of(kEncoder.decoder(input), null);
         }

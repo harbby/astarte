@@ -15,7 +15,11 @@
  */
 package com.github.harbby.astarte.core.coders.array;
 
+import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.EncoderChecker;
+import com.github.harbby.astarte.core.coders.io.BoolArrayZipUtil;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -23,18 +27,34 @@ import java.io.IOException;
 
 public class BooleanArrayEncoderTest
 {
-    private final EncoderChecker<boolean[]> checker = new EncoderChecker<>(new BooleanArrayEncoder());
+    private final EncoderChecker<boolean[]> checker = new EncoderChecker<>(new Encoder<boolean[]>() {
+        @Override
+        public void encoder(boolean[] value, DataOutputView output)
+        {
+            output.writeVarInt(value.length, false);
+            output.writeBoolArray(value);
+        }
+
+        @Override
+        public boolean[] decoder(DataInputView input)
+        {
+            int len = input.readVarInt(false);
+            boolean[] booleans = new boolean[len];
+            input.readBoolArray(booleans, 0, len);
+            return booleans;
+        }
+    });
 
     @Test
     public void test1()
     {
         boolean[] booleans = new boolean[] {true, false, false, false, true, true, true, false, true};
         byte[] bytes = new byte[(booleans.length + 7) >> 3];
-        BooleanArrayEncoder.zip(booleans, 0, bytes, 0, booleans.length);
+        BoolArrayZipUtil.zip(booleans, 0, bytes, 0, booleans.length);
         Assert.assertArrayEquals(bytes, new byte[] {-114, -128});
         //unzip
         boolean[] rs = new boolean[booleans.length];
-        BooleanArrayEncoder.unzip(bytes, 0, rs, 0, rs.length);
+        BoolArrayZipUtil.unzip(bytes, 0, rs, 0, rs.length);
         Assert.assertArrayEquals(booleans, rs);
     }
 

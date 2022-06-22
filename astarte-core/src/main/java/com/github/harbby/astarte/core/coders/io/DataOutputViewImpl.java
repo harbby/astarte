@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
-import java.util.Arrays;
 
 public class DataOutputViewImpl
         extends OutputStream
@@ -36,6 +35,13 @@ public class DataOutputViewImpl
     {
         //64k
         this(channel, 1 << 16);
+    }
+
+    public DataOutputViewImpl(OutputStream channel)
+    {
+        //64k
+        //this(channel, 1 << 16);
+        throw new UnsupportedOperationException();
     }
 
     public DataOutputViewImpl(WritableByteChannel channel, int buffSize)
@@ -60,9 +66,9 @@ public class DataOutputViewImpl
         this.offset = 0;
     }
 
-    protected void checkSize(int size)
+    protected void require(int required)
     {
-        if (offset + size > buffer.length) {
+        if (offset + required > buffer.length) {
             this.flush();
         }
     }
@@ -70,7 +76,7 @@ public class DataOutputViewImpl
     @Override
     public void write(int b)
     {
-        checkSize(1);
+        require(1);
         buffer[offset++] = (byte) b;
     }
 
@@ -111,7 +117,7 @@ public class DataOutputViewImpl
     @Override
     public void writeShort(int v)
     {
-        checkSize(2);
+        require(2);
         buffer[offset++] = (byte) ((v >>> 8) & 0xFF);
         buffer[offset++] = (byte) ((v) & 0xFF);
     }
@@ -125,7 +131,7 @@ public class DataOutputViewImpl
     @Override
     public void writeInt(int v)
     {
-        checkSize(4);
+        require(4);
         buffer[offset++] = (byte) ((v >>> 24) & 0xFF);
         buffer[offset++] = (byte) ((v >>> 16) & 0xFF);
         buffer[offset++] = (byte) ((v >>> 8) & 0xFF);
@@ -135,7 +141,7 @@ public class DataOutputViewImpl
     @Override
     public void writeLong(long v)
     {
-        checkSize(8);
+        require(8);
         buffer[offset++] = (byte) (v >>> 56);
         buffer[offset++] = (byte) (v >>> 48);
         buffer[offset++] = (byte) (v >>> 40);
@@ -194,29 +200,29 @@ public class DataOutputViewImpl
             v = (v << 1) ^ (v >> 31);
         }
         if (v >>> 7 == 0) {
-            checkSize(1);
+            require(1);
             buffer[offset++] = (byte) (v & 0x7F);
         }
         else if (v >>> 14 == 0) {
-            checkSize(2);
+            require(2);
             buffer[offset++] = (byte) (v & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 7 & 0x7F);
         }
         else if (v >>> 21 == 0) {
-            checkSize(3);
+            require(3);
             buffer[offset++] = (byte) (v & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 14 & 0x7F);
         }
         else if (v >>> 28 == 0) {
-            checkSize(4);
+            require(4);
             buffer[offset++] = (byte) (v & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 21 & 0x7F);
         }
         else {
-            checkSize(5);
+            require(5);
             buffer[offset++] = (byte) (v & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
@@ -234,29 +240,29 @@ public class DataOutputViewImpl
             v = (v << 1) ^ (v >> 63);
         }
         if (v >>> 7 == 0) {
-            checkSize(1);
+            require(1);
             buffer[offset++] = (byte) (v & 0x7F);
         }
         else if (v >>> 14 == 0) {
-            checkSize(2);
+            require(2);
             buffer[offset++] = (byte) (v & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 7 & 0x7F);
         }
         else if (v >>> 21 == 0) {
-            checkSize(3);
+            require(3);
             buffer[offset++] = (byte) (v & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 14 & 0x7F);
         }
         else if (v >>> 28 == 0) {
-            checkSize(4);
+            require(4);
             buffer[offset++] = (byte) (v & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 21 & 0x7F);
         }
         else if (v >>> 35 == 0) {
-            checkSize(5);
+            require(5);
             buffer[offset++] = (byte) (v & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
@@ -264,7 +270,7 @@ public class DataOutputViewImpl
             buffer[offset++] = (byte) (v >>> 28 & 0x7F);
         }
         else if (v >>> 42 == 0) {
-            checkSize(6);
+            require(6);
             buffer[offset++] = (byte) (v & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
@@ -273,7 +279,7 @@ public class DataOutputViewImpl
             buffer[offset++] = (byte) (v >>> 35 & 0x7F);
         }
         else if (v >>> 49 == 0) {
-            checkSize(7);
+            require(7);
             buffer[offset++] = (byte) (v & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
@@ -283,7 +289,7 @@ public class DataOutputViewImpl
             buffer[offset++] = (byte) (v >>> 42 & 0x7F);
         }
         else if (v >>> 56 == 0) {
-            checkSize(8);
+            require(8);
             buffer[offset++] = (byte) (v & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
@@ -294,7 +300,7 @@ public class DataOutputViewImpl
             buffer[offset++] = (byte) (v >>> 49 & 0x7F);
         }
         else {
-            checkSize(9);
+            require(9);
             buffer[offset++] = (byte) (v & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 7 & 0x7F | 0x80);
             buffer[offset++] = (byte) (v >>> 14 & 0x7F | 0x80);
@@ -312,14 +318,11 @@ public class DataOutputViewImpl
     public void writeBoolArray(boolean[] value)
     {
         if (value.length == 0) {
-            this.writeVarInt(0, false);
             return;
         }
-        this.writeVarInt(value.length, false);
         int byteSize = (value.length + 7) >> 3;
-        checkSize(byteSize);
-
-        zip(value, 0, buffer, offset, value.length);
+        require(byteSize);
+        BoolArrayZipUtil.zip(value, 0, buffer, offset, value.length);
         offset += byteSize;
     }
 
@@ -331,25 +334,6 @@ public class DataOutputViewImpl
         }
         catch (IOException e) {
             Throwables.throwThrowable(e);
-        }
-    }
-
-    public static void zip(boolean[] src, int srcPos, byte[] dest, int destPos, int dataLength)
-    {
-        int byteSize = (dataLength + 7) >> 3;
-        Arrays.fill(dest, destPos, destPos + byteSize, (byte) 0);
-        for (int i = 0; i < dataLength; i++) {
-            if (src[i + srcPos]) {
-                dest[(i >> 3) + destPos] |= 0x80 >> (i & 7);
-            }
-        }
-    }
-
-    public static void unzip(byte[] src, int srcPos, boolean[] dest, int destPos, int dataLength)
-    {
-        for (int i = 0; i < dataLength; i++) {
-            byte v = src[(i >> 3) + srcPos];
-            dest[i + destPos] = (v & (0x80 >> (i & 7))) != 0;
         }
     }
 }

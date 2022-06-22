@@ -33,7 +33,7 @@ public final class UnsafeDataOutput
     @Override
     public void writeBoolean(boolean v)
     {
-        checkSize(1);
+        require(1);
         unsafe.putBoolean(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, v);
         offset++;
     }
@@ -41,7 +41,7 @@ public final class UnsafeDataOutput
     @Override
     public void writeShort(int v)
     {
-        checkSize(2);
+        require(2);
         unsafe.putShort(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, (short) v);
         offset += 2;
     }
@@ -49,7 +49,7 @@ public final class UnsafeDataOutput
     @Override
     public void writeChar(int v)
     {
-        checkSize(2);
+        require(2);
         unsafe.putChar(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, (char) v);
         offset += 2;
     }
@@ -57,7 +57,7 @@ public final class UnsafeDataOutput
     @Override
     public void writeInt(int v)
     {
-        checkSize(4);
+        require(4);
         unsafe.putInt(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, v);
         offset += 4;
     }
@@ -65,7 +65,7 @@ public final class UnsafeDataOutput
     @Override
     public void writeLong(long v)
     {
-        checkSize(8);
+        require(8);
         unsafe.putLong(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, v);
         offset += 8;
     }
@@ -73,7 +73,7 @@ public final class UnsafeDataOutput
     @Override
     public void writeFloat(float v)
     {
-        checkSize(4);
+        require(4);
         unsafe.putFloat(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, v);
         offset += 4;
     }
@@ -81,7 +81,7 @@ public final class UnsafeDataOutput
     @Override
     public void writeDouble(double v)
     {
-        checkSize(8);
+        require(8);
         unsafe.putDouble(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, v);
         offset += 8;
     }
@@ -90,7 +90,7 @@ public final class UnsafeDataOutput
     public void writeBytes(String s)
     {
         int len = s.length();
-        checkSize(len);
+        require(len);
         for (int i = 0; i < len; i++) {
             this.write(s.charAt(i));
         }
@@ -100,7 +100,7 @@ public final class UnsafeDataOutput
     public void writeChars(String s)
     {
         int len = s.length();
-        checkSize(len * 2);
+        require(len * 2);
         for (int i = 0; i < len; i++) {
             int v = s.charAt(i);
             this.writeChar(v);

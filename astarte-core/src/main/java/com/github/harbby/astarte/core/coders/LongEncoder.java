@@ -16,24 +16,20 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 public class LongEncoder
         implements Encoder<Long>
 {
     @Override
-    public void encoder(Long value, DataOutput output)
-            throws IOException
+    public void encoder(Long value, DataOutputView output)
     {
         output.writeLong(value);
     }
 
     @Override
-    public Long decoder(DataInput input)
-            throws IOException
+    public Long decoder(DataInputView input)
     {
         return input.readLong();
     }

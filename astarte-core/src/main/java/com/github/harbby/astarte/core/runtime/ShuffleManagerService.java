@@ -15,6 +15,8 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataInputViewImpl;
 import com.github.harbby.astarte.core.operator.SortShuffleWriter;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -33,7 +35,6 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -135,12 +136,12 @@ public final class ShuffleManagerService
             File shuffleFile = new File(new File(shuffleBaseDir, String.valueOf(currentJobId)), String.format("shuffle_merged_%s_%s.data", shuffleId, mapId));
             //read shuffle file header
             FileInputStream fileInputStream = new FileInputStream(shuffleFile);
-            DataInputStream dataInputStream = new DataInputStream(fileInputStream);
-            long[] segmentEnds = new long[dataInputStream.readInt()];
+            DataInputView dataInputView = new DataInputViewImpl(fileInputStream);
+            long[] segmentEnds = new long[dataInputView.readInt()];
             long[] segmentRowSize = new long[segmentEnds.length];
             for (int i = 0; i < segmentEnds.length; i++) {
-                segmentEnds[i] = dataInputStream.readLong();
-                segmentRowSize[i] = dataInputStream.readLong();
+                segmentEnds[i] = dataInputView.readLong();
+                segmentRowSize[i] = dataInputView.readLong();
             }
 
             int fileHeaderSize = SortShuffleWriter.getSortMergedFileHarderSize(segmentEnds.length);

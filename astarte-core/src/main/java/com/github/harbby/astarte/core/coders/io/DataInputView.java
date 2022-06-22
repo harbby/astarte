@@ -16,66 +16,74 @@
 package com.github.harbby.astarte.core.coders.io;
 
 import java.io.Closeable;
-import java.io.DataOutput;
+import java.io.DataInput;
+import java.io.IOException;
 
-public interface DataOutputView
-        extends DataOutput, Closeable
+public interface DataInputView
+        extends DataInput, Closeable
 {
     @Override
-    void writeInt(int v);
+    void readFully(byte[] b) throws IOException;
 
     @Override
-    void write(int b);
+    void readFully(byte[] b, int off, int len) throws IOException;
+
+    int tryReadFully(byte[] b, int off, int len) throws IOException;
 
     @Override
-    void write(byte[] b);
+    int skipBytes(int n) throws IOException;
 
     @Override
-    void write(byte[] b, int off, int len);
+    boolean readBoolean();
 
     @Override
-    void writeBoolean(boolean v);
+    byte readByte();
 
     @Override
-    void writeByte(int v);
+    int readUnsignedByte();
 
     @Override
-    void writeShort(int v);
+    short readShort();
 
     @Override
-    void writeChar(int v);
+    int readUnsignedShort();
 
     @Override
-    void writeLong(long v);
+    char readChar();
 
     @Override
-    void writeFloat(float v);
+    int readInt();
 
     @Override
-    void writeDouble(double v);
+    long readLong();
 
     @Override
-    void writeBytes(String s);
+    float readFloat();
 
     @Override
-    void writeChars(String s);
+    double readDouble();
 
     @Deprecated
     @Override
-    default void writeUTF(String s)
+    default String readLine()
     {
         throw new UnsupportedOperationException();
     }
 
-    void writeVarInt(int v, boolean optimizeNegativeNumber);
+    @Deprecated
+    @Override
+    default String readUTF()
+    {
+        throw new UnsupportedOperationException();
+    }
 
-    void writeVarLong(long v, boolean optimizeNegativeNumber);
+    String readString();
 
-    void writeBoolArray(boolean[] v);
+    void readBoolArray(boolean[] booleans, int pos, int len);
 
-    void writeString(String s);
+    int readVarInt(boolean optimizeNegativeNumber);
 
-    void flush();
+    long readVarLong(boolean optimizeNegativeNumber);
 
     @Override
     void close();

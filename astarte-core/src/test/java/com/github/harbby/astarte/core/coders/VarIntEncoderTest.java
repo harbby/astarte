@@ -20,6 +20,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 public class VarIntEncoderTest
 {
@@ -27,6 +28,12 @@ public class VarIntEncoderTest
     public void encoder()
             throws IOException
     {
+        String a1 = "abc";
+        String a2 = "a齐1";
+        a1.charAt(0);
+        byte[] arr = a2.getBytes(StandardCharsets.UTF_8);
+        String a3 = new String(arr, StandardCharsets.UTF_8);
+
         EncoderChecker<Integer> checker = new EncoderChecker<>(new VarIntEncoder(false));
         byte[] bytes = checker.encoder(42354);  //42354
         Assert.assertArrayEquals(bytes, new byte[] {-14, -54, 2});

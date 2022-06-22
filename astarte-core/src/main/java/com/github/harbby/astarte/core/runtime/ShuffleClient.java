@@ -19,6 +19,7 @@ import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.EncoderInputStream;
+import com.github.harbby.astarte.core.coders.io.DataInputViewImpl;
 import com.github.harbby.gadtry.base.Files;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.base.Throwables;
@@ -98,7 +99,7 @@ public interface ShuffleClient
                 }
                 if (length > 0) {
                     LZ4BlockInputStream lz4BlockInputStream = new LZ4BlockInputStream(new BufferedInputStream(new LimitInputStream(fileInputStream, length)));
-                    iterators.add(new EncoderInputStream<>(segmentRowSizes[reduceId], encoder, new DataInputStream(lz4BlockInputStream)).autoClose(() -> {
+                    iterators.add(new EncoderInputStream<>(segmentRowSizes[reduceId], encoder, new DataInputViewImpl(lz4BlockInputStream)).autoClose(() -> {
                         try {
                             fileInputStream.close();
                         }

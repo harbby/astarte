@@ -16,24 +16,20 @@
 package com.github.harbby.astarte.core.coders;
 
 import com.github.harbby.astarte.core.api.function.Comparator;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 public class UTF8StringEncoder
         implements Encoder<String>
 {
     @Override
-    public void encoder(String value, DataOutput output)
-            throws IOException
+    public void encoder(String value, DataOutputView output)
     {
         output.writeUTF(value);
     }
 
     @Override
-    public String decoder(DataInput input)
-            throws IOException
+    public String decoder(DataInputView input)
     {
         return input.readUTF();
     }

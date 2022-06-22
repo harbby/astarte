@@ -16,10 +16,8 @@
 package com.github.harbby.astarte.core.coders.array;
 
 import com.github.harbby.astarte.core.coders.Encoder;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
 public class IntArrayEncoder
         implements Encoder<int[]>
@@ -27,8 +25,7 @@ public class IntArrayEncoder
     private static final int[] zeroIntArr = new int[0];
 
     @Override
-    public void encoder(int[] values, DataOutput output)
-            throws IOException
+    public void encoder(int[] values, DataOutputView output)
     {
         if (values == null) {
             output.writeInt(-1);
@@ -41,8 +38,7 @@ public class IntArrayEncoder
     }
 
     @Override
-    public int[] decoder(DataInput input)
-            throws IOException
+    public int[] decoder(DataInputView input)
     {
         int len = input.readInt();
         if (len == -1) {
