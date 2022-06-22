@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.harbby.astarte.core.api;
+package com.github.harbby.astarte.core.coders;
 
-import com.github.harbby.astarte.core.coders.Encoder;
-import com.github.harbby.astarte.core.coders.Encoders;
+import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.coders.io.DataInputView;
 import com.github.harbby.astarte.core.coders.io.DataInputViewImpl;
 import com.github.harbby.astarte.core.coders.io.DataOutputView;
@@ -46,7 +45,7 @@ public class EncoderTest
         DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
         Encoder<Tuple2<Long, Long>> tuple2Encoder = Encoders.tuple2(Encoders.jLong(), Encoders.jLong());
         tuple2Encoder.encoder(tuple2, dataOutput);
-
+        dataOutput.close();
         Assert.assertEquals(outputStream.toByteArray().length, 16);
         Assert.assertTrue(bytes.length > 16 * 10);
     }
@@ -57,7 +56,9 @@ public class EncoderTest
     {
         Function2<Tuple2<Long, Long>, Encoder<Tuple2<Long, Long>>, byte[], IOException> checker = (tuple2, encoder) -> {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            encoder.encoder(tuple2, new DataOutputViewImpl(outputStream));
+            DataOutputView dataOutputView = new DataOutputViewImpl(outputStream);
+            encoder.encoder(tuple2, dataOutputView);
+            dataOutputView.close();
             Tuple2<Long, Long> checkObj = encoder.decoder(new DataInputViewImpl(new ByteArrayInputStream(outputStream.toByteArray())));
             Assert.assertEquals(tuple2, checkObj);
             return outputStream.toByteArray();
@@ -74,7 +75,9 @@ public class EncoderTest
         Encoder<Map<String, String>> mapEncoder = Encoders.mapEncoder(Encoders.asciiString(), Encoders.jCharString());
         Consumer<Map<String, String>, IOException> checker = map -> {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            mapEncoder.encoder(map, new DataOutputViewImpl(outputStream));
+            DataOutputView dataOutputView = new DataOutputViewImpl(outputStream);
+            mapEncoder.encoder(map, dataOutputView);
+            dataOutputView.close();
             Map<String, String> decoder = mapEncoder.decoder(new DataInputViewImpl(new ByteArrayInputStream(outputStream.toByteArray())));
             Assert.assertEquals(decoder, map);
         };
@@ -93,7 +96,9 @@ public class EncoderTest
         Encoder<String[]> encoder = Encoders.arrayEncoder(Encoders.asciiString(), String.class);
         Consumer<String[], IOException> checker = array -> {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            encoder.encoder(array, new DataOutputViewImpl(outputStream));
+            DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
+            encoder.encoder(array, dataOutput);
+            dataOutput.close();
             String[] out = encoder.decoder(new DataInputViewImpl(new ByteArrayInputStream(outputStream.toByteArray())));
             Assert.assertArrayEquals(out, array);
         };
@@ -105,10 +110,12 @@ public class EncoderTest
     public void booleanSerializeTest()
             throws IOException
     {
+        EncoderChecker<Boolean> checker = new EncoderChecker<>(Encoders.jBoolean());
         Encoder<Boolean> booleanEncoder = Encoders.jBoolean();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
         booleanEncoder.encoder(true, dataOutput);
+        dataOutput.close();
         ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
         DataInputView input = new DataInputViewImpl(inputStream);
         Boolean decoder = booleanEncoder.decoder(input);
@@ -125,6 +132,7 @@ public class EncoderTest
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
         stringEncoder.encoder("yes", dataOutput);
+        dataOutput.close();
         ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
         DataInputView input = new DataInputViewImpl(inputStream);
         String decoder = stringEncoder.decoder(input);
@@ -141,6 +149,7 @@ public class EncoderTest
         DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
         byte a = (byte) 127;
         byteEncoder.encoder(a, dataOutput);
+        dataOutput.close();
         ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
         DataInputView input = new DataInputViewImpl(inputStream);
         byte decoder = byteEncoder.decoder(input);
@@ -157,6 +166,7 @@ public class EncoderTest
         DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
         char a = 'a';
         characterEncoder.encoder(a, dataOutput);
+        dataOutput.close();
         ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
         DataInputView input = new DataInputViewImpl(inputStream);
         char decoder = characterEncoder.decoder(input);
@@ -173,6 +183,7 @@ public class EncoderTest
         DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
         Short a = (short) 10;
         shortEncoder.encoder(a, dataOutput);
+        dataOutput.close();
         ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
         DataInputView input = new DataInputViewImpl(inputStream);
         Short decoder = shortEncoder.decoder(input);
@@ -189,6 +200,7 @@ public class EncoderTest
         DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
         float a = 10.0f;
         floatEncoder.encoder(a, dataOutput);
+        dataOutput.close();
         ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
         DataInputView input = new DataInputViewImpl(inputStream);
         float decoder = floatEncoder.decoder(input);
@@ -205,6 +217,7 @@ public class EncoderTest
         DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
         java.sql.Date a = new java.sql.Date(1567865756L);
         dateEncoder.encoder(a, dataOutput);
+        dataOutput.close();
         ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
         DataInputView input = new DataInputViewImpl(inputStream);
         java.sql.Date decoder = dateEncoder.decoder(input);
@@ -221,6 +234,7 @@ public class EncoderTest
         DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
         Timestamp a = new Timestamp(1567865756L);
         timestampEncoder.encoder(a, dataOutput);
+        dataOutput.close();
         ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
         DataInputView input = new DataInputViewImpl(inputStream);
         Timestamp decoder = timestampEncoder.decoder(input);

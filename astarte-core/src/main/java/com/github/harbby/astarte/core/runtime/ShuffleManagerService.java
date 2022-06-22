@@ -35,6 +35,7 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -136,12 +137,12 @@ public final class ShuffleManagerService
             File shuffleFile = new File(new File(shuffleBaseDir, String.valueOf(currentJobId)), String.format("shuffle_merged_%s_%s.data", shuffleId, mapId));
             //read shuffle file header
             FileInputStream fileInputStream = new FileInputStream(shuffleFile);
-            DataInputView dataInputView = new DataInputViewImpl(fileInputStream);
-            long[] segmentEnds = new long[dataInputView.readInt()];
+            DataInputStream dataInputStream = new DataInputStream(fileInputStream);
+            long[] segmentEnds = new long[dataInputStream.readInt()];
             long[] segmentRowSize = new long[segmentEnds.length];
             for (int i = 0; i < segmentEnds.length; i++) {
-                segmentEnds[i] = dataInputView.readLong();
-                segmentRowSize[i] = dataInputView.readLong();
+                segmentEnds[i] = dataInputStream.readLong();
+                segmentRowSize[i] = dataInputStream.readLong();
             }
 
             int fileHeaderSize = SortShuffleWriter.getSortMergedFileHarderSize(segmentEnds.length);

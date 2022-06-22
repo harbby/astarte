@@ -30,9 +30,7 @@ public class EncoderChecker<T>
     private final Encoder<T> encoder;
     private final byte[] buffer = new byte[4096];
     private final TestByteArrayOutputStream outputStream = new TestByteArrayOutputStream(buffer);
-    private final DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
-    private final ByteArrayInputStream inputStream = new ByteArrayInputStream(buffer);
-    private final DataInputView dataInput = new DataInputViewImpl(inputStream);
+    private final TestByteArrayInputStream inputStream = new TestByteArrayInputStream(buffer);
 
     public EncoderChecker(Encoder<T> encoder)
     {
@@ -43,7 +41,9 @@ public class EncoderChecker<T>
     public byte[] encoder(T value)
             throws IOException
     {
+        DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
         encoder.encoder(value, dataOutput);
+        dataOutput.close();
         byte[] bytes = outputStream.toByteArray();
         outputStream.reset();
         Arrays.fill(buffer, (byte) 0);
@@ -53,7 +53,8 @@ public class EncoderChecker<T>
     public T decoder(byte[] bytes)
             throws IOException
     {
-        System.arraycopy(bytes, 0, buffer, 0, bytes.length);
+        inputStream.reFill(bytes);
+        DataInputView dataInput = new DataInputViewImpl(inputStream);
         T value = encoder.decoder(dataInput);
         inputStream.reset();
         return value;
@@ -70,6 +71,21 @@ public class EncoderChecker<T>
         public void reset()
         {
             this.count = 0;
+        }
+    }
+
+    private static class TestByteArrayInputStream
+            extends ByteArrayInputStream
+    {
+        public TestByteArrayInputStream(byte[] buf)
+        {
+            super(buf);
+        }
+
+        public void reFill(byte[] bytes)
+        {
+            System.arraycopy(bytes, 0, super.buf, 0, bytes.length);
+            super.count = bytes.length;
         }
     }
 }

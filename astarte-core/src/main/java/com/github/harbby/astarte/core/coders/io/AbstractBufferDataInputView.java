@@ -19,27 +19,29 @@ import com.github.harbby.gadtry.base.Throwables;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 
 public abstract class AbstractBufferDataInputView
         implements DataInputView
 {
     protected final byte[] buffer;
     protected int offset;
-    private boolean eof;
+    protected int end;
 
     protected AbstractBufferDataInputView(byte[] buffer)
     {
         this.buffer = buffer;
-        this.eof = false;
+        this.end = buffer.length;
+        this.offset = buffer.length;
     }
 
     protected void require(int required)
     {
-        if (buffer.length - offset > required) {
+        if (end - offset < required) {
             try {
                 int n = this.refill();
                 if (n < required) {
-                    Throwables.throwThrowable(new EOFException());
+                    Throwables.throwThrowable(new EOFException("required: " + required));
                 }
             }
             catch (IOException e) {
@@ -51,17 +53,89 @@ public abstract class AbstractBufferDataInputView
     protected int refill()
             throws IOException
     {
-        if (eof) {
+        if (end != buffer.length) {
             throw new EOFException();
         }
-        int l = buffer.length - offset;
-        System.arraycopy(buffer, offset, buffer, 0, l);
-        int n = this.tryReadFully(buffer, l, offset);
+        int l = end - offset;
+        if (l > 0) {
+            System.arraycopy(buffer, offset, buffer, 0, l);
+        }
+        int n = this.tryReadFully0(buffer, l, offset);
         if (n < offset) {
-            eof = true;
+            end = l + n;
         }
         this.offset = 0;
         return n;
+    }
+
+    protected abstract int tryReadFully0(byte[] b, int off, int len)
+            throws IOException;
+
+    protected abstract void readFully0(byte[] b, int off, int len)
+            throws IOException;
+
+    protected abstract int skipBytes0(int n)
+            throws IOException;
+
+    @Override
+    public int skipBytes(int n)
+            throws IOException
+    {
+        throw new UnsupportedEncodingException();
+    }
+
+    @Override
+    public void readFully(byte[] b)
+            throws IOException
+    {
+        this.readFully(b, 0, b.length);
+    }
+
+    @Override
+    public void readFully(byte[] b, int off, int len)
+            throws IOException
+    {
+        int cacheSize = end - offset;
+        if (len <= cacheSize) {
+            System.arraycopy(buffer, offset, b, off, len);
+            offset += len;
+            return;
+        }
+        System.arraycopy(buffer, offset, b, off, cacheSize);
+        offset = end;
+        this.refill();
+        if (end == buffer.length) {
+            //todo end > len -cacheSize
+            System.arraycopy(buffer, 0, b, cacheSize, len - cacheSize);
+        }
+        else {
+            System.arraycopy(buffer, 0, b, cacheSize, end);
+            throw new EOFException();
+        }
+    }
+
+    @Override
+    public int tryReadFully(byte[] b, int off, int len)
+            throws IOException
+    {
+        int cacheSize = end - offset;
+        if (len <= cacheSize) {
+            System.arraycopy(buffer, offset, b, off, len);
+            offset += len;
+            return len;
+        }
+        System.arraycopy(buffer, offset, b, off, cacheSize);
+        offset = end;
+        this.refill();
+        if (end == buffer.length) {
+            //todo end > len -cacheSize
+            System.arraycopy(buffer, 0, b, cacheSize, len - cacheSize);
+            return len;
+        }
+        else {
+            System.arraycopy(buffer, 0, b, cacheSize, end);
+            return cacheSize + end;
+        }
     }
 
     @Override

@@ -43,24 +43,24 @@ public final class DataInputViewImpl
     }
 
     @Override
-    public void readFully(byte[] b)
+    protected int skipBytes0(int n)
             throws IOException
     {
-        this.readFully(b, 0, b.length);
+        return IoUtils.skipBytes(in, n);
     }
 
     @Override
-    public void readFully(byte[] b, int off, int len)
-            throws IOException
-    {
-        IoUtils.readFully(in, b, off, len);
-    }
-
-    @Override
-    public int tryReadFully(byte[] b, int off, int len)
+    protected int tryReadFully0(byte[] b, int off, int len)
             throws IOException
     {
         return IoUtils.tryReadFully(in, b, off, len);
+    }
+
+    @Override
+    protected void readFully0(byte[] b, int off, int len)
+            throws IOException
+    {
+        IoUtils.readFully(in, b, off, len);
     }
 
     @Override

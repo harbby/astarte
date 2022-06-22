@@ -22,11 +22,14 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 
+import static java.util.Objects.requireNonNull;
+
 public class DataOutputViewImpl
         extends OutputStream
         implements DataOutputView
 {
     protected final WritableByteChannel channel;
+    protected final OutputStream outputStream;
     protected final ByteBuffer byteBuffer;
     protected final byte[] buffer;
     protected int offset;
@@ -37,16 +40,26 @@ public class DataOutputViewImpl
         this(channel, 1 << 16);
     }
 
-    public DataOutputViewImpl(OutputStream channel)
+    public DataOutputViewImpl(OutputStream outputStream)
+    {
+        this(outputStream, 1 << 16);
+    }
+
+    public DataOutputViewImpl(OutputStream outputStream, int buffSize)
     {
         //64k
         //this(channel, 1 << 16);
-        throw new UnsupportedOperationException();
+        this.outputStream = requireNonNull(outputStream, "outputStream is null");
+        this.channel = null;
+        this.buffer = new byte[buffSize];
+        this.byteBuffer = ByteBuffer.wrap(buffer);
+        this.offset = 0;
     }
 
     public DataOutputViewImpl(WritableByteChannel channel, int buffSize)
     {
-        this.channel = channel;
+        this.channel = requireNonNull(channel, "channel is null");
+        this.outputStream = null;
         this.buffer = new byte[buffSize];
         this.byteBuffer = ByteBuffer.wrap(buffer);
         this.offset = 0;
@@ -55,15 +68,32 @@ public class DataOutputViewImpl
     @Override
     public void flush()
     {
-        byteBuffer.limit(offset);
         try {
-            channel.write(byteBuffer);
+            if (outputStream != null) {
+                outputStream.write(buffer, 0, offset);
+            }
+            else {
+                byteBuffer.position(0);
+                byteBuffer.limit(offset);
+                channel.write(byteBuffer);
+            }
         }
         catch (IOException e) {
             Throwables.throwThrowable(e);
         }
-        byteBuffer.clear();
         this.offset = 0;
+    }
+
+    @Override
+    public void close()
+    {
+        try (WritableByteChannel ignored = this.channel;
+                OutputStream ignored1 = this.outputStream) {
+            this.flush();
+        }
+        catch (IOException e) {
+            Throwables.throwThrowable(e);
+        }
     }
 
     protected void require(int required)
@@ -168,20 +198,31 @@ public class DataOutputViewImpl
     public void writeBytes(String s)
     {
         int len = s.length();
-        for (int i = 0; i < len; i++) {
-            this.write((byte) s.charAt(i));
+        int empSize = buffer.length - offset;
+        if (len <= empSize) {
+            for (int i = 0; i < len; i++) {
+                buffer[offset++] = (byte) (s.charAt(i) & 0X7F);
+            }
+            return;
         }
-        offset += len;
+
+        for (int i = 0; i < empSize; i++) {
+            buffer[offset++] = (byte) (s.charAt(i) & 0X7F);
+        }
+        this.flush();
+        for (int i = 0; i < len - empSize; i++) {
+            buffer[offset++] = (byte) (s.charAt(i) & 0X7F);
+        }
     }
 
     @Override
     public void writeChars(String s)
     {
+        //todo: utf16_LE ....
         int len = s.length();
         for (int i = 0; i < len; i++) {
             this.writeChar(s.charAt(i));
         }
-        offset += len * 2;
     }
 
     @Override
@@ -324,16 +365,5 @@ public class DataOutputViewImpl
         require(byteSize);
         BoolArrayZipUtil.zip(value, 0, buffer, offset, value.length);
         offset += byteSize;
-    }
-
-    @Override
-    public void close()
-    {
-        try (WritableByteChannel ignored = this.channel) {
-            this.flush();
-        }
-        catch (IOException e) {
-            Throwables.throwThrowable(e);
-        }
     }
 }

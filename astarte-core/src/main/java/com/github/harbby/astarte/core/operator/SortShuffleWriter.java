@@ -346,10 +346,9 @@ public class SortShuffleWriter<K, V>
         }
 
         private void writeFinish()
-                throws IOException
         {
-            if (lz4BlockOutputStream != null) {
-                lz4BlockOutputStream.close();
+            if (dataOutput != null) {
+                dataOutput.close();
             }
         }
     }
@@ -429,6 +428,7 @@ public class SortShuffleWriter<K, V>
                             encoder.encoder(merger.next(), dataOutputView);
                         }
                     }
+                    dataOutputView.flush();
                     lz4OutputStream.finishBlock();
                     //merge index
                     header.putLong(lz4OutputStream.position());

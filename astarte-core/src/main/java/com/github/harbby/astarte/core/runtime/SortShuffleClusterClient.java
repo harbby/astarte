@@ -217,7 +217,7 @@ public class SortShuffleClusterClient
                 }
             }
             catch (InterruptedException e) {
-                logger.warn("whether the task is being killed?");
+                logger.warn("whether the task is being killed?" ,e);
                 done = true;
                 throw Throwables.throwThrowable(e);
             }
@@ -236,18 +236,26 @@ public class SortShuffleClusterClient
         @Override
         public int read()
         {
-            if (byteBuf.readableBytes() == 0) {
-                ReferenceCountUtil.release(byteBuf);
-                try {
-                    byteBuf = buffer.take();
-                }
-                catch (InterruptedException e) {
-                    logger.warn("whether the task is being killed?");
-                    throw Throwables.throwThrowable(e);
-                }
+            if (byteBuf == STOP_DOWNLOAD) {
+                return -1;
             }
-            checkState(byteBuf != STOP_DOWNLOAD);
-            return byteBuf.readByte() & 0xFF;
+            //checkState(byteBuf != STOP_DOWNLOAD);
+            int v = byteBuf.readByte() & 0xFF;
+            if (byteBuf.readableBytes() == 0) {
+                nextBuff();
+            }
+            return v;
+        }
+
+        private void nextBuff() {
+            ReferenceCountUtil.release(byteBuf);
+            try {
+                byteBuf = buffer.take();
+            }
+            catch (InterruptedException e) {
+                logger.warn("whether the task is being killed?");
+                throw Throwables.throwThrowable(e);
+            }
         }
     }
 
