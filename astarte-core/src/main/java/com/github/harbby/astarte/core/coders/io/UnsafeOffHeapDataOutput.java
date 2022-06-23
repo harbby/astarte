@@ -174,7 +174,7 @@ public final class UnsafeOffHeapDataOutput
     }
 
     @Override
-    public void writeBytes(String s)
+    public void writeAsciiString(String s)
     {
         int len = s.length();
         for (int i = 0; i < len; i++) {

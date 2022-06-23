@@ -22,64 +22,91 @@ public interface DataOutputView
         extends DataOutput, Closeable
 {
     @Override
-    void writeInt(int v) throws RuntimeIOException;
+    void writeInt(int v)
+            throws RuntimeIOException;
 
     @Override
-    void write(int b) throws RuntimeIOException;
+    void write(int b)
+            throws RuntimeIOException;
 
     @Override
-    void write(byte[] b) throws RuntimeIOException;
+    void write(byte[] b)
+            throws RuntimeIOException;
 
     @Override
-    void write(byte[] b, int off, int len) throws RuntimeIOException;
+    void write(byte[] b, int off, int len)
+            throws RuntimeIOException;
 
     @Override
-    void writeBoolean(boolean v) throws RuntimeIOException;
+    void writeBoolean(boolean v)
+            throws RuntimeIOException;
 
     @Override
-    void writeByte(int v) throws RuntimeIOException;
+    void writeByte(int v)
+            throws RuntimeIOException;
 
     @Override
-    void writeShort(int v) throws RuntimeIOException;
+    void writeShort(int v)
+            throws RuntimeIOException;
 
     @Override
-    void writeChar(int v) throws RuntimeIOException;
+    void writeChar(int v)
+            throws RuntimeIOException;
 
     @Override
-    void writeLong(long v) throws RuntimeIOException;
+    void writeLong(long v)
+            throws RuntimeIOException;
 
     @Override
-    void writeFloat(float v) throws RuntimeIOException;
+    void writeFloat(float v)
+            throws RuntimeIOException;
 
     @Override
-    void writeDouble(double v) throws RuntimeIOException;
+    void writeDouble(double v)
+            throws RuntimeIOException;
 
     /**
      * code: Latin-1
-     * */
+     */
+    @Deprecated
     @Override
-    void writeBytes(String s) throws RuntimeIOException;
+    default void writeBytes(String s)
+            throws RuntimeIOException
+    {
+        this.writeAsciiString(s);
+    }
 
     @Override
-    void writeChars(String s) throws RuntimeIOException;
+    void writeChars(String s)
+            throws RuntimeIOException;
 
     @Deprecated
     @Override
-    default void writeUTF(String s) throws RuntimeIOException
+    default void writeUTF(String s)
+            throws RuntimeIOException
     {
-        throw new UnsupportedOperationException();
+        this.writeString(s);
     }
 
-    void writeVarInt(int v, boolean optimizeNegativeNumber) throws RuntimeIOException;
+    void writeVarInt(int v, boolean optimizeNegativeNumber)
+            throws RuntimeIOException;
 
-    void writeVarLong(long v, boolean optimizeNegativeNumber) throws RuntimeIOException;
+    void writeVarLong(long v, boolean optimizeNegativeNumber)
+            throws RuntimeIOException;
 
-    void writeBoolArray(boolean[] v) throws RuntimeIOException;
+    void writeBoolArray(boolean[] v)
+            throws RuntimeIOException;
 
-    void writeString(String s) throws RuntimeIOException;
+    void writeAsciiString(String s)
+            throws RuntimeEOFException;
 
-    void flush() throws RuntimeIOException;
+    void writeString(String s)
+            throws RuntimeIOException;
+
+    void flush()
+            throws RuntimeIOException;
 
     @Override
-    void close() throws RuntimeIOException;
+    void close()
+            throws RuntimeIOException;
 }
