@@ -26,7 +26,6 @@ import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.io.LimitInputStream;
 import net.jpountz.lz4.LZ4BlockInputStream;
 
-import java.io.BufferedInputStream;
 import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.File;
@@ -98,7 +97,7 @@ public interface ShuffleClient
                     length = segmentEnd - segmentEnds[reduceId - 1];
                 }
                 if (length > 0) {
-                    LZ4BlockInputStream lz4BlockInputStream = new LZ4BlockInputStream(new BufferedInputStream(new LimitInputStream(fileInputStream, length)));
+                    LZ4BlockInputStream lz4BlockInputStream = new LZ4BlockInputStream(new LimitInputStream(fileInputStream, length));
                     iterators.add(new EncoderInputStream<>(segmentRowSizes[reduceId], encoder, new DataInputViewImpl(lz4BlockInputStream)).autoClose(() -> {
                         try {
                             fileInputStream.close();

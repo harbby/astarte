@@ -21,7 +21,7 @@ import java.io.InputStream;
 
 public class IoUtils
 {
-    public void readFully(InputStream in, byte[] b)
+    public static void readFully(InputStream in, byte[] b)
             throws IOException
     {
         readFully(in, b, 0, b.length);

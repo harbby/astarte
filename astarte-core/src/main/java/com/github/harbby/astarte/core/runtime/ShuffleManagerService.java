@@ -15,8 +15,6 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
-import com.github.harbby.astarte.core.coders.io.DataInputView;
-import com.github.harbby.astarte.core.coders.io.DataInputViewImpl;
 import com.github.harbby.astarte.core.operator.SortShuffleWriter;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -43,12 +41,14 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 
+import static com.github.harbby.gadtry.base.MoreObjects.checkState;
+
 public final class ShuffleManagerService
 {
     private static final Logger logger = LoggerFactory.getLogger(ShuffleManagerService.class);
     private final File shuffleBaseDir;
     private ChannelFuture future;
-    private volatile int currentJobId;
+    private volatile File currentJobWorkDir;
     private final InetSocketAddress shuffleServiceBindAddress;
 
     public ShuffleManagerService(File shuffleBaseDir)
@@ -95,7 +95,7 @@ public final class ShuffleManagerService
 
     public void updateCurrentJobId(int jobId)
     {
-        this.currentJobId = jobId;
+        this.currentJobWorkDir = new File(shuffleBaseDir, String.valueOf(jobId));
     }
 
     public InetSocketAddress getShuffleServiceBindAddress()
@@ -133,8 +133,10 @@ public final class ShuffleManagerService
             int reduceId = in.readInt();
             int mapId = in.readInt();
             ReferenceCountUtil.release(msg);
+            checkState(mapId >= 0, "Bad mapId request, the range should be [0 - ?], but id is %s", reduceId);
+            checkState(shuffleId >= 0, "Bad shuffleId request, the range should be [0 - ?], but id is %s", reduceId);
 
-            File shuffleFile = new File(new File(shuffleBaseDir, String.valueOf(currentJobId)), String.format("shuffle_merged_%s_%s.data", shuffleId, mapId));
+            File shuffleFile = new File(currentJobWorkDir, String.format("shuffle_merged_%s_%s.data", shuffleId, mapId));
             //read shuffle file header
             FileInputStream fileInputStream = new FileInputStream(shuffleFile);
             DataInputStream dataInputStream = new DataInputStream(fileInputStream);
@@ -148,16 +150,17 @@ public final class ShuffleManagerService
             int fileHeaderSize = SortShuffleWriter.getSortMergedFileHarderSize(segmentEnds.length);
             final long length;
             final long position;
-            if (reduceId > 0) {
-                position = fileHeaderSize + segmentEnds[reduceId - 1];
-                length = segmentEnds[reduceId] - segmentEnds[reduceId - 1];
-            }
-            else {
+            if (reduceId == 0) {
                 position = fileHeaderSize;
                 length = segmentEnds[reduceId];
             }
+            else {
+                checkState(reduceId >= 0, "Bad reduceId request, the range should be [0 - ?], but id is %s", reduceId);
+                position = fileHeaderSize + segmentEnds[reduceId - 1];
+                length = segmentEnds[reduceId] - segmentEnds[reduceId - 1];
+            }
             //write net header info
-            ByteBuf header = ctx.alloc().directBuffer(Long.BYTES * 2);
+            ByteBuf header = ctx.alloc().heapBuffer(16);
             header.writeLong(length);
             header.writeLong(segmentRowSize[reduceId]);
             ctx.write(header);

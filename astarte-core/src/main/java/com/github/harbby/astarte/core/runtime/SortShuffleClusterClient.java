@@ -21,7 +21,6 @@ import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.io.DataInputView;
 import com.github.harbby.astarte.core.coders.io.DataInputViewImpl;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.base.Throwables;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -134,12 +133,21 @@ public class SortShuffleClusterClient
             if (awaitDownLoadSize == null) {
                 this.awaitDownLoadSize = in1.readLong();
                 long rowCount = in1.readLong();
-                logger.debug("downloading shuffleId[{}] MapId[{}] reduce[{}] data bytes is {} rowCount {}", shuffleClientHandler.shuffleId, shuffleClientHandler.mapId, shuffleClientHandler.reduceId, this.awaitDownLoadSize, rowCount);
                 if (this.awaitDownLoadSize == 0) {
+                    logger.warn("try download size is zero.");
                     ReferenceCountUtil.release(in1);
                     ctx.fireChannelReadComplete();
                     shuffleClientHandler.finish();
                     return;
+                }
+                else {
+                    logger.debug("downloading shuffleId[{}] MapId[{}] reduce[{}] data bytes is {} rowCount {}",
+                            shuffleClientHandler.shuffleId,
+                            shuffleClientHandler.mapId,
+                            shuffleClientHandler.reduceId,
+                            this.awaitDownLoadSize,
+                            rowCount);
+                    shuffleClientHandler.begin(rowCount);
                 }
             }
             int readableBytes = in1.readableBytes();
@@ -173,12 +181,19 @@ public class SortShuffleClusterClient
         private final DataInputView inputView = new DataInputViewImpl(this);
         private ByteBuf byteBuf;
         private volatile Throwable cause;
-        private boolean done = false;
+        private long rowCount = -1;
+        private long index = 0;
 
         private void push(ByteBuf byteBuf)
                 throws InterruptedException
         {
             buffer.put(byteBuf);
+        }
+
+        private void begin(long rowCount)
+        {
+            this.rowCount = rowCount;
+            this.index = 0;
         }
 
         public void downloadFailed(Throwable e)
@@ -197,31 +212,16 @@ public class SortShuffleClusterClient
         @Override
         public boolean hasNext()
         {
-            if (done) {
-                return false;
-            }
-            try {
-                if (byteBuf == null) {
+            if (byteBuf == null) {
+                try {
                     byteBuf = buffer.take();
                 }
-                else if (byteBuf.readableBytes() == 0) {
-                    ReferenceCountUtil.release(byteBuf);
-                    byteBuf = buffer.take();
-                }
-                if (byteBuf == STOP_DOWNLOAD) {
-                    done = true;
-                    if (cause != null) {
-                        throw Throwables.throwThrowable(cause);
-                    }
+                catch (InterruptedException e) {
+                    logger.warn("whether the task is being killed?", e);
                     return false;
                 }
             }
-            catch (InterruptedException e) {
-                logger.warn("whether the task is being killed?" ,e);
-                done = true;
-                throw Throwables.throwThrowable(e);
-            }
-            return true;
+            return index < rowCount;
         }
 
         @Override
@@ -230,31 +230,37 @@ public class SortShuffleClusterClient
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }
-            return encoder.decoder(inputView);
+            Tuple2<K, V> value = encoder.decoder(inputView);
+            index++;
+            return value;
         }
 
         @Override
         public int read()
+                throws IOException
         {
             if (byteBuf == STOP_DOWNLOAD) {
+                if (cause != null) {
+                    throw new IOException(cause);
+                }
                 return -1;
             }
-            //checkState(byteBuf != STOP_DOWNLOAD);
             int v = byteBuf.readByte() & 0xFF;
             if (byteBuf.readableBytes() == 0) {
+                ReferenceCountUtil.release(byteBuf);
                 nextBuff();
             }
             return v;
         }
 
-        private void nextBuff() {
-            ReferenceCountUtil.release(byteBuf);
-            try {
-                byteBuf = buffer.take();
-            }
-            catch (InterruptedException e) {
-                logger.warn("whether the task is being killed?");
-                throw Throwables.throwThrowable(e);
+        private void nextBuff()
+        {
+            while (true) {
+                ByteBuf buf = buffer.poll();
+                if (buf != null) {
+                    this.byteBuf = buf;
+                    break;
+                }
             }
         }
     }
@@ -293,6 +299,11 @@ public class SortShuffleClusterClient
             byteBuf.writeInt(reduceId);
             byteBuf.writeInt(mapId);
             ctx.writeAndFlush(byteBuf);
+        }
+
+        public void begin(long rowCount)
+        {
+            reader.begin(rowCount);
         }
 
         public void finish()
