@@ -253,6 +253,37 @@ public class SortShuffleClusterClient
             return v;
         }
 
+        @Override
+        public int read(byte[] b, int off, int len)
+                throws IOException
+        {
+            if (byteBuf == STOP_DOWNLOAD) {
+                return -1;
+            }
+            int rlen = len;
+            int offset = off;
+            do {
+                int cacheSize = byteBuf.readableBytes();
+                if (byteBuf.readableBytes() > rlen) {
+                    byteBuf.readBytes(b, offset, rlen);
+                    return offset - off + rlen;
+                }
+                else {
+                    byteBuf.readBytes(b, offset, cacheSize);
+                    offset += cacheSize;
+                    rlen -= cacheSize;
+                    ReferenceCountUtil.release(byteBuf);
+                    nextBuff();
+                }
+            }
+            while (byteBuf != STOP_DOWNLOAD);
+
+            if (cause != null) {
+                throw new IOException(cause);
+            }
+            return offset - off;
+        }
+
         private void nextBuff()
         {
             while (true) {
@@ -265,7 +296,7 @@ public class SortShuffleClusterClient
         }
     }
 
-    private class ShuffleClientHandler<K, V>
+    private static class ShuffleClientHandler<K, V>
             extends ChannelInboundHandlerAdapter
     {
         private final int mapId;
