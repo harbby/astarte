@@ -15,8 +15,6 @@
  */
 package com.github.harbby.astarte.core.coders.io;
 
-import com.github.harbby.gadtry.base.Throwables;
-
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -38,44 +36,28 @@ public final class DataInputViewImpl
             this.in.close();
         }
         catch (IOException e) {
-            Throwables.throwThrowable(e);
+            throw new RuntimeIOException(e);
         }
     }
 
     @Override
-    protected int skipBytes0(int n)
-            throws IOException
-    {
-        return IoUtils.skipBytes(in, n);
-    }
-
-    @Override
     protected int tryReadFully0(byte[] b, int off, int len)
-            throws IOException
+            throws RuntimeIOException
     {
-        return IoUtils.tryReadFully(in, b, off, len);
-    }
-
-    @Override
-    protected void readFully0(byte[] b, int off, int len)
-            throws IOException
-    {
-        IoUtils.readFully(in, b, off, len);
-    }
-
-    @Override
-    public int skipBytes(int n)
-            throws IOException
-    {
-        return IoUtils.skipBytes(in, n);
+        try {
+            return IoUtils.tryReadFully(in, b, off, len);
+        }
+        catch (IOException e) {
+            throw new RuntimeIOException(e);
+        }
     }
 
     @Override
     public short readShort()
     {
         require(2);
-        int ch1 = buffer[offset++] & 0XFF;
-        int ch2 = buffer[offset++] & 0XFF;
+        int ch1 = buffer[position++] & 0XFF;
+        int ch2 = buffer[position++] & 0XFF;
         return (short) ((ch1 << 8) + ch2);
     }
 
@@ -83,8 +65,8 @@ public final class DataInputViewImpl
     public int readUnsignedShort()
     {
         require(2);
-        int ch1 = buffer[offset++] & 0XFF;
-        int ch2 = buffer[offset++] & 0XFF;
+        int ch1 = buffer[position++] & 0XFF;
+        int ch2 = buffer[position++] & 0XFF;
         return (ch1 << 8) + ch2;
     }
 
@@ -92,8 +74,8 @@ public final class DataInputViewImpl
     public char readChar()
     {
         require(2);
-        int ch1 = buffer[offset++] & 0XFF;
-        int ch2 = buffer[offset++] & 0XFF;
+        int ch1 = buffer[position++] & 0XFF;
+        int ch2 = buffer[position++] & 0XFF;
         return (char) ((ch1 << 8) + ch2);
     }
 
@@ -101,10 +83,10 @@ public final class DataInputViewImpl
     public int readInt()
     {
         require(4);
-        int ch1 = buffer[offset++] & 0XFF;
-        int ch2 = buffer[offset++] & 0XFF;
-        int ch3 = buffer[offset++] & 0XFF;
-        int ch4 = buffer[offset++] & 0XFF;
+        int ch1 = buffer[position++] & 0XFF;
+        int ch2 = buffer[position++] & 0XFF;
+        int ch3 = buffer[position++] & 0XFF;
+        int ch4 = buffer[position++] & 0XFF;
         return (ch1 << 24) + (ch2 << 16) + (ch3 << 8) + ch4;
     }
 
@@ -112,14 +94,14 @@ public final class DataInputViewImpl
     public long readLong()
     {
         require(8);
-        return (((long) buffer[offset++] << 56) +
-                ((long) (buffer[offset++] & 255) << 48) +
-                ((long) (buffer[offset++] & 255) << 40) +
-                ((long) (buffer[offset++] & 255) << 32) +
-                ((long) (buffer[offset++] & 255) << 24) +
-                ((buffer[offset++] & 255) << 16) +
-                ((buffer[offset++] & 255) << 8) +
-                ((buffer[offset++] & 255)));
+        return (((long) buffer[position++] << 56) +
+                ((long) (buffer[position++] & 255) << 48) +
+                ((long) (buffer[position++] & 255) << 40) +
+                ((long) (buffer[position++] & 255) << 32) +
+                ((long) (buffer[position++] & 255) << 24) +
+                ((buffer[position++] & 255) << 16) +
+                ((buffer[position++] & 255) << 8) +
+                ((buffer[position++] & 255)));
     }
 
     @Override

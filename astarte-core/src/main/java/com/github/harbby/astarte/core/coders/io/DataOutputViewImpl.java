@@ -15,8 +15,6 @@
  */
 package com.github.harbby.astarte.core.coders.io;
 
-import com.github.harbby.gadtry.base.Throwables;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -79,7 +77,7 @@ public class DataOutputViewImpl
             }
         }
         catch (IOException e) {
-            Throwables.throwThrowable(e);
+            throw new RuntimeIOException(e);
         }
         this.offset = 0;
     }
@@ -92,7 +90,7 @@ public class DataOutputViewImpl
             this.flush();
         }
         catch (IOException e) {
-            Throwables.throwThrowable(e);
+            throw new RuntimeIOException(e);
         }
     }
 
@@ -195,7 +193,7 @@ public class DataOutputViewImpl
     }
 
     @Override
-    public void writeBytes(String s)
+    public final void writeBytes(String s)
     {
         int len = s.length();
         int empSize = buffer.length - offset;
@@ -233,7 +231,7 @@ public class DataOutputViewImpl
     }
 
     @Override
-    public void writeVarInt(int value, boolean optimizeNegativeNumber)
+    public final void writeVarInt(int value, boolean optimizeNegativeNumber)
     {
         int v = value;
         if (optimizeNegativeNumber) {
@@ -273,7 +271,7 @@ public class DataOutputViewImpl
     }
 
     @Override
-    public void writeVarLong(long value, boolean optimizeNegativeNumber)
+    public final void writeVarLong(long value, boolean optimizeNegativeNumber)
     {
         long v = value;
         if (optimizeNegativeNumber) {
@@ -356,7 +354,7 @@ public class DataOutputViewImpl
     }
 
     @Override
-    public void writeBoolArray(boolean[] value)
+    public final void writeBoolArray(boolean[] value)
     {
         if (value.length == 0) {
             return;

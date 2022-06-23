@@ -15,7 +15,6 @@
  */
 package com.github.harbby.astarte.core.runtime;
 
-import com.github.harbby.astarte.core.operator.SortShuffleWriter;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
@@ -33,7 +32,6 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -135,34 +133,21 @@ public final class ShuffleManagerService
             ReferenceCountUtil.release(msg);
             checkState(mapId >= 0, "Bad mapId request, the range should be [0 - ?], but id is %s", reduceId);
             checkState(shuffleId >= 0, "Bad shuffleId request, the range should be [0 - ?], but id is %s", reduceId);
+            checkState(reduceId >= 0, "Bad reduceId request, the range should be [0 - ?], but id is %s", reduceId);
 
             File shuffleFile = new File(currentJobWorkDir, String.format("shuffle_merged_%s_%s.data", shuffleId, mapId));
             //read shuffle file header
             FileInputStream fileInputStream = new FileInputStream(shuffleFile);
-            DataInputStream dataInputStream = new DataInputStream(fileInputStream);
-            long[] segmentEnds = new long[dataInputStream.readInt()];
-            long[] segmentRowSize = new long[segmentEnds.length];
-            for (int i = 0; i < segmentEnds.length; i++) {
-                segmentEnds[i] = dataInputStream.readLong();
-                segmentRowSize[i] = dataInputStream.readLong();
-            }
+            SortMergeFileMeta sortMergeFileMeta = SortMergeFileMeta.readFrom(fileInputStream);
 
-            int fileHeaderSize = SortShuffleWriter.getSortMergedFileHarderSize(segmentEnds.length);
-            final long length;
-            final long position;
-            if (reduceId == 0) {
-                position = fileHeaderSize;
-                length = segmentEnds[reduceId];
-            }
-            else {
-                checkState(reduceId >= 0, "Bad reduceId request, the range should be [0 - ?], but id is %s", reduceId);
-                position = fileHeaderSize + segmentEnds[reduceId - 1];
-                length = segmentEnds[reduceId] - segmentEnds[reduceId - 1];
-            }
+            long length = sortMergeFileMeta.getLength(reduceId);
+            long position = sortMergeFileMeta.getPosition(reduceId);
+            long rowCount = sortMergeFileMeta.getRowCount(reduceId);
+
             //write net header info
             ByteBuf header = ctx.alloc().heapBuffer(16);
             header.writeLong(length);
-            header.writeLong(segmentRowSize[reduceId]);
+            header.writeLong(rowCount);
             ctx.write(header);
             //write data by zero copy
             ctx.writeAndFlush(new DefaultFileRegion(fileInputStream.getChannel(), position, length), ctx.newProgressivePromise())

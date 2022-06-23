@@ -22,22 +22,20 @@ import com.github.harbby.astarte.core.coders.EncoderInputStream;
 import com.github.harbby.astarte.core.coders.io.DataInputViewImpl;
 import com.github.harbby.gadtry.base.Files;
 import com.github.harbby.gadtry.base.Iterators;
-import com.github.harbby.gadtry.base.Throwables;
 import com.github.harbby.gadtry.io.LimitInputStream;
 import net.jpountz.lz4.LZ4BlockInputStream;
 
 import java.io.Closeable;
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import static com.github.harbby.astarte.core.operator.SortShuffleWriter.getSortMergedFileHarderSize;
 import static com.github.harbby.gadtry.base.MoreObjects.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -82,30 +80,18 @@ public interface ShuffleClient
             for (File file : files) {
                 //read header
                 FileInputStream fileInputStream = new FileInputStream(file);
-                DataInputStream dataInputStream = new DataInputStream(fileInputStream);
-                long[] segmentEnds = new long[dataInputStream.readInt()];
-                long[] segmentRowSizes = new long[segmentEnds.length];
-                for (int i = 0; i < segmentEnds.length; i++) {
-                    segmentEnds[i] = dataInputStream.readLong();
-                    segmentRowSizes[i] = dataInputStream.readLong();
-                }
-                long segmentEnd = segmentEnds[reduceId];
-                long length = segmentEnd;
+                FileChannel channel = fileInputStream.getChannel();
+                SortMergeFileMeta sortMergeFileMeta = SortMergeFileMeta.readFrom(fileInputStream);
+                long position = sortMergeFileMeta.getPosition(reduceId);
+                long length = sortMergeFileMeta.getLength(reduceId);
+                long rowCount = sortMergeFileMeta.getRowCount(reduceId);
                 if (reduceId > 0) {
-                    int headerSize = getSortMergedFileHarderSize(segmentEnds.length);
-                    fileInputStream.getChannel().position(headerSize + segmentEnds[reduceId - 1]);
-                    length = segmentEnd - segmentEnds[reduceId - 1];
+                    channel.position(position);
                 }
+
                 if (length > 0) {
                     LZ4BlockInputStream lz4BlockInputStream = new LZ4BlockInputStream(new LimitInputStream(fileInputStream, length));
-                    iterators.add(new EncoderInputStream<>(segmentRowSizes[reduceId], encoder, new DataInputViewImpl(lz4BlockInputStream)).autoClose(() -> {
-                        try {
-                            fileInputStream.close();
-                        }
-                        catch (IOException e) {
-                            Throwables.throwThrowable(e);
-                        }
-                    }));
+                    iterators.add(new EncoderInputStream<>(rowCount, encoder, new DataInputViewImpl(lz4BlockInputStream)));
                 }
                 else {
                     fileInputStream.close();

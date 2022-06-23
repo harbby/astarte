@@ -29,6 +29,7 @@ import com.github.harbby.astarte.core.coders.io.LZ4BlockOutputStream;
 import com.github.harbby.astarte.core.coders.io.LZ4WritableByteChannel;
 import com.github.harbby.astarte.core.coders.io.UnsafeDataInput;
 import com.github.harbby.astarte.core.coders.io.UnsafeDataOutput;
+import com.github.harbby.astarte.core.runtime.SortMergeFileMeta;
 import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.io.LimitInputStream;
@@ -235,11 +236,6 @@ public class SortShuffleWriter<K, V>
         }
     }
 
-    public static int getSortMergedFileHarderSize(int segmentSize)
-    {
-        return Integer.BYTES + segmentSize * Long.BYTES * 2;
-    }
-
     private static final class ReduceWriter<K, V>
     {
         private static final int BUFF_SIZE = 81920; //todo: use mem size
@@ -395,7 +391,8 @@ public class SortShuffleWriter<K, V>
         public ByteBuffer mergeFile()
                 throws IOException
         {
-            ByteBuffer header = ByteBuffer.allocate(getSortMergedFileHarderSize(reduceWriters.length));
+            int fileHeaderMetaSize = SortMergeFileMeta.getSortMergedFileHarderSize(reduceWriters.length);
+            ByteBuffer header = ByteBuffer.allocate(fileHeaderMetaSize);
             header.putInt(reduceWriters.length);
             try (FileOutputStream fileOutputStream = new FileOutputStream(mergeName, false);
                     FileChannel fileChannel = fileOutputStream.getChannel()) {

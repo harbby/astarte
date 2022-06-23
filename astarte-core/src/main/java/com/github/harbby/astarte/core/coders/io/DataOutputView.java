@@ -22,61 +22,64 @@ public interface DataOutputView
         extends DataOutput, Closeable
 {
     @Override
-    void writeInt(int v);
+    void writeInt(int v) throws RuntimeIOException;
 
     @Override
-    void write(int b);
+    void write(int b) throws RuntimeIOException;
 
     @Override
-    void write(byte[] b);
+    void write(byte[] b) throws RuntimeIOException;
 
     @Override
-    void write(byte[] b, int off, int len);
+    void write(byte[] b, int off, int len) throws RuntimeIOException;
 
     @Override
-    void writeBoolean(boolean v);
+    void writeBoolean(boolean v) throws RuntimeIOException;
 
     @Override
-    void writeByte(int v);
+    void writeByte(int v) throws RuntimeIOException;
 
     @Override
-    void writeShort(int v);
+    void writeShort(int v) throws RuntimeIOException;
 
     @Override
-    void writeChar(int v);
+    void writeChar(int v) throws RuntimeIOException;
 
     @Override
-    void writeLong(long v);
+    void writeLong(long v) throws RuntimeIOException;
 
     @Override
-    void writeFloat(float v);
+    void writeFloat(float v) throws RuntimeIOException;
 
     @Override
-    void writeDouble(double v);
+    void writeDouble(double v) throws RuntimeIOException;
+
+    /**
+     * code: Latin-1
+     * */
+    @Override
+    void writeBytes(String s) throws RuntimeIOException;
 
     @Override
-    void writeBytes(String s);
-
-    @Override
-    void writeChars(String s);
+    void writeChars(String s) throws RuntimeIOException;
 
     @Deprecated
     @Override
-    default void writeUTF(String s)
+    default void writeUTF(String s) throws RuntimeIOException
     {
         throw new UnsupportedOperationException();
     }
 
-    void writeVarInt(int v, boolean optimizeNegativeNumber);
+    void writeVarInt(int v, boolean optimizeNegativeNumber) throws RuntimeIOException;
 
-    void writeVarLong(long v, boolean optimizeNegativeNumber);
+    void writeVarLong(long v, boolean optimizeNegativeNumber) throws RuntimeIOException;
 
-    void writeBoolArray(boolean[] v);
+    void writeBoolArray(boolean[] v) throws RuntimeIOException;
 
-    void writeString(String s);
+    void writeString(String s) throws RuntimeIOException;
 
-    void flush();
+    void flush() throws RuntimeIOException;
 
     @Override
-    void close();
+    void close() throws RuntimeIOException;
 }

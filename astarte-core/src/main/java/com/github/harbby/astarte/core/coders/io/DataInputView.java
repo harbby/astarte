@@ -23,68 +23,84 @@ public interface DataInputView
         extends DataInput, Closeable
 {
     @Override
-    void readFully(byte[] b) throws IOException;
+    void readFully(byte[] b) throws RuntimeIOException;
 
     @Override
-    void readFully(byte[] b, int off, int len) throws IOException;
+    void readFully(byte[] b, int off, int len) throws RuntimeIOException;
 
-    int tryReadFully(byte[] b, int off, int len) throws IOException;
+    int tryReadFully(byte[] b, int off, int len) throws RuntimeIOException;
 
-    @Override
-    int skipBytes(int n) throws IOException;
-
-    @Override
-    boolean readBoolean();
-
-    @Override
-    byte readByte();
-
-    @Override
-    int readUnsignedByte();
-
-    @Override
-    short readShort();
-
-    @Override
-    int readUnsignedShort();
+    /**
+     * Reads the next byte of data from the input stream. The value byte is
+     * returned as an {@code int} in the range {@code 0} to
+     * {@code 255}. If no byte is available because the end of the stream
+     * has been reached, the value {@code -1} is returned. This method
+     * blocks until input data is available, the end of the stream is detected,
+     * or an exception is thrown.
+     *
+     * <p> A subclass must provide an implementation of this method.
+     *
+     * @return     the next byte of data, or {@code -1} if the end of the
+     *             stream is reached.
+     * @throws     IOException  if an I/O error occurs.
+     */
+    int read() throws RuntimeIOException;
 
     @Override
-    char readChar();
+    int skipBytes(int n) throws RuntimeIOException;
 
     @Override
-    int readInt();
+    boolean readBoolean() throws RuntimeIOException;
 
     @Override
-    long readLong();
+    byte readByte() throws RuntimeIOException;
 
     @Override
-    float readFloat();
+    int readUnsignedByte() throws RuntimeIOException;
 
     @Override
-    double readDouble();
+    short readShort() throws RuntimeIOException;
+
+    @Override
+    int readUnsignedShort() throws RuntimeIOException;
+
+    @Override
+    char readChar() throws RuntimeIOException;
+
+    @Override
+    int readInt() throws RuntimeIOException;
+
+    @Override
+    long readLong() throws RuntimeIOException;
+
+    @Override
+    float readFloat() throws RuntimeIOException;
+
+    @Override
+    double readDouble() throws RuntimeIOException;
 
     @Deprecated
     @Override
-    default String readLine()
+    default String readLine() throws RuntimeIOException
     {
         throw new UnsupportedOperationException();
     }
 
     @Deprecated
     @Override
-    default String readUTF()
+    default String readUTF() throws RuntimeIOException
     {
         throw new UnsupportedOperationException();
     }
 
-    String readString();
+    String readString() throws RuntimeIOException;
 
-    void readBoolArray(boolean[] booleans, int pos, int len);
+    void readBoolArray(boolean[] booleans, int pos, int len) throws RuntimeIOException;
 
-    int readVarInt(boolean optimizeNegativeNumber);
+    int readVarInt(boolean optimizeNegativeNumber) throws RuntimeIOException;
 
-    long readVarLong(boolean optimizeNegativeNumber);
+    long readVarLong(boolean optimizeNegativeNumber) throws RuntimeIOException;
 
     @Override
-    void close();
+    void close() throws RuntimeIOException;
 }

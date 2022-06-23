@@ -85,25 +85,4 @@ public final class UnsafeDataOutput
         unsafe.putDouble(this.buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset, v);
         offset += 8;
     }
-
-    @Override
-    public void writeBytes(String s)
-    {
-        int len = s.length();
-        require(len);
-        for (int i = 0; i < len; i++) {
-            this.write(s.charAt(i));
-        }
-    }
-
-    @Override
-    public void writeChars(String s)
-    {
-        int len = s.length();
-        require(len * 2);
-        for (int i = 0; i < len; i++) {
-            int v = s.charAt(i);
-            this.writeChar(v);
-        }
-    }
 }

@@ -16,7 +16,6 @@
 package com.github.harbby.astarte.core.coders.io;
 
 import com.github.harbby.gadtry.base.Platform;
-import com.github.harbby.gadtry.base.Throwables;
 import sun.misc.Unsafe;
 import sun.nio.ch.DirectBuffer;
 
@@ -85,7 +84,7 @@ public final class UnsafeOffHeapDataOutput
             this.flush();
         }
         catch (IOException e) {
-            Throwables.throwThrowable(e);
+            throw new RuntimeIOException(e);
         }
     }
 
@@ -98,7 +97,7 @@ public final class UnsafeOffHeapDataOutput
             channel.write(byteBuffer);
         }
         catch (IOException e) {
-            Throwables.throwThrowable(e);
+            throw new RuntimeIOException(e);
         }
         byteBuffer.clear();
         this.index = 0;

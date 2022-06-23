@@ -15,134 +15,141 @@
  */
 package com.github.harbby.astarte.core.coders.io;
 
-import com.github.harbby.gadtry.base.Throwables;
-
-import java.io.EOFException;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.io.InputStream;
 
 public abstract class AbstractBufferDataInputView
+        extends InputStream
         implements DataInputView
 {
     protected final byte[] buffer;
-    protected int offset;
-    protected int end;
+    protected int position;
+    protected int limit;
 
     protected AbstractBufferDataInputView(byte[] buffer)
     {
         this.buffer = buffer;
-        this.end = buffer.length;
-        this.offset = buffer.length;
+        this.limit = buffer.length;
+        this.position = buffer.length;
     }
 
-    protected void require(int required)
+    protected final void require(int required)
     {
-        if (end - offset < required) {
-            try {
-                int n = this.refill();
-                if (n < required) {
-                    Throwables.throwThrowable(new EOFException("required: " + required));
-                }
+        if (required > buffer.length) {
+            throw new RuntimeIOException("buffer is small: capacity: " + buffer.length + ", required: " + required);
+        }
+        if (limit - position < required) {
+            int n = 0;
+            if (limit == buffer.length) {
+                n = this.refill();
             }
-            catch (IOException e) {
-                Throwables.throwThrowable(e);
+            if (n < required) {
+                throw new RuntimeEOFException("required: " + required);
             }
         }
     }
 
-    protected int refill()
-            throws IOException
+    protected final int refill()
+            throws RuntimeIOException
     {
-        if (end != buffer.length) {
-            throw new EOFException();
-        }
-        int l = end - offset;
+        int l = limit - position;
         if (l > 0) {
-            System.arraycopy(buffer, offset, buffer, 0, l);
+            System.arraycopy(buffer, position, buffer, 0, l);
         }
-        int n = this.tryReadFully0(buffer, l, offset);
-        if (n < offset) {
-            end = l + n;
+        int n = this.tryReadFully0(buffer, l, position);
+        if (n < position) {
+            limit = l + n;
         }
-        this.offset = 0;
+        this.position = 0;
         return n;
     }
 
     protected abstract int tryReadFully0(byte[] b, int off, int len)
-            throws IOException;
-
-    protected abstract void readFully0(byte[] b, int off, int len)
-            throws IOException;
-
-    protected abstract int skipBytes0(int n)
-            throws IOException;
+            throws RuntimeIOException;
 
     @Override
-    public int skipBytes(int n)
-            throws IOException
+    public final int skipBytes(int n)
+            throws RuntimeIOException
     {
-        throw new UnsupportedEncodingException();
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public void readFully(byte[] b)
-            throws IOException
+    public final void readFully(byte[] b)
+            throws RuntimeIOException
     {
         this.readFully(b, 0, b.length);
     }
 
     @Override
-    public void readFully(byte[] b, int off, int len)
-            throws IOException
+    public final void readFully(byte[] b, int off, int len)
+            throws RuntimeIOException
     {
-        int cacheSize = end - offset;
-        if (len <= cacheSize) {
-            System.arraycopy(buffer, offset, b, off, len);
-            offset += len;
-            return;
-        }
-        System.arraycopy(buffer, offset, b, off, cacheSize);
-        offset = end;
-        this.refill();
-        if (end == buffer.length) {
-            //todo end > len -cacheSize
-            System.arraycopy(buffer, 0, b, cacheSize, len - cacheSize);
-        }
-        else {
-            System.arraycopy(buffer, 0, b, cacheSize, end);
-            throw new EOFException();
+        int n = this.tryReadFully(b, off, len);
+        if (n < len) {
+            throw new RuntimeEOFException();
         }
     }
 
     @Override
-    public int tryReadFully(byte[] b, int off, int len)
-            throws IOException
+    public final int tryReadFully(byte[] b, int off, int len)
+            throws RuntimeIOException
     {
-        int cacheSize = end - offset;
-        if (len <= cacheSize) {
-            System.arraycopy(buffer, offset, b, off, len);
-            offset += len;
-            return len;
+        if (limit != buffer.length & position == limit) {
+            return -1;
         }
-        System.arraycopy(buffer, offset, b, off, cacheSize);
-        offset = end;
-        this.refill();
-        if (end == buffer.length) {
-            //todo end > len -cacheSize
-            System.arraycopy(buffer, 0, b, cacheSize, len - cacheSize);
-            return len;
+        int rlen = len;
+        int index = off;
+        do {
+            int cacheSize = this.limit - this.position;
+            if (cacheSize >= rlen) {
+                System.arraycopy(buffer, this.position, b, index, rlen);
+                this.position += rlen;
+                return index - off + rlen;
+            }
+            else {
+                System.arraycopy(buffer, this.position, b, index, cacheSize);
+                this.position = this.limit;
+                index += cacheSize;
+                rlen -= cacheSize;
+                if (limit != buffer.length) {
+                    return index - off;
+                }
+                this.refill();
+            }
         }
-        else {
-            System.arraycopy(buffer, 0, b, cacheSize, end);
-            return cacheSize + end;
-        }
+        while (true);
     }
+
+    @Override
+    public int read()
+            throws RuntimeIOException
+    {
+        if (this.position == this.limit) {
+            if (limit != buffer.length) {
+                return -1;
+            }
+            else {
+                this.refill();
+            }
+        }
+        return buffer[position++] & 0XFF;
+    }
+
+    @Override
+    public final int read(byte[] b, int off, int len)
+            throws RuntimeIOException
+    {
+        return this.tryReadFully(b, off, len);
+    }
+
+    @Override
+    public abstract void close();
 
     @Override
     public boolean readBoolean()
     {
         require(1);
-        byte ch = buffer[offset++];
+        byte ch = buffer[position++];
         return (ch != 0);
     }
 
@@ -150,45 +157,45 @@ public abstract class AbstractBufferDataInputView
     public byte readByte()
     {
         require(1);
-        return buffer[offset++];
+        return buffer[position++];
     }
 
     @Override
     public int readUnsignedByte()
     {
         require(1);
-        return buffer[offset++] & 0XFF;
+        return buffer[position++] & 0XFF;
     }
 
     @Override
-    public void readBoolArray(boolean[] booleans, int pos, int len)
+    public final void readBoolArray(boolean[] booleans, int pos, int len)
     {
         int byteSize = (len + 7) >> 3;
         require(byteSize);
-        BoolArrayZipUtil.unzip(buffer, offset, booleans, pos, len);
+        BoolArrayZipUtil.unzip(buffer, position, booleans, pos, len);
     }
 
     @Override
-    public int readVarInt(boolean optimizeNegativeNumber)
+    public final int readVarInt(boolean optimizeNegativeNumber)
     {
         require(1);
-        byte b = buffer[offset++];
+        byte b = buffer[position++];
         int result = b & 0x7F;
         if (b < 0) {
             require(1);
-            b = buffer[offset++];
+            b = buffer[position++];
             result |= (b & 0x7F) << 7;
             if (b < 0) {
                 require(1);
-                b = buffer[offset++];
+                b = buffer[position++];
                 result |= (b & 0x7F) << 14;
                 if (b < 0) {
                     require(1);
-                    b = buffer[offset++];
+                    b = buffer[position++];
                     result |= (b & 0x7F) << 21;
                     if (b < 0) {
                         require(1);
-                        b = buffer[offset++];
+                        b = buffer[position++];
                         //assert b > 0;
                         result |= b << 28;
                     }
@@ -204,42 +211,42 @@ public abstract class AbstractBufferDataInputView
     }
 
     @Override
-    public long readVarLong(boolean optimizeNegativeNumber)
+    public final long readVarLong(boolean optimizeNegativeNumber)
     {
         require(1);
-        byte b = buffer[offset++];
+        byte b = buffer[position++];
         long result = b & 0x7F;
         if (b < 0) {
             require(1);
-            b = buffer[offset++];
+            b = buffer[position++];
             result |= (b & 0x7F) << 7;
             if (b < 0) {
                 require(1);
-                b = buffer[offset++];
+                b = buffer[position++];
                 result |= (b & 0x7F) << 14;
                 if (b < 0) {
                     require(1);
-                    b = buffer[offset++];
+                    b = buffer[position++];
                     result |= (b & 0x7F) << 21;
                     if (b < 0) {
                         require(1);
-                        b = buffer[offset++];
+                        b = buffer[position++];
                         result |= (long) (b & 0x7F) << 28;
                         if (b < 0) {
                             require(1);
-                            b = buffer[offset++];
+                            b = buffer[position++];
                             result |= (long) (b & 0x7F) << 35;
                             if (b < 0) {
                                 require(1);
-                                b = buffer[offset++];
+                                b = buffer[position++];
                                 result |= (long) (b & 0x7F) << 42;
                                 if (b < 0) {
                                     require(1);
-                                    b = buffer[offset++];
+                                    b = buffer[position++];
                                     result |= (long) (b & 0x7F) << 49;
                                     if (b < 0) {
                                         require(1);
-                                        b = buffer[offset++];
+                                        b = buffer[position++];
                                         result |= (long) b << 56;
                                     }
                                 }

@@ -16,7 +16,6 @@
 package com.github.harbby.astarte.core.coders.io;
 
 import com.github.harbby.gadtry.base.Platform;
-import com.github.harbby.gadtry.base.Throwables;
 import sun.misc.Unsafe;
 
 import java.io.IOException;
@@ -35,32 +34,23 @@ public final class UnsafeDataInput
     }
 
     @Override
-    protected int skipBytes0(int n)
-            throws IOException
-    {
-        return IoUtils.skipBytes(in, n);
-    }
-
-    @Override
     protected int tryReadFully0(byte[] b, int off, int len)
-            throws IOException
+            throws RuntimeIOException
     {
-        return IoUtils.tryReadFully(in, b, off, len);
-    }
-
-    @Override
-    protected void readFully0(byte[] b, int off, int len)
-            throws IOException
-    {
-        IoUtils.readFully(in, b, off, len);
+        try {
+            return IoUtils.tryReadFully(in, b, off, len);
+        }
+        catch (IOException e) {
+            throw new RuntimeIOException(e);
+        }
     }
 
     @Override
     public short readShort()
     {
         require(2);
-        short v = unsafe.getShort(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 2;
+        short v = unsafe.getShort(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + position);
+        position += 2;
         return v;
     }
 
@@ -68,8 +58,8 @@ public final class UnsafeDataInput
     public int readUnsignedShort()
     {
         require(2);
-        short v = unsafe.getShort(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 2;
+        short v = unsafe.getShort(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + position);
+        position += 2;
         return v & 0XFFFF;
     }
 
@@ -77,8 +67,8 @@ public final class UnsafeDataInput
     public char readChar()
     {
         require(2);
-        char v = unsafe.getChar(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 2;
+        char v = unsafe.getChar(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + position);
+        position += 2;
         return v;
     }
 
@@ -86,8 +76,8 @@ public final class UnsafeDataInput
     public int readInt()
     {
         require(4);
-        int v = unsafe.getInt(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 4;
+        int v = unsafe.getInt(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + position);
+        position += 4;
         return v;
     }
 
@@ -95,8 +85,8 @@ public final class UnsafeDataInput
     public long readLong()
     {
         require(8);
-        long l = unsafe.getLong(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 8;
+        long l = unsafe.getLong(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + position);
+        position += 8;
         return l;
     }
 
@@ -104,8 +94,8 @@ public final class UnsafeDataInput
     public float readFloat()
     {
         require(4);
-        float v = unsafe.getFloat(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 4;
+        float v = unsafe.getFloat(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + position);
+        position += 4;
         return v;
     }
 
@@ -113,8 +103,8 @@ public final class UnsafeDataInput
     public double readDouble()
     {
         require(8);
-        double v = unsafe.getDouble(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + offset);
-        offset += 8;
+        double v = unsafe.getDouble(buffer, (long) Unsafe.ARRAY_BYTE_BASE_OFFSET + position);
+        position += 8;
         return v;
     }
 
@@ -131,7 +121,7 @@ public final class UnsafeDataInput
             this.in.close();
         }
         catch (IOException e) {
-            Throwables.throwThrowable(e);
+            throw new RuntimeIOException(e);
         }
     }
 }
