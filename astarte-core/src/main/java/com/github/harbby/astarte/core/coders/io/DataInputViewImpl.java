@@ -17,7 +17,6 @@ package com.github.harbby.astarte.core.coders.io;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 
 public final class DataInputViewImpl
         extends AbstractBufferDataInputView
@@ -115,16 +114,5 @@ public final class DataInputViewImpl
     public double readDouble()
     {
         return Double.longBitsToDouble(readLong());
-    }
-
-    @Override
-    public String readString()
-    {
-        int ramming = buffer.length - position;
-        while (true) {
-
-        }
-//        new String(new byte[0], StandardCharsets.US_ASCII);
-//        return null;
     }
 }

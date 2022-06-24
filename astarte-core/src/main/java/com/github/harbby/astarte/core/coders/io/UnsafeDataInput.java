@@ -109,12 +109,6 @@ public final class UnsafeDataInput
     }
 
     @Override
-    public String readString()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void close()
     {
         try {

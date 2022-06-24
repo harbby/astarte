@@ -263,4 +263,15 @@ public abstract class AbstractBufferDataInputView
             return result;
         }
     }
+
+    @Override
+    public final String readString()
+    {
+        int ramming = buffer.length - position;
+        while (true) {
+
+        }
+//        new String(new byte[0], StandardCharsets.US_ASCII);
+//        return null;
+    }
 }

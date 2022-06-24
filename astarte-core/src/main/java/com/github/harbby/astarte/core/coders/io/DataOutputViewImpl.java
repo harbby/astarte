@@ -196,18 +196,19 @@ public class DataOutputViewImpl
     public final void writeAsciiString(String s)
             throws RuntimeEOFException
     {
-        if (s == null) {
+        int len = s.length();
+        if (len == 0) {
             require(1);
             buffer[offset++] = (byte) 0x80;
             return;
         }
-        int len = s.length();
+
         int ramming = buffer.length - offset;
         int off = 0;
         while (len > ramming) {
             s.getBytes(off, off + ramming, buffer, offset);
             for (int i = 0; i < ramming; i++) {
-                buffer[offset++] |= 0x80;
+                buffer[offset++] &= 0x7F;
             }
             assert offset == buffer.length;
             this.flush();
@@ -217,9 +218,9 @@ public class DataOutputViewImpl
         }
         s.getBytes(off, off + len, buffer, offset);
         for (int i = 0; i < len - 1; i++) {
-            buffer[offset++] |= 0x80;
+            buffer[offset++] &= 0x7F;
         }
-        buffer[offset++] &= 0x7F;
+        buffer[offset++] |= 0x80;
     }
 
     @Override
