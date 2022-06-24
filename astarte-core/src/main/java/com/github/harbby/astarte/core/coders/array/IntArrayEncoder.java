@@ -28,10 +28,10 @@ public class IntArrayEncoder
     public void encoder(int[] values, DataOutputView output)
     {
         if (values == null) {
-            output.writeInt(-1);
+            output.writeVarInt(0, false);
             return;
         }
-        output.writeInt(values.length);
+        output.writeInt(values.length + 1);
         for (int e : values) {
             output.writeInt(e);
         }
@@ -40,7 +40,7 @@ public class IntArrayEncoder
     @Override
     public int[] decoder(DataInputView input)
     {
-        int len = input.readInt();
+        int len = input.readVarInt(false) - 1;
         if (len == -1) {
             return null;
         }

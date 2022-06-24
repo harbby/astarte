@@ -267,16 +267,17 @@ public abstract class AbstractBufferDataInputView
 
     private byte[] stringBuffer = new byte[128];
 
+    @Override
     public final String readAsciiString()
     {
         int maxAsciiStringLength = 128;
         int charCount = 0;
         do {
-            for (int i = position; i < limit; i++, charCount++) {
+            for (; position < limit; charCount++) {
                 if (charCount >= maxAsciiStringLength) {
                     throw new RuntimeEOFException("ascii string max length is " + maxAsciiStringLength);
                 }
-                byte b = buffer[i];
+                byte b = buffer[position++];
                 stringBuffer[charCount] = b;
                 if (b < 0) {
                     stringBuffer[charCount] &= 0x7F;
@@ -293,12 +294,19 @@ public abstract class AbstractBufferDataInputView
     {
         require(1);
         byte b = buffer[position];
-        if ((b & 0x80) == 0) {
+        if (b == (byte) 0x80) {
+            position++;
+            return null;
+        }
+        else if (b == (byte) 0x81) {
+            position++;
+            return "";
+        }
+        else if ((b & 0x80) == 0) {
             // ascii
             return readAsciiString();
         }
         int len = readUtf8VarLength() - 1;
-        len = 5;
         if (stringBuffer.length < len) {
             stringBuffer = new byte[len];
         }

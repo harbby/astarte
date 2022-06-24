@@ -72,7 +72,7 @@ public class EncoderTest
     public void mapSerializeTest()
             throws IOException
     {
-        Encoder<Map<String, String>> mapEncoder = Encoders.mapEncoder(Encoders.asciiString(), Encoders.string());
+        Encoder<Map<String, String>> mapEncoder = Encoders.mapEncoder(Encoders.string(), Encoders.string());
         Consumer<Map<String, String>, IOException> checker = map -> {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             DataOutputView dataOutputView = new DataOutputViewImpl(outputStream);
@@ -102,7 +102,7 @@ public class EncoderTest
             String[] out = encoder.decoder(new DataInputViewImpl(new ByteArrayInputStream(outputStream.toByteArray())));
             Assert.assertArrayEquals(out, array);
         };
-        checker.apply(new String[] {"a1", "a2"});
+        checker.apply(new String[] {"a1", "a2", "12345"});
         checker.apply(null);
     }
 

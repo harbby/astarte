@@ -93,6 +93,8 @@ public interface DataInputView
         throw new UnsupportedOperationException();
     }
 
+    String readAsciiString() throws RuntimeIOException;
+
     String readString() throws RuntimeIOException;
 
     void readBoolArray(boolean[] booleans, int pos, int len) throws RuntimeIOException;

@@ -272,11 +272,11 @@ public class DataOutputViewImpl
         }
         writeUtf8VarLength(len + 1);
         writeUtf8(s, len);
-        /**
-         * @see java.io.DataOutputStream#writeUTF(String)
-         * */
     }
 
+    /**
+     * @see java.io.DataOutputStream#writeUTF(String)
+     * */
     private void writeUtf8(String str, int len)
     {
         for (int i = 0; i < len; i++) {

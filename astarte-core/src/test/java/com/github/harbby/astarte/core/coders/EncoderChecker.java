@@ -22,7 +22,6 @@ import com.github.harbby.astarte.core.coders.io.DataOutputViewImpl;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.Arrays;
 
 public class EncoderChecker<T>

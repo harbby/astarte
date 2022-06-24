@@ -36,10 +36,10 @@ public class AnyArrayEncoder<E>
     public void encoder(E[] values, DataOutputView output)
     {
         if (values == null) {
-            output.writeInt(-1);
+            output.writeVarInt(0, false);
             return;
         }
-        output.writeInt(values.length);
+        output.writeVarInt(values.length + 1, false);
         for (E e : values) {
             encoder.encoder(e, output);
         }
@@ -48,7 +48,7 @@ public class AnyArrayEncoder<E>
     @Override
     public E[] decoder(DataInputView input)
     {
-        int len = input.readInt();
+        int len = input.readVarInt(false) - 1;
         if (len == -1) {
             return null;
         }

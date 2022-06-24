@@ -7,7 +7,6 @@
 
 Welcome to Astarte !
 
-弹性分布式并行计算系统研究和探索
 
 ### Example
 * WorldCount:
@@ -31,7 +30,7 @@ worldCounts.collect()
 BatchContext mppContext = BatchContext.builder()
         .local(2)
         .getOrCreate();
-int iters = 4;  //迭代次数
+int iters = 4;
 String sparkHome = System.getenv("SPARK_HOME");
 
 DataSet<String> lines = mppContext.textFile(sparkHome + "/data/mllib/pagerank_data.txt");

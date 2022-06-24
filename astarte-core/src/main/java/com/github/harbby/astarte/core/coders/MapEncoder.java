@@ -43,12 +43,12 @@ public class MapEncoder<K, V>
     public void encoder(Map<K, V> value, DataOutputView output)
     {
         if (value == null) {
-            output.writeInt(-1);
+            output.writeVarInt(0, false);
             return;
         }
         final int size = value.size();
         //write size on the head
-        output.writeInt(size);
+        output.writeVarInt(size + 1, false);
         //write key and value
         for (Map.Entry<K, V> entry : value.entrySet()) {
             K k = entry.getKey();
@@ -61,7 +61,7 @@ public class MapEncoder<K, V>
     @Override
     public Map<K, V> decoder(DataInputView input)
     {
-        final int size = input.readInt();
+        final int size = input.readVarInt(false) - 1;
         if (size == -1) {
             return null;
         }

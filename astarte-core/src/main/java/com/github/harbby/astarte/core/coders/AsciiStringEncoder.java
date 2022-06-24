@@ -33,29 +33,13 @@ public class AsciiStringEncoder
     @Override
     public void encoder(String value, DataOutputView output)
     {
-        if (value != null) {
-            final int length = value.length();
-            output.writeInt(length);
-            output.writeBytes(value);
-        }
-        else {
-            output.writeInt(0x80);
-        }
+        output.writeAsciiString(value);
     }
 
     @Override
     public String decoder(DataInputView input)
     {
-        final int length = input.readInt();
-        if (length == 0x80) {
-            return null;
-        }
-        final byte[] data = new byte[length];
-        for (int i = 0; i < length; i++) {
-            byte c = input.readByte();
-            data[i] = c;
-        }
-        return new String(data, 0, length, StandardCharsets.US_ASCII);
+        return input.readAsciiString();
     }
 
     @Override
