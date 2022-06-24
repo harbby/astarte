@@ -16,6 +16,7 @@
 package com.github.harbby.astarte.core.coders.io;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 public abstract class AbstractBufferDataInputView
         extends InputStream
@@ -264,14 +265,75 @@ public abstract class AbstractBufferDataInputView
         }
     }
 
+    private byte[] stringBuffer = new byte[128];
+
+    public final String readAsciiString()
+    {
+        int maxAsciiStringLength = 128;
+        int charCount = 0;
+        do {
+            for (int i = position; i < limit; i++, charCount++) {
+                if (charCount >= maxAsciiStringLength) {
+                    throw new RuntimeEOFException("ascii string max length is " + maxAsciiStringLength);
+                }
+                byte b = buffer[i];
+                stringBuffer[charCount] = b;
+                if (b < 0) {
+                    stringBuffer[charCount] &= 0x7F;
+                    return new String(stringBuffer, 0, charCount + 1, StandardCharsets.US_ASCII);
+                }
+            }
+            this.refill();
+        }
+        while (true);
+    }
+
     @Override
     public final String readString()
     {
-        int ramming = buffer.length - position;
-        while (true) {
-
+        require(1);
+        byte b = buffer[position];
+        if ((b & 0x80) == 0) {
+            // ascii
+            return readAsciiString();
         }
-//        new String(new byte[0], StandardCharsets.US_ASCII);
-//        return null;
+        int len = readUtf8VarLength() - 1;
+        len = 5;
+        if (stringBuffer.length < len) {
+            stringBuffer = new byte[len];
+        }
+        this.tryReadFully(stringBuffer, 0, len);
+        return new String(stringBuffer, 0, len, StandardCharsets.UTF_8);
+    }
+
+    private int readUtf8VarLength()
+    {
+        require(1);
+        byte b = buffer[position++];
+        int result = b & 0x7F;
+        assert b < 0;
+        if ((b & 0x60) == 0) {
+            return b & 0x3F;
+        }
+        require(1);
+        b = buffer[position++];
+        result |= (b & 0x7F) << 7;
+        if (b < 0) {
+            require(1);
+            b = buffer[position++];
+            result |= (b & 0x7F) << 14;
+            if (b < 0) {
+                require(1);
+                b = buffer[position++];
+                result |= (b & 0x7F) << 21;
+                if (b < 0) {
+                    require(1);
+                    b = buffer[position++];
+                    //assert b > 0;
+                    result |= b << 28;
+                }
+            }
+        }
+        return result;
     }
 }

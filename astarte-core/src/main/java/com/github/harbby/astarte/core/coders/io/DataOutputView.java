@@ -70,11 +70,8 @@ public interface DataOutputView
      */
     @Deprecated
     @Override
-    default void writeBytes(String s)
-            throws RuntimeIOException
-    {
-        this.writeAsciiString(s);
-    }
+    void writeBytes(String s)
+            throws RuntimeIOException;
 
     @Override
     void writeChars(String s)

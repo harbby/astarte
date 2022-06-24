@@ -174,15 +174,6 @@ public final class UnsafeOffHeapDataOutput
     }
 
     @Override
-    public void writeAsciiString(String s)
-    {
-        int len = s.length();
-        for (int i = 0; i < len; i++) {
-            this.write((byte) s.charAt(i));
-        }
-    }
-
-    @Override
     public void writeChars(String s)
     {
         int len = s.length();
@@ -190,6 +181,18 @@ public final class UnsafeOffHeapDataOutput
             int v = s.charAt(i);
             this.writeChar(v);
         }
+    }
+
+    @Override
+    public void writeBytes(String s)
+            throws RuntimeIOException
+    {
+    }
+
+    @Override
+    public void writeAsciiString(String s)
+            throws RuntimeEOFException
+    {
     }
 
     @Override

@@ -72,7 +72,7 @@ public class EncoderTest
     public void mapSerializeTest()
             throws IOException
     {
-        Encoder<Map<String, String>> mapEncoder = Encoders.mapEncoder(Encoders.asciiString(), Encoders.jCharString());
+        Encoder<Map<String, String>> mapEncoder = Encoders.mapEncoder(Encoders.asciiString(), Encoders.string());
         Consumer<Map<String, String>, IOException> checker = map -> {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             DataOutputView dataOutputView = new DataOutputViewImpl(outputStream);
@@ -128,7 +128,7 @@ public class EncoderTest
             throws IOException
     {
 //        Encoder<String> stringEncoder = Encoders.jByteString();
-        Encoder<String> stringEncoder = Encoders.jCharString();
+        Encoder<String> stringEncoder = Encoders.string();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
         stringEncoder.encoder("yes", dataOutput);

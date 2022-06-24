@@ -50,9 +50,8 @@ public final class Encoders
     private static final Encoder<int[]> intArrEncoder = new IntArrayEncoder();
 
     private static final Encoder<Double> doubleEncoder = new DoubleEncoder();
-    private static final Encoder<String> charStringEncoder = new CharStringEncoder();
     private static final Encoder<String> ASCII_STRING_ENCODER = new AsciiStringEncoder();
-    private static final Encoder<String> UTF8_STRING_ENCODER = new UTF8StringEncoder();
+    private static final Encoder<String> STRING_ENCODER = new StringEncoder();
 
     private static final Supplier<Encoder<?>> javaEncoder = Lazys.goLazy(() -> {
         logger.warn("Don't use java serialization encoder");
@@ -71,7 +70,7 @@ public final class Encoders
         Encoder<?> encoder;
         checkState(!aClass.isArray());
         if (aClass == String.class) {
-            encoder = new UTF8StringEncoder();
+            encoder = new StringEncoder();
         }
         else if (aClass == int.class || aClass == Integer.class) {  //Integer.TYPE
             encoder = jInt();
@@ -134,19 +133,14 @@ public final class Encoders
         return new LengthIteratorEncoder<>(eEncoder);
     }
 
-    public static Encoder<String> jCharString()
-    {
-        return charStringEncoder;
-    }
-
     public static Encoder<String> asciiString()
     {
         return ASCII_STRING_ENCODER;
     }
 
-    public static Encoder<String> UTF8String()
+    public static Encoder<String> string()
     {
-        return UTF8_STRING_ENCODER;
+        return STRING_ENCODER;
     }
 
     public static Encoder<Boolean> jBoolean()

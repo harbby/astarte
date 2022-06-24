@@ -39,7 +39,6 @@ public class EncoderChecker<T>
     }
 
     public byte[] encoder(T value)
-            throws IOException
     {
         DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
         encoder.encoder(value, dataOutput);
@@ -51,7 +50,6 @@ public class EncoderChecker<T>
     }
 
     public T decoder(byte[] bytes)
-            throws IOException
     {
         inputStream.reFill(bytes);
         DataInputView dataInput = new DataInputViewImpl(inputStream);

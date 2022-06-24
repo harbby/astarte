@@ -19,19 +19,19 @@ import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.io.DataInputView;
 import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
-public class UTF8StringEncoder
+public class StringEncoder
         implements Encoder<String>
 {
     @Override
     public void encoder(String value, DataOutputView output)
     {
-        output.writeUTF(value);
+        output.writeString(value);
     }
 
     @Override
     public String decoder(DataInputView input)
     {
-        return input.readUTF();
+        return input.readString();
     }
 
     @Override

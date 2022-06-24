@@ -107,14 +107,14 @@ public interface BatchContext
     public default DataSet<String> textFile(String path)
     {
         requireNonNull(path, "path is null");
-        return new DataSourceOperator<>(this, new TextFileSource(URI.create(path)), -1, Encoders.UTF8String());
+        return new DataSourceOperator<>(this, new TextFileSource(URI.create(path)), -1, Encoders.string());
     }
 
     public default DataSet<String> textFile(String path, int parallelism)
     {
         checkState(parallelism > 0, "parallelism > 0");
         requireNonNull(path, "path is null");
-        return new DataSourceOperator<>(this, new TextFileSource(URI.create(path)), parallelism, Encoders.UTF8String());
+        return new DataSourceOperator<>(this, new TextFileSource(URI.create(path)), parallelism, Encoders.string());
     }
 
     public static Builder builder()
