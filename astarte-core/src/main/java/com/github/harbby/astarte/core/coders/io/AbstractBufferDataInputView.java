@@ -266,6 +266,7 @@ public abstract class AbstractBufferDataInputView
     }
 
     private byte[] stringBuffer = new byte[128];
+    private char[] charBuffer;
 
     @Override
     public final String readAsciiString()
@@ -281,7 +282,7 @@ public abstract class AbstractBufferDataInputView
                 stringBuffer[charCount] = b;
                 if (b < 0) {
                     stringBuffer[charCount] &= 0x7F;
-                    return new String(stringBuffer, 0, charCount + 1, StandardCharsets.US_ASCII);
+                    return new String(stringBuffer, 0, 0, charCount + 1);  // StandardCharsets.US_ASCII
                 }
             }
             this.refill();
@@ -307,11 +308,11 @@ public abstract class AbstractBufferDataInputView
             return readAsciiString();
         }
         int len = readUtf8VarLength() - 1;
-        if (stringBuffer.length < len) {
-            stringBuffer = new byte[len];
+        if (charBuffer == null || charBuffer.length < len) {
+            charBuffer = new char[len];
         }
         this.tryReadFully(stringBuffer, 0, len);
-        return new String(stringBuffer, 0, len, StandardCharsets.UTF_8);
+        return new String(charBuffer, 0, len);
     }
 
     private int readUtf8VarLength()

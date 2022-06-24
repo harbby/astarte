@@ -26,7 +26,6 @@ import java.nio.charset.StandardCharsets;
  * @date 2021.02.07 21:58
  * Java String Serialize,chose this for letters and numbers
  */
-@SuppressWarnings("checkstyle:RegexpMultiline")
 public class AsciiStringEncoder
         implements Encoder<String>
 {
