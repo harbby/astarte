@@ -15,10 +15,18 @@
  */
 package com.github.harbby.astarte.core.coders;
 
+import com.github.harbby.astarte.core.coders.io.DataInputView;
+import com.github.harbby.astarte.core.coders.io.DataInputViewImpl;
+import com.github.harbby.astarte.core.coders.io.DataOutputView;
+import com.github.harbby.astarte.core.coders.io.DataOutputViewImpl;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 public class EncoderStringChecker
@@ -50,6 +58,23 @@ public class EncoderStringChecker
         byte[] bytes = checker.encoder(s);
         String rs = checker.decoder(bytes);
         Assert.assertEquals(s, rs);
+    }
+
+    @Test
+    public void test4()
+    {
+        List<String> stringList = Arrays.asList("a", "b", "c");
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutputView dataOutputView = new DataOutputViewImpl(outputStream);
+        stringList.forEach(dataOutputView::writeAsciiString);
+        dataOutputView.close();
+        byte[] bytes = outputStream.toByteArray();
+
+        DataInputView dataInputView = new DataInputViewImpl(new ByteArrayInputStream(bytes));
+        String s1 = dataInputView.readAsciiString();
+        String s2 = dataInputView.readAsciiString();
+        String s3 = dataInputView.readAsciiString();
+        Assert.assertEquals(stringList, Arrays.asList(s1, s2, s3));
     }
 
     @Test

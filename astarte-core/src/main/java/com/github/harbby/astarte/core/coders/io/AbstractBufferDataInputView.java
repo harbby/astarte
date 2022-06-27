@@ -25,7 +25,7 @@ public abstract class AbstractBufferDataInputView
     protected int position;
     protected int limit;
 
-    private byte[] stringBuffer;
+    private byte[] stringBuffer = new byte[32];
     private char[] charBuffer;
 
     protected AbstractBufferDataInputView(byte[] buffer)
@@ -273,7 +273,7 @@ public abstract class AbstractBufferDataInputView
     @Override
     public final String readAsciiString()
     {
-        for (int i = position + 1; i < limit; i++) {
+        for (int i = position; i < limit; i++) {
             if (buffer[i] < 0) {
                 buffer[i] &= 0x7F;
                 String str = new String(buffer, 0, position, i - position + 1);
@@ -282,7 +282,7 @@ public abstract class AbstractBufferDataInputView
             }
         }
         int charCount = limit - position;
-        if (stringBuffer == null || charCount > stringBuffer.length) {
+        if (charCount > stringBuffer.length) {
             stringBuffer = new byte[charCount * 2];
         }
 
@@ -331,7 +331,9 @@ public abstract class AbstractBufferDataInputView
 
     private void readUtf8String(int charCount)
     {
-        int char1, char2, char3;
+        int char1;
+        int char2;
+        int char3;
         for (int count = 0; count < charCount; count++) {
             require(1);
             char1 = buffer[position++] & 0xFF;

@@ -27,7 +27,7 @@ public class AbstractBufferDataInputViewTest
     @Test
     public void utf16CharCountTest()
     {
-        Encoder<Integer> utf16CharCountEncoder = new Encoder<>()
+        Encoder<Integer> utf16CharCountEncoder = new Encoder<Integer>()
         {
             @Override
             public void encoder(Integer value, DataOutputView output)
@@ -55,7 +55,7 @@ public class AbstractBufferDataInputViewTest
     @Test
     public void utf16CharCountTest2()
     {
-        Encoder<Integer> utf16CharCountEncoder = new Encoder<>()
+        Encoder<Integer> utf16CharCountEncoder = new Encoder<Integer>()
         {
             @Override
             public void encoder(Integer value, DataOutputView output)

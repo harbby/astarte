@@ -19,8 +19,6 @@ import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.io.DataInputView;
 import com.github.harbby.astarte.core.coders.io.DataOutputView;
 
-import java.nio.charset.StandardCharsets;
-
 /**
  * @author ivan
  * @date 2021.02.07 21:58

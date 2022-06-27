@@ -31,7 +31,7 @@ public class IntArrayEncoder
             output.writeVarInt(0, false);
             return;
         }
-        output.writeInt(values.length + 1);
+        output.writeVarInt(values.length + 1, false);
         for (int e : values) {
             output.writeInt(e);
         }
