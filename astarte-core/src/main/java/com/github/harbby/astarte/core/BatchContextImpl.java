@@ -82,7 +82,7 @@ class BatchContextImpl
         Map<Operator<?>, Set<Integer>> stageTree = parserTree(finalOperator);
         Map<Stage, Map<Integer, Integer>> optimizedDag = optimizer(jobId, stageTree);
 
-        Graph<Stage, Void> graph = toGraph(optimizedDag);
+        Graph<Integer, Void> graph = toGraph(optimizedDag);
         if (optimizedDag.size() < 10) {
             logger.info("job graph tree:{}", String.join("\n", graph.printShow()));
         }
@@ -143,16 +143,16 @@ class BatchContextImpl
         return stageMap;
     }
 
-    public static Graph<Stage, Void> toGraph(Map<Stage, ? extends Map<Integer, Integer>> stages)
+    public static Graph<Integer, Void> toGraph(Map<Stage, ? extends Map<Integer, Integer>> stages)
     {
-        Graph.GraphBuilder<Stage, Void> builder = Graph.builder();
+        Graph.GraphBuilder<Integer, Void> builder = Graph.builder();
         for (Stage stage : stages.keySet()) {
-            builder.addNode(stage.getStageId() + "", stage);
+            builder.addNode(stage.getStageId());
         }
 
         for (Map.Entry<Stage, ? extends Map<Integer, Integer>> entry : stages.entrySet()) {
             for (int id : entry.getValue().values()) {
-                builder.addEdge(entry.getKey().getStageId() + "", id + "");
+                builder.addEdge(entry.getKey().getStageId(), id);
             }
         }
         //graph.printShow().forEach(x -> System.out.println(x));
