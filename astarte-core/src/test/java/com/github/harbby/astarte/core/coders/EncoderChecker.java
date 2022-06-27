@@ -27,9 +27,8 @@ import java.util.Arrays;
 public class EncoderChecker<T>
 {
     private final Encoder<T> encoder;
-    private final byte[] buffer = new byte[4096];
-    private final TestByteArrayOutputStream outputStream = new TestByteArrayOutputStream(buffer);
-    private final TestByteArrayInputStream inputStream = new TestByteArrayInputStream(buffer);
+    private final TestByteArrayOutputStream outputStream = new TestByteArrayOutputStream();
+    private final TestByteArrayInputStream inputStream = new TestByteArrayInputStream();
 
     public EncoderChecker(Encoder<T> encoder)
     {
@@ -44,45 +43,45 @@ public class EncoderChecker<T>
         dataOutput.close();
         byte[] bytes = outputStream.toByteArray();
         outputStream.reset();
-        Arrays.fill(buffer, (byte) 0);
         return bytes;
     }
 
     public T decoder(byte[] bytes)
     {
-        inputStream.reFill(bytes);
+        inputStream.reset(bytes);
         DataInputView dataInput = new DataInputViewImpl(inputStream);
         T value = encoder.decoder(dataInput);
-        inputStream.reset();
         return value;
     }
 
-    private static class TestByteArrayOutputStream
+    private static final class TestByteArrayOutputStream
             extends ByteArrayOutputStream
     {
-        public TestByteArrayOutputStream(byte[] buffer)
+        public TestByteArrayOutputStream()
         {
-            this.buf = buffer;
+            super(16);
         }
 
         public void reset()
         {
+            Arrays.fill(this.buf, 0, count, (byte) 0);
             this.count = 0;
         }
     }
 
-    private static class TestByteArrayInputStream
+    private static final class TestByteArrayInputStream
             extends ByteArrayInputStream
     {
-        public TestByteArrayInputStream(byte[] buf)
+        public TestByteArrayInputStream()
         {
-            super(buf);
+            super(new byte[0]);
         }
 
-        public void reFill(byte[] bytes)
+        public void reset(byte[] bytes)
         {
-            System.arraycopy(bytes, 0, super.buf, 0, bytes.length);
+            this.buf = bytes;
             super.count = bytes.length;
+            super.pos = 0;
         }
     }
 }
