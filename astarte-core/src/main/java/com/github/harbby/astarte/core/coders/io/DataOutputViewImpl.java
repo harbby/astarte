@@ -17,8 +17,6 @@ package com.github.harbby.astarte.core.coders.io;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 
@@ -262,21 +260,19 @@ public class DataOutputViewImpl
             return;
         }
 
-        if (len > 1 && len <= 128 && isAscii(s, len)) {
+        if (len > 1 && MoreStrings.isAscii(s, len, 127)) {
             writeAscii0(s, len);
             return;
         }
-        // write utf-8 length 2 bytes
-        if (len > 65535) {
-            throw new RuntimeEOFException("utf-8 length too long 65535 bytes");
-        }
-        writeUtf8VarLength(len + 1);
+        // write utf-8 length
+        // If ascii string length is greater than 8192(1 << (6 + 7)), the effect will be worse than DataOutputStream.writeUTF()
+        writeUtf16CharCount(len + 1);
         writeUtf8(s, len);
     }
 
     /**
      * @see java.io.DataOutputStream#writeUTF(String)
-     * */
+     */
     private void writeUtf8(String str, int len)
     {
         for (int i = 0; i < len; i++) {
@@ -299,29 +295,39 @@ public class DataOutputViewImpl
         }
     }
 
-    private void writeUtf8VarLength(int len)
+    public final void writeUtf16CharCount(int charCount)
     {
-        if (len >>> 7 == 0) {
+        //assert charCount > 0;
+        if (charCount >>> 6 == 0) {
             require(1);
-            buffer[offset++] = (byte) (len | 0x80);
-            return;
+            buffer[offset++] = (byte) (charCount | 0x80);
         }
-        else if (len >>> 14 == 0) {
-            throw new UnsupportedOperationException();
+        else if (charCount >>> 13 == 0) {
+            require(2);
+            buffer[offset++] = (byte) (charCount & 0x3F | 0xC0);
+            buffer[offset++] = (byte) (charCount >>> 6 & 0x7F);
         }
-        throw new UnsupportedOperationException();
-    }
-
-    private static boolean isAscii(String s, int len)
-    {
-        try {
-            //java11+
-            Method method = String.class.getDeclaredMethod("isLatin1");
-            method.setAccessible(true);
-            return (boolean) method.invoke(s);
+        else if (charCount >>> 20 == 0) {
+            require(3);
+            buffer[offset++] = (byte) (charCount & 0x3F | 0xC0);
+            buffer[offset++] = (byte) (charCount >>> 6 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (charCount >>> 13 & 0x7F);
         }
-        catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-            throw new RuntimeEOFException(e);
+        else if (charCount >>> 27 == 0) {
+            require(4);
+            buffer[offset++] = (byte) (charCount & 0x3F | 0xC0);
+            buffer[offset++] = (byte) (charCount >>> 6 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (charCount >>> 13 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (charCount >>> 20 & 0x7F);
+        }
+        else {
+            //5bit, 32 -27
+            require(5);
+            buffer[offset++] = (byte) (charCount & 0x3F | 0xC0);
+            buffer[offset++] = (byte) (charCount >>> 6 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (charCount >>> 13 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (charCount >>> 20 & 0x7F | 0x80);
+            buffer[offset++] = (byte) (charCount >>> 27);
         }
     }
 

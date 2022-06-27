@@ -16,7 +16,6 @@
 package com.github.harbby.astarte.core.coders.io;
 
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 
 public abstract class AbstractBufferDataInputView
         extends InputStream
@@ -26,11 +25,17 @@ public abstract class AbstractBufferDataInputView
     protected int position;
     protected int limit;
 
+    private byte[] stringBuffer;
+    private char[] charBuffer;
+
     protected AbstractBufferDataInputView(byte[] buffer)
     {
         this.buffer = buffer;
         this.limit = buffer.length;
         this.position = buffer.length;
+        if (buffer.length > Integer.MAX_VALUE >> 4) {
+            throw new RuntimeIOException("buffer is large: capacity: " + buffer.length);
+        }
     }
 
     protected final void require(int required)
@@ -265,29 +270,37 @@ public abstract class AbstractBufferDataInputView
         }
     }
 
-    private byte[] stringBuffer = new byte[128];
-    private char[] charBuffer;
-
     @Override
     public final String readAsciiString()
     {
-        int maxAsciiStringLength = 128;
-        int charCount = 0;
-        do {
-            for (; position < limit; charCount++) {
-                if (charCount >= maxAsciiStringLength) {
-                    throw new RuntimeEOFException("ascii string max length is " + maxAsciiStringLength);
-                }
-                byte b = buffer[position++];
-                stringBuffer[charCount] = b;
-                if (b < 0) {
-                    stringBuffer[charCount] &= 0x7F;
-                    return new String(stringBuffer, 0, 0, charCount + 1);  // StandardCharsets.US_ASCII
-                }
+        for (int i = position + 1; i < limit; i++) {
+            if (buffer[i] < 0) {
+                buffer[i] &= 0x7F;
+                String str = new String(buffer, 0, position, i - position + 1);
+                position = i + 1;
+                return str;
             }
-            this.refill();
         }
-        while (true);
+        int charCount = limit - position;
+        if (stringBuffer == null || charCount > stringBuffer.length) {
+            stringBuffer = new byte[charCount * 2];
+        }
+
+        System.arraycopy(buffer, position, stringBuffer, 0, charCount);
+        while (true) {
+            require(1);
+            byte b = buffer[position++];
+            if (charCount == stringBuffer.length) {
+                byte[] newBuffer = new byte[charCount * 2];
+                System.arraycopy(stringBuffer, 0, newBuffer, 0, charCount);
+                this.stringBuffer = newBuffer;
+            }
+            if (b < 0) {
+                stringBuffer[charCount] = (byte) (b & 0x7F);
+                return new String(stringBuffer, 0, 0, charCount + 1);  // StandardCharsets.US_ASCII
+            }
+            stringBuffer[charCount++] = b;
+        }
     }
 
     @Override
@@ -295,7 +308,12 @@ public abstract class AbstractBufferDataInputView
     {
         require(1);
         byte b = buffer[position];
-        if (b == (byte) 0x80) {
+        // b > 0
+        if ((b & 0x80) == 0) {
+            // ascii
+            return readAsciiString();
+        }
+        else if (b == (byte) 0x80) {
             position++;
             return null;
         }
@@ -303,43 +321,88 @@ public abstract class AbstractBufferDataInputView
             position++;
             return "";
         }
-        else if ((b & 0x80) == 0) {
-            // ascii
-            return readAsciiString();
+        int charCount = readUtf16CharCount() - 1;
+        if (charBuffer == null || charBuffer.length < charCount) {
+            charBuffer = new char[charCount];
         }
-        int len = readUtf8VarLength() - 1;
-        if (charBuffer == null || charBuffer.length < len) {
-            charBuffer = new char[len];
-        }
-        this.tryReadFully(stringBuffer, 0, len);
-        return new String(charBuffer, 0, len);
+        this.readUtf8String(charCount);
+        return new String(charBuffer, 0, charCount);
     }
 
-    private int readUtf8VarLength()
+    private void readUtf8String(int charCount)
+    {
+        int char1, char2, char3;
+        for (int count = 0; count < charCount; count++) {
+            require(1);
+            char1 = buffer[position++] & 0xFF;
+            switch (char1 >> 4) {
+                case 0:
+                case 1:
+                case 2:
+                case 3:
+                case 4:
+                case 5:
+                case 6:
+                case 7:
+                    charBuffer[count] = (char) char1;
+                    break;
+                case 12:
+                case 13:
+                    require(1);
+                    char2 = buffer[position++];
+                    if ((char2 & 0xC0) != 0x80) {
+                        throw new RuntimeEOFException(
+                                "malformed input around byte " + position);
+                    }
+                    charBuffer[count] = (char) (((char1 & 0x1F) << 6) |
+                            (char2 & 0x3F));
+                    break;
+                case 14:
+                    /* 1110 xxxx  10xx xxxx  10xx xxxx */
+                    require(2);
+                    char2 = buffer[position++];
+                    char3 = buffer[position++];
+                    if (((char2 & 0xC0) != 0x80) || ((char3 & 0xC0) != 0x80)) {
+                        throw new RuntimeEOFException(
+                                "malformed input around byte " + (position - 1));
+                    }
+                    charBuffer[count] = (char) (((char1 & 0x0F) << 12) |
+                            ((char2 & 0x3F) << 6) |
+                            (char3 & 0x3F));
+                    break;
+                default:
+                    /* 10xx xxxx,  1111 xxxx */
+                    throw new RuntimeEOFException(
+                            "malformed input around byte " + count);
+            }
+        }
+    }
+
+    public int readUtf16CharCount()
     {
         require(1);
         byte b = buffer[position++];
-        int result = b & 0x7F;
         assert b < 0;
-        if ((b & 0x60) == 0) {
+        if ((b & 0x40) == 0) {
             return b & 0x3F;
         }
+        int result = b & 0x3F;
         require(1);
         b = buffer[position++];
-        result |= (b & 0x7F) << 7;
+        result |= (b & 0x7F) << 6;
         if (b < 0) {
             require(1);
             b = buffer[position++];
-            result |= (b & 0x7F) << 14;
+            result |= (b & 0x7F) << 13;
             if (b < 0) {
                 require(1);
                 b = buffer[position++];
-                result |= (b & 0x7F) << 21;
+                result |= (b & 0x7F) << 20;
                 if (b < 0) {
                     require(1);
                     b = buffer[position++];
                     //assert b > 0;
-                    result |= b << 28;
+                    result |= b << 27;
                 }
             }
         }
