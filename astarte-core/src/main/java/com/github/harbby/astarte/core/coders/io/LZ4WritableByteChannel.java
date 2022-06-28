@@ -82,7 +82,7 @@ public final class LZ4WritableByteChannel
         this.compressionLevel = compressionLevel(blockSize);
         //this.buffer = new byte[blockSize];
         final int compressedBlockSize = HEADER_LENGTH + compressor.maxCompressedLength(blockSize);
-        this.compressedBuffer = Platform.allocateDirectBuffer(compressedBlockSize);
+        this.compressedBuffer = ByteBuffer.allocateDirect(compressedBlockSize);
         compressedBuffer.order(ByteOrder.LITTLE_ENDIAN);
         finished = false;
         compressedBuffer.put(MAGIC, 0, MAGIC_LENGTH);
