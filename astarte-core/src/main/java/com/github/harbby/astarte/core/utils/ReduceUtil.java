@@ -23,7 +23,6 @@ import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.IteratorPlus;
 import com.github.harbby.gadtry.collection.iterator.MarkIterator;
 import com.github.harbby.gadtry.collection.iterator.PeekIterator;
-import com.github.harbby.gadtry.collection.tuple.Tuple1;
 import com.github.harbby.gadtry.function.Function2;
 import com.github.harbby.gadtry.function.Reducer;
 
@@ -527,8 +526,6 @@ public class ReduceUtil
         PeekIterator<Tuple2<K, V>> iterator = Iterators.peekIterator(input);
         return new IteratorPlus<Tuple2<K, O>>()
         {
-            private final Tuple1<K> cKey = Tuple1.of(null);
-
             @Override
             public boolean hasNext()
             {
@@ -541,9 +538,9 @@ public class ReduceUtil
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
-                Iterator<V> child = Iterators.anyMatchStop(iterator, x -> !Objects.equals(x.key(), cKey.f1)).map(x -> x.value());
-                cKey.f1 = iterator.peek().key();
-                return Tuple2.of(cKey.f1, mapGroupFunc.apply(cKey.f1, child));
+                final K cKey = iterator.peek().key();
+                Iterator<V> child = Iterators.anyMatchStop(iterator, x -> !Objects.equals(x.key(), cKey)).map(x -> x.value());
+                return Tuple2.of(cKey, mapGroupFunc.apply(cKey, child));
             }
         };
     }

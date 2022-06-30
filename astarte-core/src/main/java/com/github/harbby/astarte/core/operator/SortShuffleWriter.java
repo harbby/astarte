@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
@@ -295,22 +296,29 @@ public class SortShuffleWriter<K, V>
         {
             if (segmentEnds.isEmpty()) {
                 buffer.sort((x, y) -> comparator.compare(x.key(), y.key()));
-                return Iterators.autoClose(new Iterator<Tuple2<K, V>>()
+                return new Iterator<Tuple2<K, V>>()
                 {
                     private int index;
 
                     @Override
                     public boolean hasNext()
                     {
-                        return index < buffer.size();
+                        boolean hasNext = index < buffer.size();
+                        if (!hasNext && !buffer.isEmpty()) {
+                            buffer.clear();
+                        }
+                        return hasNext;
                     }
 
                     @Override
                     public Tuple2<K, V> next()
                     {
+                        if (!hasNext()) {
+                            throw new NoSuchElementException();
+                        }
                         return buffer.get(index++);
                     }
-                }, buffer::clear);
+                };
             }
             //flush last segment
             this.flushSegment();
