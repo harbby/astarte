@@ -15,9 +15,9 @@
  */
 package com.github.harbby.astarte.core.utils;
 
-import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.gadtry.base.Iterators;
 import com.github.harbby.gadtry.collection.MutableList;
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import org.junit.Assert;
 import org.junit.Test;
 

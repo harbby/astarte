@@ -17,13 +17,13 @@ package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.api.DataSet;
 import com.github.harbby.astarte.core.api.KvDataSet;
-import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.MapGroupFunc;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
 import com.github.harbby.astarte.core.coders.Encoders;
 import com.github.harbby.astarte.core.coders.Tuple2Encoder;
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.Serializable;
 import java.util.Iterator;

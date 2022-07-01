@@ -17,7 +17,6 @@ package com.github.harbby.astarte.core.operator;
 
 import com.github.harbby.astarte.core.Partitioner;
 import com.github.harbby.astarte.core.api.ShuffleWriter;
-import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Reducer;
 import com.github.harbby.astarte.core.coders.Encoder;
@@ -32,6 +31,7 @@ import com.github.harbby.astarte.core.coders.io.UnsafeDataOutput;
 import com.github.harbby.astarte.core.runtime.SortMergeFileMeta;
 import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.base.Iterators;
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.io.LimitInputStream;
 import net.jpountz.lz4.LZ4BlockInputStream;
 import net.jpountz.lz4.LZ4Factory;

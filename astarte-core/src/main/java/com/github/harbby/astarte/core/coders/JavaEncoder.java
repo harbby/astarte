@@ -15,13 +15,13 @@
  */
 package com.github.harbby.astarte.core.coders;
 
-import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.array.AnyArrayEncoder;
 import com.github.harbby.astarte.core.coders.io.DataInputView;
 import com.github.harbby.astarte.core.coders.io.DataOutputView;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.base.Throwables;
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import java.io.IOException;
 import java.io.Serializable;

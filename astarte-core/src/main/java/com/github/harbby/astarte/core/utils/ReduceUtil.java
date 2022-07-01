@@ -15,7 +15,6 @@
  */
 package com.github.harbby.astarte.core.utils;
 
-import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.api.function.Mapper;
 import com.github.harbby.gadtry.base.Iterators;
@@ -23,6 +22,7 @@ import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.IteratorPlus;
 import com.github.harbby.gadtry.collection.iterator.MarkIterator;
 import com.github.harbby.gadtry.collection.iterator.PeekIterator;
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.function.Function2;
 import com.github.harbby.gadtry.function.Reducer;
 

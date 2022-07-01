@@ -15,6 +15,8 @@
  */
 package com.github.harbby.astarte.core.api;
 
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;

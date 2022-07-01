@@ -15,10 +15,10 @@
  */
 package com.github.harbby.astarte.core.coders;
 
-import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.api.function.Comparator;
 import com.github.harbby.astarte.core.coders.io.DataInputView;
 import com.github.harbby.astarte.core.coders.io.DataOutputView;
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
 
 import static java.util.Objects.requireNonNull;
 

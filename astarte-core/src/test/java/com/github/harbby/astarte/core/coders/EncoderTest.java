@@ -15,13 +15,13 @@
  */
 package com.github.harbby.astarte.core.coders;
 
-import com.github.harbby.astarte.core.api.Tuple2;
 import com.github.harbby.astarte.core.coders.io.DataInputView;
 import com.github.harbby.astarte.core.coders.io.DataInputViewImpl;
 import com.github.harbby.astarte.core.coders.io.DataOutputView;
 import com.github.harbby.astarte.core.coders.io.DataOutputViewImpl;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.collection.MutableMap;
+import com.github.harbby.gadtry.collection.tuple.Tuple2;
 import com.github.harbby.gadtry.function.exception.Consumer;
 import com.github.harbby.gadtry.function.exception.Function2;
 import org.junit.Assert;
