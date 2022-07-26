@@ -15,6 +15,8 @@
  */
 package com.github.harbby.astarte.core.coders.io;
 
+import com.github.harbby.gadtry.io.IOUtils;
+
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -45,7 +47,7 @@ public final class DataInputViewImpl
             throws RuntimeIOException
     {
         try {
-            return IoUtils.tryReadFully(in, b, off, len);
+            return IOUtils.tryReadFully(in, b, off, len);
         }
         catch (IOException e) {
             throw new RuntimeIOException(e);

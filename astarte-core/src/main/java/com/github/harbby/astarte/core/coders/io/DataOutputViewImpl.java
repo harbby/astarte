@@ -15,6 +15,8 @@
  */
 package com.github.harbby.astarte.core.coders.io;
 
+import com.github.harbby.gadtry.base.Strings;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -260,7 +262,7 @@ public class DataOutputViewImpl
             return;
         }
 
-        if (len > 1 && MoreStrings.isAscii(s, len, 127)) {
+        if (len > 1 && len < 64 && Strings.isAscii(s, len)) {
             writeAscii0(s, len);
             return;
         }
