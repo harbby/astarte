@@ -22,8 +22,6 @@ import com.github.harbby.astarte.core.coders.io.DataOutputViewImpl;
 import com.github.harbby.gadtry.base.Serializables;
 import com.github.harbby.gadtry.collection.MutableMap;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
-import com.github.harbby.gadtry.function.exception.Consumer;
-import com.github.harbby.gadtry.function.exception.Function2;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -32,6 +30,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 public class EncoderTest
 {
@@ -54,7 +54,7 @@ public class EncoderTest
     public void Tuple2JavaSerializeThanJavaSerializeTest()
             throws IOException
     {
-        Function2<Tuple2<Long, Long>, Encoder<Tuple2<Long, Long>>, byte[], IOException> checker = (tuple2, encoder) -> {
+        BiFunction<Tuple2<Long, Long>, Encoder<Tuple2<Long, Long>>, byte[]> checker = (tuple2, encoder) -> {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             DataOutputView dataOutputView = new DataOutputViewImpl(outputStream);
             encoder.encoder(tuple2, dataOutputView);
@@ -73,7 +73,7 @@ public class EncoderTest
             throws IOException
     {
         Encoder<Map<String, String>> mapEncoder = Encoders.mapEncoder(Encoders.string(), Encoders.string());
-        Consumer<Map<String, String>, IOException> checker = map -> {
+        Consumer<Map<String, String>> checker = map -> {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             DataOutputView dataOutputView = new DataOutputViewImpl(outputStream);
             mapEncoder.encoder(map, dataOutputView);
@@ -81,12 +81,12 @@ public class EncoderTest
             Map<String, String> decoder = mapEncoder.decoder(new DataInputViewImpl(new ByteArrayInputStream(outputStream.toByteArray())));
             Assert.assertEquals(decoder, map);
         };
-        checker.apply(MutableMap.of(
+        checker.accept(MutableMap.of(
                 "weight", "1",
                 "height", "2",
                 null, "3",
                 "ss", null));
-        checker.apply(null);
+        checker.accept(null);
     }
 
     @Test
@@ -94,7 +94,7 @@ public class EncoderTest
             throws IOException
     {
         Encoder<String[]> encoder = Encoders.arrayEncoder(Encoders.asciiString(), String.class);
-        Consumer<String[], IOException> checker = array -> {
+        Consumer<String[]> checker = array -> {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             DataOutputView dataOutput = new DataOutputViewImpl(outputStream);
             encoder.encoder(array, dataOutput);
@@ -102,8 +102,8 @@ public class EncoderTest
             String[] out = encoder.decoder(new DataInputViewImpl(new ByteArrayInputStream(outputStream.toByteArray())));
             Assert.assertArrayEquals(out, array);
         };
-        checker.apply(new String[] {"a1", "a2", "12345"});
-        checker.apply(null);
+        checker.accept(new String[] {"a1", "a2", "12345"});
+        checker.accept(null);
     }
 
     @Test

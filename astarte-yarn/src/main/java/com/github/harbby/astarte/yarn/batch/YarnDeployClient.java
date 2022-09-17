@@ -46,6 +46,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.NoSuchFileException;
@@ -229,8 +230,10 @@ public class YarnDeployClient
             for (File file : Files.listFiles(rootDir, true)) {
                 String name = file.getPath().substring(rootDir.getPath().length() + 1);
                 jarsStream.putNextEntry(new ZipEntry(name));
-                IOUtils.copyBytes(new FileInputStream(file), jarsStream, 4096);
-                jarsStream.closeEntry();
+                try (InputStream in = new FileInputStream(file)) {
+                    IOUtils.copy(in, jarsStream, 4096);
+                    jarsStream.closeEntry();
+                }
             }
         }
         return jarsArchive;

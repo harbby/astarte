@@ -53,7 +53,7 @@ public final class Encoders
     private static final Encoder<String> ASCII_STRING_ENCODER = new AsciiStringEncoder();
     private static final Encoder<String> STRING_ENCODER = new StringEncoder();
 
-    private static final Supplier<Encoder<?>> javaEncoder = Lazys.goLazy(() -> {
+    private static final Supplier<Encoder<?>> javaEncoder = Lazys.of(() -> {
         logger.warn("Don't use java serialization encoder");
         return new JavaEncoder<>();
     });

@@ -15,11 +15,10 @@
  */
 package com.github.harbby.astarte.core.api.function;
 
-import com.github.harbby.gadtry.function.Function2;
-
 import java.util.Iterator;
+import java.util.function.BiFunction;
 
 public interface MapGroupFunc<K, V, O>
-        extends Function2<K, Iterator<V>, O>
+        extends BiFunction<K, Iterator<V>, O>
 {
 }

@@ -34,12 +34,12 @@ import com.github.harbby.astarte.core.runtime.LocalNettyExecutorManager;
 import com.github.harbby.gadtry.base.Lazys;
 import com.github.harbby.gadtry.collection.ImmutableList;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
-import com.github.harbby.gadtry.function.Function1;
 
 import java.net.URI;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Function;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
 import static java.util.Objects.requireNonNull;
@@ -124,7 +124,7 @@ public interface BatchContext
 
     public static class Builder
     {
-        private static final Function1<AstarteConf, BatchContext> context = Lazys.goLazy(BatchContextImpl::new);
+        private static final Function<AstarteConf, BatchContext> context = Lazys.of(BatchContextImpl::new);
         private final AstarteConf conf = new AstarteConf();
         private JobScheduler.Factory factory;
         private ExecutorManager.Factory emFactory;

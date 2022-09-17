@@ -23,7 +23,6 @@ import com.github.harbby.gadtry.collection.IteratorPlus;
 import com.github.harbby.gadtry.collection.iterator.MarkIterator;
 import com.github.harbby.gadtry.collection.iterator.PeekIterator;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
-import com.github.harbby.gadtry.function.Function2;
 import com.github.harbby.gadtry.function.Reducer;
 
 import java.util.ArrayList;
@@ -34,6 +33,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.PriorityQueue;
+import java.util.function.BiFunction;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkArgument;
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
@@ -516,7 +516,7 @@ public class ReduceUtil
         return new MergeJoinIterator<>(comparator, leftIterator, rightIterator);
     }
 
-    public static <K, V, O> IteratorPlus<Tuple2<K, O>> mapGroupSorted(Iterator<Tuple2<K, V>> input, Function2<K, Iterator<V>, O> mapGroupFunc)
+    public static <K, V, O> IteratorPlus<Tuple2<K, O>> mapGroupSorted(Iterator<Tuple2<K, V>> input, BiFunction<K, Iterator<V>, O> mapGroupFunc)
     {
         requireNonNull(input, "input Iterator is null");
         requireNonNull(mapGroupFunc, "mapGroupFunc is null");

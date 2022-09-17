@@ -24,7 +24,6 @@ import com.github.harbby.astarte.core.codegen.CalcOperator;
 import com.github.harbby.astarte.core.codegen.CodeGenUtil;
 import com.github.harbby.astarte.core.utils.ReduceUtil;
 import com.github.harbby.gadtry.collection.tuple.Tuple2;
-import com.github.harbby.gadtry.function.Function2;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,6 +32,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import static com.github.harbby.gadtry.base.MoreObjects.checkState;
@@ -48,7 +48,7 @@ public class LocalJoinOperator<K, V1, V2>
     protected final Operator<Tuple2<K, V2>> rightDataSet;
     protected final ReduceUtil.JoinMode joinMode;
     protected final Comparator<K> comparator;
-    private final Function2<Partition, TaskContext, Iterator<Tuple2<K, Tuple2<V1, V2>>>> physicalPlan;
+    private final BiFunction<Partition, TaskContext, Iterator<Tuple2<K, Tuple2<V1, V2>>>> physicalPlan;
 
     protected LocalJoinOperator(ReduceUtil.JoinMode joinMode,
             Operator<Tuple2<K, V1>> leftDataSet,
@@ -65,7 +65,7 @@ public class LocalJoinOperator<K, V1, V2>
         this.physicalPlan = optimizerPlan(leftDataSet, rightDataSet, joinMode, comparator);
     }
 
-    public static <K, V1, V2> Function2<Partition, TaskContext, Iterator<Tuple2<K, Tuple2<V1, V2>>>> optimizerPlan(
+    public static <K, V1, V2> BiFunction<Partition, TaskContext, Iterator<Tuple2<K, Tuple2<V1, V2>>>> optimizerPlan(
             Operator<Tuple2<K, V1>> leftDataSet,
             Operator<Tuple2<K, V2>> rightDataSet,
             ReduceUtil.JoinMode joinMode,
