@@ -1,5 +1,5 @@
 # Astarte 
-[![Build Status](https://api.travis-ci.com/harbby/astarte.svg?branch=master)](https://travis-ci.com/harbby/astarte)
+[![Java CI with Gradle](https://github.com/harbby/gadtry/actions/workflows/gradle.yml/badge.svg?branch=master)](https://github.com/harbby/gadtry/actions/workflows/gradle.yml)
 [![codecov](https://codecov.io/gh/harbby/astarte/branch/master/graph/badge.svg?)](https://codecov.io/gh/harbby/astarte)
 [![license](https://img.shields.io/badge/license-apache_v2-groon.svg)]()
 [![language](https://img.shields.io/badge/language-java_8_11_17-green.svg)]()
